@@ -1,0 +1,1 @@
+xcopy "%DEPLOYMENT_SOURCE%\target\azure-functions\mesmedicaments" %DEPLOYMENT_TARGET% /Y /S

@@ -4,7 +4,7 @@
 
     <groupId>app.mesmedicaments</groupId>
     <artifactId>mesmedicaments</artifactId>
-    <version>1.2-SNAPSHOT</version>
+    <version>1.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Azure Java Functions</name>
@@ -241,7 +241,6 @@
 
   	<distributionManagement>
 		<repository>
-			<id>repomesmedicaments</id>
 			<name>GitHub Repository</name>
 			<url>scm:git:git@github.com:axel-op/mesmedicaments.git</url>
 			<layout>default</layout>

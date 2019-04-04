@@ -233,4 +233,10 @@
         </plugins>
     </build>
 
+    <scm>
+        <connection>scm:git:git@github.com:axel-op/mesmedicaments.git</connection>
+        <url>scm:git:git@github.com:axel-op/mesmedicaments.git</url>
+        <developerConnection>scm:git:git@github.com:axel-op/mesmedicaments.git</developerConnection>
+    </scm>
+
 </project>

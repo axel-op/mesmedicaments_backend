@@ -1,6 +1,4 @@
 # Build output
-target/*
-!target/azure-functions/
 *.class
 
 # Log file

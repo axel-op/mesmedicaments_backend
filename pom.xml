@@ -236,7 +236,15 @@
         <connection>scm:git:git@github.com:axel-op/mesmedicaments.git</connection>
         <url>scm:git:git@github.com:axel-op/mesmedicaments.git</url>
         <developerConnection>scm:git:git@github.com:axel-op/mesmedicaments.git</developerConnection>
-      <tag>mesmedicaments-1.0</tag>
-  </scm>
+      <tag>mesmedicaments-1.1</tag>
+  	</scm>
+
+  	<distributionManagement>
+		<repository>
+			<name>GitHub Repository</name>
+			<url>scm:git:git@github.com:axel-op/mesmedicaments.git</url>
+			<layout>default</layout>
+		</repository>
+  	</distributionManagement>
 
 </project>

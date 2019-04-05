@@ -84,10 +84,14 @@ public class Triggers {
                         }
                         else { 
                             String code = request.getQueryParameters().get("code");
+                            logger.info("code = " + code);
                             String baseUri = request.getQueryParameters().get("baseUri");
+                            logger.info("baseUri = " + baseUri);
                             String sid = request.getQueryParameters().get("sid");
+                            logger.info("sid = " + sid);
                             String tformdata = request.getQueryParameters().get("tformdata");
-                            logger.info(request.getQueryParameters().get("cookies"));
+                            logger.info("tformdata = " + tformdata);
+                            logger.info("cookies = " + request.getQueryParameters().get("cookies"));
                             String cookiesChiffres = request.getQueryParameters().get("cookies");
                             if (code == null
                                 || baseUri == null

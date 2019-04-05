@@ -5,7 +5,8 @@
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "connexionTrigger",
-    "methods" : [ "POST" ]
+    "methods" : [ "POST" ],
+    "dataType" : "string"
   }, {
     "type" : "http",
     "direction" : "out",

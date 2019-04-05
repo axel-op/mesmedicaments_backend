@@ -7,6 +7,7 @@ import com.microsoft.azure.functions.*;
 import com.microsoft.azure.functions.annotation.*;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.*;
@@ -22,32 +23,29 @@ public class Triggers {
     public HttpResponseMessage connexion (
         @HttpTrigger(
             name = "connexionTrigger",
-            dataType = "",
+            dataType = "string",
             authLevel = AuthorizationLevel.FUNCTION,
             methods = {HttpMethod.POST})
-        final HttpRequestMessage<Optional<Requete>> request,
+        final HttpRequestMessage<Optional<String>> request,
         final ExecutionContext context
     ) {
         String id;
         String mdp;
         JSONObject retour = new JSONObject();
         HttpStatus codeHttp = null;
-        JSONObject corps = new JSONObject();
+        JSONObject corpsReponse = new JSONObject();
         logger = context.getLogger();
         /*** Ajouter des contrôles ici ***/
         //codeHttp = HttpStatus.OK;
-        if (!request.getBody().isPresent()) {
-            codeHttp = HttpStatus.BAD_REQUEST;
-            corps.put("cause", "Bad request");
-        }
-        else {
+        try {
+            JSONObject corpsRequete = new JSONObject(request.getBody().get());
             Boolean doubleAuthentification = null;
             String parametre = request
                 .getQueryParameters()
                 .get("double");
             if (parametre == null) { 
                 codeHttp = HttpStatus.BAD_REQUEST; 
-                corps.put("cause", "Pas de paramètre spécifié pour la DA");
+                corpsReponse.put("cause", "Pas de paramètre spécifié pour la DA");
             }
             else {
                 parametre = parametre.toLowerCase();
@@ -55,85 +53,65 @@ public class Triggers {
                 else if (parametre.equals("false")) { doubleAuthentification = false; }
                 if (doubleAuthentification == null) { 
                     codeHttp = HttpStatus.BAD_REQUEST;
-                    corps.put("cause", "Paramètre DA incorrect");
+                    corpsReponse.put("cause", "Paramètre DA incorrect");
                 }
                 else if (!doubleAuthentification) { // Première étape de la connexion
-                    Requete requete = request.getBody().get();
-                    id = requete.id;
-                    mdp = requete.mdp;
-                    if (id == null || mdp == null) {
-                        codeHttp = HttpStatus.BAD_REQUEST;
-                        corps.put("cause", "Mauvais format des identifiants");
-                    }
+                    id = corpsRequete.getString("id");
+                    mdp = corpsRequete.getString("mdp");
                     retour = Authentification.connexionDMP(logger, id, mdp);
                     if (!retour.isNull("erreur")) {
                         codeHttp = HttpStatus.CONFLICT;
-                        corps.put("cause", retour.get("erreur"));
+                        corpsReponse.put("cause", retour.get("erreur"));
                     } else {
                         codeHttp = HttpStatus.OK;
-                        corps.put("heure", retour.get("heure"));
-                        corps.put("sid", Utils.XOREncrypt(retour.getString("sid")));
-                        corps.put("tformdata", Utils.XOREncrypt(retour.getString("tformdata")));
-                        corps.put("baseUri", Utils.XOREncrypt(retour.getString("baseUri")));
-                        corps.put("cookies", Utils.XOREncrypt(retour.getJSONObject("cookies").toString()));
+                        corpsReponse.put("heure", retour.get("heure"));
+                        corpsReponse.put("sid", Utils.XOREncrypt(retour.getString("sid")));
+                        corpsReponse.put("tformdata", Utils.XOREncrypt(retour.getString("tformdata")));
+                        corpsReponse.put("baseUri", Utils.XOREncrypt(retour.getString("baseUri")));
+                        corpsReponse.put("cookies", Utils.XOREncrypt(retour.getJSONObject("cookies").toString()));
                     }
                 }
                 else { // Deuxième étape de la connexion
-                    Requete requete = request.getBody().get();
-                    String code = String.valueOf(requete.code);
+                    String code = String.valueOf(corpsRequete.getInt("code"));
                     logger.info("code = " + code);
-                    String baseUri = requete.baseUri;
-                    logger.info("baseUri = " + baseUri);
-                    String sid = requete.sid;
-                    logger.info("sid = " + sid);
-                    String tformdata = requete.tformdata;
-                    logger.info("tformdata = " + tformdata);
-                    String cookiesChiffres = requete.cookies;
-                    logger.info("cookies = " + cookiesChiffres);
-                    if (code == null
-                        || baseUri == null
-                        || sid == null
-                        || tformdata == null
-                        || cookiesChiffres == null)
-                    { 
-                        codeHttp = HttpStatus.BAD_REQUEST;
-                        corps.put("cause", "Mauvais format pour la DA");
-                    }
-                    else { 
-                        try {
-                            sid = Utils.XORDecrypt(
-                                Utils.JSONArrayToIntArray(new JSONArray(sid)));
-                            tformdata = Utils.XORDecrypt(
-                                Utils.JSONArrayToIntArray(new JSONArray(tformdata)));
-                            baseUri = Utils.XORDecrypt(
-                                Utils.JSONArrayToIntArray(new JSONArray(baseUri)));
-                            JSONObject cookies = new JSONObject(Utils.XORDecrypt(
-                                Utils.JSONArrayToIntArray(new JSONArray(cookiesChiffres))));
-                            retour = Authentification.doubleAuthentification(
-                                logger,
-                                code,
-                                sid, 
-                                tformdata, 
-                                baseUri,
-                                cookies);
-                            if (!retour.isNull("erreur")) {
-                                codeHttp = HttpStatus.CONFLICT;
-                                corps.put("cause", retour.get("erreur"));
-                            } else {
-                                codeHttp = HttpStatus.OK;
-                                corps.put("ici", "tout est ok");
-                            }
-                        }
-                        catch (NumberFormatException e) {
-                            codeHttp = HttpStatus.BAD_REQUEST;
-                            corps.put("cause", "Mauvais format du corps JSON");
-                        }
+                    String heure = corpsRequete.getString("heure");
+                    logger.info("heure = " + heure);
+                    JSONArray baseUriChiffre = corpsRequete.getJSONArray("baseUri");
+                    JSONArray sidChiffre = corpsRequete.getJSONArray("sid");
+                    JSONArray tformdataChiffre = corpsRequete.getJSONArray("tformdata");
+                    JSONArray cookiesChiffres = corpsRequete.getJSONArray("cookies");
+                    String sid = Utils.XORDecrypt(
+                        Utils.JSONArrayToIntArray(sidChiffre));
+                    String tformdata = Utils.XORDecrypt(
+                        Utils.JSONArrayToIntArray(tformdataChiffre));
+                    String baseUri = Utils.XORDecrypt(
+                        Utils.JSONArrayToIntArray(baseUriChiffre));
+                    JSONObject cookies = new JSONObject(Utils.XORDecrypt(
+                        Utils.JSONArrayToIntArray(cookiesChiffres)));
+                    retour = Authentification.doubleAuthentification(
+                        logger,
+                        code,
+                        sid, 
+                        tformdata, 
+                        baseUri,
+                        cookies);
+                    if (!retour.isNull("erreur")) {
+                        codeHttp = HttpStatus.CONFLICT;
+                        corpsReponse.put("cause", retour.get("erreur"));
+                    } else {
+                        codeHttp = HttpStatus.OK;
+                        corpsReponse.put("ici", "tout est ok");
                     }
                 }
             }
         }
+        catch (JSONException | NullPointerException e) {
+            codeHttp = HttpStatus.BAD_REQUEST;
+            corpsReponse = new JSONObject();
+            corpsReponse.put("cause", "Mauvais format du corps de la requête");
+        }
         return request.createResponseBuilder(codeHttp)
-            .body(corps)
+            .body(corpsReponse)
             .build();
     }
 
@@ -198,6 +176,7 @@ public class Triggers {
 			.build();
     }
 
+/*
     private class Requete {
         private String id;
         private String mdp;
@@ -206,16 +185,18 @@ public class Triggers {
         private String sid;
         private String tformdata;
         private String cookies;
+        private String heure;
         private Requete (String id, String mdp) {
             this.id = id;
             this.mdp = mdp;
         }
-        private Requete (Integer code, String baseUri, String sid, String tformdata, String cookies) {
+        private Requete (Integer code, Integer[] baseUri, Integer[] sid, Integer[] tformdata, Integer[] cookies, String heure) {
             this.code = code;
-            this.baseUri = baseUri;
+            this.baseUri = "[" + Arrays baseUri;
             this.sid = sid;
             this.tformdata = tformdata;
             this.cookies = cookies;
+            this.heure = heure;
         }
-    }
+    }*/
 }

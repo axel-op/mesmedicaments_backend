@@ -25,7 +25,7 @@ public class Triggers {
             dataType = "",
             authLevel = AuthorizationLevel.FUNCTION,
             methods = {HttpMethod.POST})
-        final HttpRequestMessage<Optional<Identifiants>> request,
+        final HttpRequestMessage<Optional<Requete>> request,
         final ExecutionContext context
     ) {
         String id;
@@ -58,9 +58,9 @@ public class Triggers {
                     corps.put("cause", "Paramètre DA incorrect");
                 }
                 else if (!doubleAuthentification) { // Première étape de la connexion
-                    Identifiants identifiants = request.getBody().get();
-                    id = identifiants.id;
-                    mdp = identifiants.mdp;
+                    Requete requete = request.getBody().get();
+                    id = requete.id;
+                    mdp = requete.mdp;
                     if (id == null || mdp == null) {
                         codeHttp = HttpStatus.BAD_REQUEST;
                         corps.put("cause", "Mauvais format des identifiants");
@@ -79,16 +79,17 @@ public class Triggers {
                     }
                 }
                 else { // Deuxième étape de la connexion
-                    String code = request.getQueryParameters().get("code");
+                    Requete requete = request.getBody().get();
+                    String code = String.valueOf(requete.code);
                     logger.info("code = " + code);
-                    String baseUri = request.getQueryParameters().get("baseUri");
+                    String baseUri = requete.baseUri;
                     logger.info("baseUri = " + baseUri);
-                    String sid = request.getQueryParameters().get("sid");
+                    String sid = requete.sid;
                     logger.info("sid = " + sid);
-                    String tformdata = request.getQueryParameters().get("tformdata");
+                    String tformdata = requete.tformdata;
                     logger.info("tformdata = " + tformdata);
-                    logger.info("cookies = " + request.getQueryParameters().get("cookies"));
-                    String cookiesChiffres = request.getQueryParameters().get("cookies");
+                    String cookiesChiffres = requete.cookies;
+                    logger.info("cookies = " + cookiesChiffres);
                     if (code == null
                         || baseUri == null
                         || sid == null
@@ -197,12 +198,24 @@ public class Triggers {
 			.build();
     }
 
-    private class Identifiants {
+    private class Requete {
         private String id;
         private String mdp;
-        private Identifiants (String id, String mdp) {
+        private Integer code;
+        private String baseUri;
+        private String sid;
+        private String tformdata;
+        private String cookies;
+        private Requete (String id, String mdp) {
             this.id = id;
             this.mdp = mdp;
+        }
+        private Requete (Integer code, String baseUri, String sid, String tformdata, String cookies) {
+            this.code = code;
+            this.baseUri = baseUri;
+            this.sid = sid;
+            this.tformdata = tformdata;
+            this.cookies = cookies;
         }
     }
 }

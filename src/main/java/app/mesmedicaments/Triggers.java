@@ -1,5 +1,6 @@
 package app.mesmedicaments;
 
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.logging.Logger;
 
@@ -105,7 +106,7 @@ public class Triggers {
                 }
             }
         }
-        catch (JSONException | NullPointerException e) {
+        catch (JSONException | NullPointerException | NoSuchElementException e) {
             codeHttp = HttpStatus.BAD_REQUEST;
             corpsReponse = new JSONObject();
             corpsReponse.put("cause", "Mauvais format du corps de la requête");

@@ -84,13 +84,11 @@ public class Triggers {
                             corpsReponse.put("envoiCode", retour.getString("envoiCode"));
                             corpsReponse.put("sid", Utils.XOREncrypt(retour.getString("sid")));
                             corpsReponse.put("tformdata", Utils.XOREncrypt(retour.getString("tformdata")));
-                            corpsReponse.put("baseUri", Utils.XOREncrypt(retour.getString("baseUri")));
                             corpsReponse.put("cookies", Utils.XOREncrypt(retour.getJSONObject("cookies").toString()));
                         }
                     }
                     else { // Deuxième étape de la connexion
                         String code = String.valueOf(corpsRequete.getInt("code"));
-                        JSONArray baseUriChiffre = corpsRequete.getJSONArray("baseUri");
                         JSONArray sidChiffre = corpsRequete.getJSONArray("sid");
                         JSONArray tformdataChiffre = corpsRequete.getJSONArray("tformdata");
                         JSONArray cookiesChiffres = corpsRequete.getJSONArray("cookies");
@@ -98,8 +96,6 @@ public class Triggers {
                             Utils.JSONArrayToIntArray(sidChiffre));
                         String tformdata = Utils.XORDecrypt(
                             Utils.JSONArrayToIntArray(tformdataChiffre));
-                        String baseUri = Utils.XORDecrypt(
-                            Utils.JSONArrayToIntArray(baseUriChiffre));
                         JSONObject cookies = new JSONObject(Utils.XORDecrypt(
                             Utils.JSONArrayToIntArray(cookiesChiffres)));
                         retour = Authentification.doubleAuthentification(
@@ -107,7 +103,6 @@ public class Triggers {
                             code,
                             sid, 
                             tformdata, 
-                            baseUri,
                             cookies);
                         if (!retour.isNull("erreur")) {
                             codeHttp = HttpStatus.CONFLICT;
@@ -197,7 +192,6 @@ public class Triggers {
         private String id;
         private String mdp;
         private Integer code;
-        private String baseUri;
         private String sid;
         private String tformdata;
         private String cookies;
@@ -206,9 +200,8 @@ public class Triggers {
             this.id = id;
             this.mdp = mdp;
         }
-        private Requete (Integer code, Integer[] baseUri, Integer[] sid, Integer[] tformdata, Integer[] cookies, String heure) {
+        private Requete (Integer code, Integer[] sid, Integer[] tformdata, Integer[] cookies, String heure) {
             this.code = code;
-            this.baseUri = "[" + Arrays baseUri;
             this.sid = sid;
             this.tformdata = tformdata;
             this.cookies = cookies;

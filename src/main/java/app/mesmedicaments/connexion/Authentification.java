@@ -18,10 +18,12 @@ public class Authentification {
 	public static final String ERR_ID;
 	public static final String ENVOI_SMS;
 	public static final String ENVOI_MAIL;
+	private static final String ACCUEIL;
 	private static String userAgent;
 	//private HashMap<String, String> cookies;
 
 	static {
+		ACCUEIL = System.getenv("page_accueil_dmp_reussite");
 		ERR_INTERNE = "interne";
 		ERR_ID = "mauvais identifiants";
 		ENVOI_SMS = "SMS";
@@ -102,7 +104,6 @@ public class Authentification {
 			reponse = connexion.response();
 			pageSaisieCode = reponse.parse();
 			//retour.put("heure", Utils.obtenirHeure().toString());
-			retour.put("baseUri", pageSaisieCode.baseUri());
 			retour.put("sid", pageSaisieCode.getElementsByAttributeValue("name", "sid")
 				.first()
 				.val());
@@ -133,7 +134,6 @@ public class Authentification {
 		String code,
 		String sid, 
 		String tformdata, 
-		String baseUri,
 		JSONObject cookiesJson
 	) {
 		/*** Instaurer un contrôle pour mdp ***/
@@ -155,7 +155,7 @@ public class Authentification {
 				.data("ipCode", code)
 				.execute();
 			Connection.Response reponse = formCode.response();
-			if (baseUri.equals(reponse.url().toString())) {
+			if (!ACCUEIL.equals(reponse.url().toString())) {
 				retour = new JSONObject();
 				retour.put("erreur", ERR_ID);
 				return retour;

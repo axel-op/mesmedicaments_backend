@@ -53,13 +53,13 @@ public class Triggers {
         try {
             JSONObject corpsRequete = new JSONObject(request.getBody().get());
             String heureRequete = request.getHeaders().get("heure");
-            if (!Utils.verifierHeure(heureRequete)) {
+            if (!Utils.verifierHeure(heureRequete, 10)) {
                 codeHttp = HttpStatus.BAD_REQUEST;
                 corpsReponse.put(CLE_CAUSE, "L'heure ne correspond pas");
             }
             else {
                 Boolean doubleAuthentification = null;
-                String DA = request.getHeaders().get("DA");
+                String DA = request.getHeaders().get("da");
                 if (DA == null) { 
                     codeHttp = HttpStatus.BAD_REQUEST; 
                     corpsReponse.put(CLE_CAUSE, "Pas d'en-tête spécifié pour la DA");

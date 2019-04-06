@@ -59,9 +59,12 @@ public class Utils {
 	}
 
 	public static boolean verifierHeure (String heure) {
+		return verifierHeure(heure, 2);
+	}
+	
+	public static boolean verifierHeure (String heure, long intervalle) {
 		LocalDateTime heureObtenue;
 		LocalDateTime maintenant = obtenirHeure();
-		long intervalle = (long) 5;
 		if (heure == null) { return false; }
 		try { heureObtenue = LocalDateTime.parse(heure); }
 		catch (DateTimeParseException e) { return false; }
@@ -69,5 +72,4 @@ public class Utils {
 		if (heureObtenue.isAfter(maintenant.plusMinutes(intervalle))) { return false; }
 		return true;
 	}
-		
 }

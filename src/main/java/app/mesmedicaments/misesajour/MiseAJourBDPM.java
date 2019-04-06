@@ -19,12 +19,24 @@ import app.mesmedicaments.Utils;
  */
 public class MiseAJourBDPM {
 
+	private static final String TABLE_SUBSTANCES;
+	private static final String TABLE_MEDICAMENTS;
+	private static final String TABLE_NOMS_SUBSTANCES;
+	private static final String TABLE_NOMS_MEDICAMENTS;
+	private static final String URL_FICHIER_BDPM;
+	private static final String URL_FICHIER_COMPO;
+	private static final Integer TAILLE_BATCH; 
 	private static Logger logger;
 	private static SQLServerConnection conn;
-	private static Integer tailleBatch; 
 	
 	static {
-		tailleBatch = BaseDeDonnees.tailleBatch;
+		TABLE_SUBSTANCES = System.getenv("table_substances");
+		TABLE_MEDICAMENTS = System.getenv("table_medicaments");
+		TABLE_NOMS_SUBSTANCES = System.getenv("table_nomssubstances");
+		TABLE_NOMS_MEDICAMENTS = System.getenv("table_nomsmedicaments");
+		URL_FICHIER_BDPM = System.getenv("url_cis_bdpm");
+		URL_FICHIER_COMPO = System.getenv("url_cis_compo_bdpm");
+		TAILLE_BATCH = BaseDeDonnees.TAILLE_BATCH;
 	}
 
 	private MiseAJourBDPM () {}
@@ -40,21 +52,18 @@ public class MiseAJourBDPM {
 	}
 
     private static boolean majSubstances () {
-		String tableSubstances = System.getenv("table_substances");
-		String tableNoms = System.getenv("table_nomssubstances");
-		String urlFichier = System.getenv("url_cis_compo_bdpm");
 		SQLServerCallableStatement cs = null;
 		String requete = "{call ajouterSubstance(?, ?, ?)}";
 		logger.info("Début de la mise à jour des substances");
 		try {
 			String tailleAvant1 = "Taille de la table substances avant la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(tableSubstances, logger);
+				+ BaseDeDonnees.obtenirTailleTable(TABLE_SUBSTANCES, logger);
 			String tailleAvant2 = "Taille de la table noms_substances avant la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(tableNoms, logger);
+				+ BaseDeDonnees.obtenirTailleTable(TABLE_NOMS_SUBSTANCES, logger);
 			long startTime = System.currentTimeMillis();
 			conn.setAutoCommit(false);
 			cs = (SQLServerCallableStatement) conn.prepareCall(requete);
-			BufferedReader liste_substances = importerFichier(urlFichier);
+			BufferedReader liste_substances = importerFichier(URL_FICHIER_COMPO);
 			if (liste_substances == null) { return false; }
 			String ligne;
 			int c = 0;
@@ -69,31 +78,31 @@ public class MiseAJourBDPM {
 				cs.setString(3, nom);
 				cs.addBatch();
 				c++;
-				if (c % tailleBatch == 0) {
+				if (c % TAILLE_BATCH == 0) {
 					logger.info("Execution batch "
-						+ "de " + tailleBatch + " requêtes (" 
-						+ String.valueOf(c / tailleBatch) + ")" );
+						+ "de " + TAILLE_BATCH + " requêtes (" 
+						+ String.valueOf(c / TAILLE_BATCH) + ")" );
 					long start = System.currentTimeMillis();
 					cs.executeBatch();
 					dureeMoyenne += System.currentTimeMillis() - start;
 				}
 			}
-			logger.info("Execution batch de " + String.valueOf(c % tailleBatch) + " requêtes");
+			logger.info("Execution batch de " + String.valueOf(c % TAILLE_BATCH) + " requêtes");
 			cs.executeBatch();
 			conn.commit();
 			long endTime = System.currentTimeMillis();
 			logger.info(tailleAvant1);
 			logger.info(tailleAvant2);
 			logger.info("Taille de la table substances après la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(tableSubstances, logger));
+				+ BaseDeDonnees.obtenirTailleTable(TABLE_SUBSTANCES, logger));
 			logger.info("Taille de la table noms_substances après la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(tableNoms, logger));
+				+ BaseDeDonnees.obtenirTailleTable(TABLE_NOMS_SUBSTANCES, logger));
 			logger.info("Fin de la mise à jour des substances en " 
 				+ String.valueOf(endTime - startTime) + " ms");
 			try {
 				logger.info("Durée moyenne de l'exécution d'un batch de "
-					+ tailleBatch + " requêtes : "
-					+ String.valueOf(dureeMoyenne / (c / tailleBatch)) 
+					+ TAILLE_BATCH + " requêtes : "
+					+ String.valueOf(dureeMoyenne / (c / TAILLE_BATCH)) 
 					+ " ms");
 			} catch (ArithmeticException e) {}
 		} 
@@ -108,22 +117,19 @@ public class MiseAJourBDPM {
     }
 
     private static boolean majMedicaments () {
-		String tableMedicaments = System.getenv("table_medicaments");
-		String tableNoms = System.getenv("table_nomsmedicaments");
-		String urlFichier = System.getenv("url_cis_bdpm");
 		SQLServerCallableStatement cs = null;
 		String requete = "{call ajouterMedicament(?, ?, ?, ?, ?)}";
 		int max = 0;
 		logger.info("Début de la mise à jour des médicaments");
 		try {
 			String tailleAvant1 = "Taille de la table medicaments avant la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(tableMedicaments, logger);
+				+ BaseDeDonnees.obtenirTailleTable(TABLE_MEDICAMENTS, logger);
 			String tailleAvant2 = "Taille de la table noms_medicaments avant la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(tableNoms, logger);
+				+ BaseDeDonnees.obtenirTailleTable(TABLE_NOMS_MEDICAMENTS, logger);
 			long startTime = System.currentTimeMillis();
 			conn.setAutoCommit(false);
 			cs = (SQLServerCallableStatement) conn.prepareCall(requete);
-			BufferedReader liste_medicaments = importerFichier(urlFichier);
+			BufferedReader liste_medicaments = importerFichier(URL_FICHIER_BDPM);
 			if (liste_medicaments == null) { return false; }
 			String ligne;
 			int c = 0;
@@ -143,31 +149,31 @@ public class MiseAJourBDPM {
 				cs.setString(5, marque);
 				cs.addBatch();
 				c++;
-				if (c % tailleBatch == 0) {
+				if (c % TAILLE_BATCH == 0) {
 					logger.info("Execution batch "
-						+ "de " + tailleBatch + " requêtes (" 
-						+ String.valueOf(c / tailleBatch) + ")" );
+						+ "de " + TAILLE_BATCH + " requêtes (" 
+						+ String.valueOf(c / TAILLE_BATCH) + ")" );
 					long start = System.currentTimeMillis();
 					cs.executeBatch();
 					dureeMoyenne += System.currentTimeMillis() - start;
 				}
 			}
-			logger.info("Execution batch de " + String.valueOf(c % tailleBatch) + " requêtes");
+			logger.info("Execution batch de " + String.valueOf(c % TAILLE_BATCH) + " requêtes");
 			cs.executeBatch();
 			conn.commit();
 			long endTime = System.currentTimeMillis();
 			logger.info(tailleAvant1);
 			logger.info(tailleAvant2);
 			logger.info("Taille de la table medicaments après la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(tableMedicaments, logger));
+				+ BaseDeDonnees.obtenirTailleTable(TABLE_MEDICAMENTS, logger));
 			logger.info("Taille de la table noms_medicaments après la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(tableNoms, logger));
+				+ BaseDeDonnees.obtenirTailleTable(TABLE_NOMS_MEDICAMENTS, logger));
 			logger.info("Fin de la mise à jour des médicaments en " 
 				+ String.valueOf(endTime - startTime) + " ms");
 			try {
 				logger.info("Durée moyenne de l'exécution d'un batch de "
-					+ tailleBatch + " requêtes : "
-					+ String.valueOf(dureeMoyenne / (c / tailleBatch)) 
+					+ TAILLE_BATCH + " requêtes : "
+					+ String.valueOf(dureeMoyenne / (c / TAILLE_BATCH)) 
 					+ " ms");
 			} catch (ArithmeticException e) {}
 		}

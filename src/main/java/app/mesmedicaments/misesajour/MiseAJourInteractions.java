@@ -29,12 +29,13 @@ public class MiseAJourInteractions {
     private static final Float TAILLE_NOM_SUBSTANCE;
 	private static final Float TAILLE_INTERACTION_SUBSTANCE;
 	private static final Float TAILLE_DESCRIPTION_PT;
+	private static final Integer TAILLE_BATCH;
+	private static final String TABLE_INTERACTIONS;
 
     private static Logger logger;
 	private static SQLServerConnection conn;
-	private static Integer tailleBatch;
     private static HashMap<String, HashSet<Integer>> substances;
-    private static boolean ignorerLigne = false;
+    private static boolean ignorerLigne;
 	private static String ajoutSubstances;
 	private static HashSet<String> substancesEnCours;
 	private static String interactionEnCours;
@@ -59,7 +60,9 @@ public class MiseAJourInteractions {
 		TAILLE_NOM_SUBSTANCE = (float) 10;
 		TAILLE_INTERACTION_SUBSTANCE = (float) 8;
 		TAILLE_DESCRIPTION_PT = (float) 6;
-		tailleBatch = BaseDeDonnees.tailleBatch;
+		TAILLE_BATCH = BaseDeDonnees.TAILLE_BATCH;
+		TABLE_INTERACTIONS = System.getenv("table_interactions");
+		ignorerLigne = false;
 		correspondancesSubstances = new HashMap<>();
 		classes = new HashMap<>();
 		cacheRecherche = new HashMap<>();
@@ -88,23 +91,22 @@ public class MiseAJourInteractions {
 			Utils.logErreur(e, logger);
 			return false;
 		}
-		String table = System.getenv("table_interactions");
-		String tailleAvant = "Taille de la table " + table + " avant mise à jour : " 
-			+ BaseDeDonnees.obtenirTailleTable(table, logger);
+		String tailleAvant = "Taille de la table " + TABLE_INTERACTIONS + " avant mise à jour : " 
+			+ BaseDeDonnees.obtenirTailleTable(TABLE_INTERACTIONS, logger);
 		nouveauxChamps();
 		if (!mettreAJourInteractions()) { return false; }
 		try {
 			logger.info("Execution batch SQL avec " 
-				+ String.valueOf(compteurBatch % tailleBatch) + " requêtes");
+				+ String.valueOf(compteurBatch % TAILLE_BATCH) + " requêtes");
 			callableStatement.executeBatch();
 			conn.commit();
             logger.info(tailleAvant);
-            logger.info("Taille de la table " + table + " après mise à jour : " 
-                + BaseDeDonnees.obtenirTailleTable(table, logger));
+            logger.info("Taille de la table " + TABLE_INTERACTIONS + " après mise à jour : " 
+                + BaseDeDonnees.obtenirTailleTable(TABLE_INTERACTIONS, logger));
 			try {
 				logger.info("Durée moyenne de l'exécution d'un batch de "
-					+ tailleBatch + " requêtes : "
-					+ String.valueOf(dureeMoyenne / (compteurBatch / tailleBatch)) 
+					+ TAILLE_BATCH + " requêtes : "
+					+ String.valueOf(dureeMoyenne / (compteurBatch / TAILLE_BATCH)) 
 					+ " ms");
 			} catch (ArithmeticException e) {}
 		}
@@ -355,10 +357,10 @@ public class MiseAJourInteractions {
 				callableStatement.setString(6, interaction[5]);
 				callableStatement.addBatch();
 				compteurBatch++;
-				if (compteurBatch % tailleBatch == 0) {
+				if (compteurBatch % TAILLE_BATCH == 0) {
 					logger.info("Execution batch de "
-						+ tailleBatch + " requêtes (" 
-						+ String.valueOf(compteurBatch / tailleBatch) + ")" );
+						+ TAILLE_BATCH + " requêtes (" 
+						+ String.valueOf(compteurBatch / TAILLE_BATCH) + ")" );
 					long start = System.currentTimeMillis();
 					callableStatement.executeBatch();
 					dureeMoyenne += System.currentTimeMillis() - start;

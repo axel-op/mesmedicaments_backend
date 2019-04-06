@@ -19,36 +19,40 @@ public class Authentification {
 	public static final String ENVOI_SMS;
 	public static final String ENVOI_MAIL;
 	private static final String ACCUEIL;
-	private static String userAgent;
+	private static final String USERAGENT;
+	private static final String URL_CHOIX_CODE;
+	private static final String URL_CONNEXION_DMP;
+	private static final String URL_POST_FORM_DMP;
+	private static final String URL_ENVOI_CODE;
 	//private HashMap<String, String> cookies;
 
 	static {
-		ACCUEIL = System.getenv("regex_reussite_da");
 		ERR_INTERNE = "interne";
 		ERR_ID = "mauvais identifiants";
 		ENVOI_SMS = "SMS";
 		ENVOI_MAIL = "Courriel";
-		userAgent = System.getenv("user_agent");
-		System.out.println(userAgent);
+		ACCUEIL = System.getenv("regex_reussite_da");
+		USERAGENT = System.getenv("user_agent");
+		URL_CHOIX_CODE = System.getenv("url_post_choix_code");
+		URL_CONNEXION_DMP = System.getenv("url_connexion_dmp");
+		URL_POST_FORM_DMP = System.getenv("url_post_form_dmp");
+		URL_ENVOI_CODE = System.getenv("url_post_envoi_code");
 	}
 
 	private Authentification () {}
 
 	public static JSONObject connexionDMP (Logger logger, String id, String mdp) {
-		String urlChoixCode = System.getenv("url_post_choix_code");
-		String urlConnexionDMP = System.getenv("url_connexion_dmp");
-		String urlPostFormDMP = System.getenv("url_post_form_dmp");
 		JSONObject retour = new JSONObject();
 		Document pageSaisieCode;
 		try {
 			Connection connexion;
-			connexion = Jsoup.connect(urlConnexionDMP);
+			connexion = Jsoup.connect(URL_CONNEXION_DMP);
 			connexion.method(Connection.Method.GET)
 				.execute(); 
 			Connection.Response reponse = connexion.response();
 			HashMap<String, String> cookies = new HashMap<String, String>(reponse.cookies());
 			Document htmlId = reponse.parse();
-			connexion = Jsoup.connect(urlPostFormDMP);
+			connexion = Jsoup.connect(URL_POST_FORM_DMP);
 			connexion.method(Connection.Method.POST)
 				.data("login", id)
 				.data("password", mdp)
@@ -60,7 +64,7 @@ public class Authentification {
 					.getElementsByAttributeValue("name", "t:formdata")
 					.first()
 					.val())
-				.userAgent(userAgent)
+				.userAgent(USERAGENT)
 				.cookies(cookies)
 				.execute();
 			Connection.Response deuxiemeReponse = connexion.response();
@@ -71,7 +75,7 @@ public class Authentification {
 				return retour;
 			}
 			Document pageEnvoiCode = deuxiemeReponse.parse();
-			connexion = Jsoup.connect(urlChoixCode);
+			connexion = Jsoup.connect(URL_CHOIX_CODE);
 			connexion.method(Connection.Method.POST);
 			if (pageEnvoiCode.getElementById("bySMS") != null) { 
 				connexion.data("mediaValue", "0"); 
@@ -97,7 +101,7 @@ public class Authentification {
 					.getElementsByAttributeValue("name", "t:formdata")
 					.first()
 					.val())
-				.userAgent(userAgent)
+				.userAgent(USERAGENT)
 				.cookies(cookies)
 				.execute();
 			reponse = connexion.response();
@@ -135,7 +139,6 @@ public class Authentification {
 		JSONObject cookiesJson
 	) {
 		/*** Instaurer un contrôle pour mdp ***/
-		String urlEnvoiCode = System.getenv("url_post_envoi_code");
 		JSONObject retour = new JSONObject();
 		HashMap<String, String> cookies = new HashMap<>();
 		Iterator<String> iterCookies = cookiesJson.keys();
@@ -144,11 +147,11 @@ public class Authentification {
 			cookies.put(cookie, cookiesJson.getString(cookie));
 		}
 		try {
-			Connection formCode = Jsoup.connect(urlEnvoiCode);
+			Connection formCode = Jsoup.connect(URL_ENVOI_CODE);
 			formCode.method(Connection.Method.POST)
 				.data("sid", sid)
 				.data("t:formdata", tformdata)
-				.userAgent(userAgent)
+				.userAgent(USERAGENT)
 				.cookies(cookies)
 				.data("ipCode", code)
 				.execute();

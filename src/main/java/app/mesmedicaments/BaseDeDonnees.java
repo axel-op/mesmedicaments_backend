@@ -12,19 +12,19 @@ import com.microsoft.sqlserver.jdbc.SQLServerStatement;
 
 public class BaseDeDonnees {
 
+	public static final Integer TAILLE_BATCH;
 	private static SQLServerConnection connexion = null;
 	private static HashMap<String, HashSet<Integer>> nomsSubstances = new HashMap<>();
 	private static HashMap<Integer, String> codesSubstances = new HashMap<>();
 	private static HashMap<Long, Integer> interactions = new HashMap<>();
-	public static Integer tailleBatch;
 
 	static {
 		String taille = System.getenv("taille_batch");
 		if (taille != null) { 
-			tailleBatch = Integer.parseInt(taille);
+			TAILLE_BATCH = Integer.parseInt(taille);
 		}
 		else {
-			tailleBatch = 1000;
+			TAILLE_BATCH = 1000;
 		}
 	}
 

@@ -9,12 +9,12 @@ import org.json.JSONArray;
 
 public class Utils {
 
-	public final static String NEWLINE;
-	private static String XORKey;
+	private static final String XORKEY;
+	public static final String NEWLINE;
 
 	static {
 		NEWLINE = System.getProperty("line.separator");
-		XORKey = System.getenv("cle_XOR");
+		XORKEY = System.getenv("cle_XOR");
 	}
 
 	private Utils () {}
@@ -30,7 +30,7 @@ public class Utils {
 		int[] output = new int[str.length()];
 		for (int i = 0; i < output.length; i++) {
 			output[i] = (Integer.valueOf(str.charAt(i)) 
-				^ Integer.valueOf(XORKey.charAt(i % (XORKey.length() - 1))))
+				^ Integer.valueOf(XORKEY.charAt(i % (XORKEY.length() - 1))))
 				+ '0';
 		}
 		return output;
@@ -40,7 +40,7 @@ public class Utils {
 		String output = "";
 		for (int i = 0; i < input.length; i++) {
 			output += (char) ((input[i] - 48)
-				^ (int) XORKey.charAt(i % (XORKey.length() - 1)));
+				^ (int) XORKEY.charAt(i % (XORKEY.length() - 1)));
 		}
 		return output;
 	}

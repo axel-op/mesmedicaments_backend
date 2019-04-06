@@ -23,9 +23,10 @@ import app.mesmedicaments.Utils;
 
 public class MiseAJourClassesSubstances {
 
+	private static final String URL_CLASSES;
+	private static final Integer TAILLE_BATCH;
 	private static Logger logger;
 	private static SQLServerConnection conn;
-	private static Integer tailleBatch;
 	private static HashMap<String, HashSet<Integer>> noms = new HashMap<>();
 	private static HashMap<Integer, String> codes = new HashMap<>();
 	private static HashMap<Integer, Integer> majEnAttente = new HashMap<>();
@@ -33,7 +34,8 @@ public class MiseAJourClassesSubstances {
 	private static HashMap<String, HashSet<Integer>> cacheRecherche = new HashMap<>();
 
 	static {
-		tailleBatch = BaseDeDonnees.tailleBatch;
+		URL_CLASSES = System.getenv("url_classes");
+		TAILLE_BATCH = BaseDeDonnees.TAILLE_BATCH;
 	}
 		
 	private MiseAJourClassesSubstances () {}
@@ -52,11 +54,10 @@ public class MiseAJourClassesSubstances {
 	}
 
 	private static boolean importerClasses () {
-		String url = System.getenv("url_classes");
 		Integer nbrClassesTrouvees = 0;
 		try {
-			logger.info("Tentative de récupération du fichier des classes de substances (url = " + url + ")");
-			HttpsURLConnection connexion = (HttpsURLConnection) new URL(url).openConnection();
+			logger.info("Tentative de récupération du fichier des classes de substances (url = " + URL_CLASSES + ")");
+			HttpsURLConnection connexion = (HttpsURLConnection) new URL(URL_CLASSES).openConnection();
 			connexion.setRequestMethod("GET");
 			PDDocument document = PDDocument.load(connexion.getInputStream());
 			logger.info("Fichier récupéré");
@@ -158,16 +159,16 @@ public class MiseAJourClassesSubstances {
 				cs.setInt(3, 0);
 				cs.addBatch();
 				c++;
-				if (c % tailleBatch == 0) {
+				if (c % TAILLE_BATCH == 0) {
 					logger.info("Execution batch de "
-						+ tailleBatch + " requêtes (" 
-						+ String.valueOf(c / tailleBatch) + ")" );
+						+ TAILLE_BATCH + " requêtes (" 
+						+ String.valueOf(c / TAILLE_BATCH) + ")" );
 					long start = System.currentTimeMillis();
 					cs.executeBatch();
 					dureeMoyenne += System.currentTimeMillis() - start;
 				}
 			}
-			logger.info("Execution batch de " + String.valueOf(c % tailleBatch) + " requêtes");
+			logger.info("Execution batch de " + String.valueOf(c % TAILLE_BATCH) + " requêtes");
 			cs.executeBatch();
 			conn.commit();
 			long endTime = System.currentTimeMillis();
@@ -176,8 +177,8 @@ public class MiseAJourClassesSubstances {
 				+ " ms");
 			try {
 				logger.info("Durée moyenne de l'exécution d'un batch de "
-					+ tailleBatch + " requêtes : "
-					+ String.valueOf(dureeMoyenne / (c / tailleBatch)) 
+					+ TAILLE_BATCH + " requêtes : "
+					+ String.valueOf(dureeMoyenne / (c / TAILLE_BATCH)) 
 					+ " ms");
 			} catch (ArithmeticException e) {}
 		} catch (SQLException e) {

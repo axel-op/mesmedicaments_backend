@@ -1,8 +1,5 @@
 package app.mesmedicaments;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeParseException;
 import java.util.logging.Logger;
 
 import org.json.JSONArray;
@@ -52,24 +49,5 @@ public class Utils {
 			tab[i] = Integer.parseInt(ja.get(i).toString());
 		}
 		return tab;
-	}
-
-	public static LocalDateTime obtenirHeure () {
-		return LocalDateTime.now(ZoneId.of("ECT", ZoneId.SHORT_IDS));
-	}
-
-	public static boolean verifierHeure (String heure) {
-		return verifierHeure(heure, 2);
-	}
-	
-	public static boolean verifierHeure (String heure, long intervalle) {
-		LocalDateTime heureObtenue;
-		LocalDateTime maintenant = obtenirHeure();
-		if (heure == null) { return false; }
-		try { heureObtenue = LocalDateTime.parse(heure); }
-		catch (DateTimeParseException e) { return false; }
-		if (heureObtenue.isBefore(maintenant.minusMinutes(intervalle))) { return false; }
-		if (heureObtenue.isAfter(maintenant.plusMinutes(2))) { return false; }
-		return true;
 	}
 }

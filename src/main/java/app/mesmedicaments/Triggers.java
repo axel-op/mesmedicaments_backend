@@ -1,5 +1,8 @@
 package app.mesmedicaments;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.logging.Logger;
@@ -26,12 +29,13 @@ public class Triggers {
 
     private static final String CLE_CAUSE;
     private static Logger logger;
+    private Boolean DA = null;
+    private JSONObject corpsReponse = new JSONObject();
+    private HttpStatus codeHttp = null;
 
     static {
         CLE_CAUSE = "cause";
     }
-
-    //private Triggers () {}
 
     @FunctionName("connexion")
     public HttpResponseMessage connexion (
@@ -46,33 +50,13 @@ public class Triggers {
         String id;
         String mdp;
         JSONObject retour = new JSONObject();
-        HttpStatus codeHttp = null;
-        JSONObject corpsReponse = new JSONObject();
         logger = context.getLogger();
         /*** Ajouter des contrôles ici ***/
         try {
             JSONObject corpsRequete = new JSONObject(request.getBody().get());
-            String heureRequete = request.getHeaders().get("heure");
-            if (!Utils.verifierHeure(heureRequete, 10)) {
-                codeHttp = HttpStatus.BAD_REQUEST;
-                corpsReponse.put(CLE_CAUSE, "L'heure ne correspond pas");
-            }
-            else {
-                Boolean doubleAuthentification = null;
-                String DA = request.getHeaders().get("da");
-                if (DA == null) { 
-                    codeHttp = HttpStatus.BAD_REQUEST; 
-                    corpsReponse.put(CLE_CAUSE, "Pas d'en-tête spécifié pour la DA");
-                }
-                else {
-                    DA = DA.toLowerCase();
-                    if (DA.equals("true")) { doubleAuthentification = true; }
-                    else if (DA.equals("false")) { doubleAuthentification = false; }
-                    if (doubleAuthentification == null) { 
-                        codeHttp = HttpStatus.BAD_REQUEST;
-                        corpsReponse.put(CLE_CAUSE, "En-tête DA incorrect");
-                    }
-                    else if (!doubleAuthentification) { // Première étape de la connexion
+            if (verifierHeure(request.getHeaders().get("heure"), 10)) {
+                if (verifierEnTeteDA(request.getHeaders().get("da"))) {
+                    if (!DA) { // Première étape de la connexion
                         id = corpsRequete.getString("id");
                         mdp = corpsRequete.getString("mdp");
                         retour = Authentification.connexionDMP(logger, id, mdp);
@@ -120,7 +104,7 @@ public class Triggers {
             corpsReponse = new JSONObject();
             corpsReponse.put(CLE_CAUSE, "Mauvais format du corps de la requête");
         }
-        corpsReponse.put("heure", Utils.obtenirHeure().toString());
+        corpsReponse.put("heure", obtenirHeure().toString());
         return request.createResponseBuilder(codeHttp)
             .body(corpsReponse)
             .build();
@@ -185,6 +169,44 @@ public class Triggers {
                 + String.valueOf(System.currentTimeMillis() - startTime) 
                 + " ms")
 			.build();
+    }
+
+    private LocalDateTime obtenirHeure () {
+        return LocalDateTime.now(ZoneId.of("ECT", ZoneId.SHORT_IDS));
+    }
+
+	private boolean verifierHeure (String heure, long intervalle) {
+        String messageErreur = "L'heure ne correspond pas ou n'est pas indiquée";
+		LocalDateTime heureObtenue;
+        LocalDateTime maintenant = obtenirHeure();
+        boolean erreur = false;
+        if (heure == null) { erreur = true; }
+        else {
+            try {
+                heureObtenue = LocalDateTime.parse(heure);
+                if (heureObtenue.isBefore(maintenant.minusMinutes(intervalle))
+                    || heureObtenue.isAfter(maintenant.plusMinutes(2))
+                ) { erreur = true; }
+            }
+            catch (DateTimeParseException e) { erreur = true; }
+        }
+        if (erreur) {
+            codeHttp = HttpStatus.BAD_REQUEST;
+            corpsReponse.put(CLE_CAUSE, messageErreur);
+            return false;
+        }
+        return true;
+    }
+    
+    private boolean verifierEnTeteDA (String entete) {
+        if (entete.matches("(?i:true)")) { DA = true; }
+        else if (entete.matches("(?i:false)")) { DA = false; }
+        else {
+            codeHttp = HttpStatus.BAD_REQUEST;
+            corpsReponse.put(CLE_CAUSE, "En-tête DA absent ou incorrect");
+            return false;
+        }
+        return true; 
     }
 
 /*

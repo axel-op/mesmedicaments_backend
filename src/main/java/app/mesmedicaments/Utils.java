@@ -69,7 +69,7 @@ public class Utils {
 		try { heureObtenue = LocalDateTime.parse(heure); }
 		catch (DateTimeParseException e) { return false; }
 		if (heureObtenue.isBefore(maintenant.minusMinutes(intervalle))) { return false; }
-		if (heureObtenue.isAfter(maintenant.plusMinutes(intervalle))) { return false; }
+		if (heureObtenue.isAfter(maintenant.plusMinutes(2))) { return false; }
 		return true;
 	}
 }

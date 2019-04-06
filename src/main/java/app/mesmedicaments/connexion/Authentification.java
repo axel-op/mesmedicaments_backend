@@ -23,7 +23,7 @@ public class Authentification {
 	//private HashMap<String, String> cookies;
 
 	static {
-		ACCUEIL = System.getenv("page_accueil_dmp_reussite");
+		ACCUEIL = System.getenv("regex_reussite_da");
 		ERR_INTERNE = "interne";
 		ERR_ID = "mauvais identifiants";
 		ENVOI_SMS = "SMS";
@@ -40,7 +40,6 @@ public class Authentification {
 		String urlPostFormDMP = System.getenv("url_post_form_dmp");
 		JSONObject retour = new JSONObject();
 		Document pageSaisieCode;
-		//LocalDateTime heure;
 		try {
 			Connection connexion;
 			connexion = Jsoup.connect(urlConnexionDMP);
@@ -103,7 +102,6 @@ public class Authentification {
 				.execute();
 			reponse = connexion.response();
 			pageSaisieCode = reponse.parse();
-			//retour.put("heure", Utils.obtenirHeure().toString());
 			retour.put("sid", pageSaisieCode.getElementsByAttributeValue("name", "sid")
 				.first()
 				.val());
@@ -156,7 +154,7 @@ public class Authentification {
 				.execute();
 			Connection.Response reponse = formCode.response();
 			logger.info(reponse.url().toString());
-			if (!ACCUEIL.equals(reponse.url().toString())) {
+			if (!reponse.url().toString().matches(ACCUEIL)) {
 				retour = new JSONObject();
 				retour.put("erreur", ERR_ID);
 				return retour;

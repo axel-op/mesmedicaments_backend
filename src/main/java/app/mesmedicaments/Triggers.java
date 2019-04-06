@@ -188,7 +188,7 @@ public final class Triggers {
 	private boolean verifierHeure (String heure, long intervalle) {
 		LocalDateTime heureObtenue;
         LocalDateTime maintenant = obtenirHeure();
-        if (heure != null && heure.length() >= 19 && heure.length() <= 23) {
+        if (heure != null && heure.length() >= 19 && heure.length() <= 26) {
             try {
                 heureObtenue = LocalDateTime.parse(heure);
                 if (heureObtenue.isAfter(maintenant.minusMinutes(intervalle))

@@ -81,7 +81,7 @@ public class Triggers {
                             corpsReponse.put(CLE_CAUSE, retour.get("erreur"));
                         } else {
                             codeHttp = HttpStatus.OK;
-                            corpsReponse.put("heure", retour.get("heure"));
+                            corpsReponse.put("envoiCode", retour.getString("envoiCode"));
                             corpsReponse.put("sid", Utils.XOREncrypt(retour.getString("sid")));
                             corpsReponse.put("tformdata", Utils.XOREncrypt(retour.getString("tformdata")));
                             corpsReponse.put("baseUri", Utils.XOREncrypt(retour.getString("baseUri")));

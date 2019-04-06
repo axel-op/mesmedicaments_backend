@@ -100,9 +100,8 @@ public class Authentification {
 				.cookies(cookies)
 				.execute();
 			reponse = connexion.response();
-			//heure = LocalDateTime.now(ZoneId.of("ECT", ZoneId.SHORT_IDS));
 			pageSaisieCode = reponse.parse();
-			//retour.put("heure", heure.toString());
+			//retour.put("heure", Utils.obtenirHeure().toString());
 			retour.put("baseUri", pageSaisieCode.baseUri());
 			retour.put("sid", pageSaisieCode.getElementsByAttributeValue("name", "sid")
 				.first()

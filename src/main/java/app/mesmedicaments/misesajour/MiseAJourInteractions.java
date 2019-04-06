@@ -20,7 +20,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
 
-import app.mesmedicaments.*;
+import app.mesmedicaments.BaseDeDonnees;
+import app.mesmedicaments.Utils;
 
 public class MiseAJourInteractions {
 

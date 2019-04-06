@@ -3,15 +3,16 @@ package app.mesmedicaments.misesajour;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URL;
 import java.net.HttpURLConnection;
+import java.net.URL;
 import java.sql.SQLException;
 import java.util.logging.Logger;
 
 import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 
-import app.mesmedicaments.*;
+import app.mesmedicaments.BaseDeDonnees;
+import app.mesmedicaments.Utils;
 
 /**
  * Met à jour la base de données à partir des informations récupérées sur la base publique des médicaments.

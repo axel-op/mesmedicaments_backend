@@ -12,13 +12,14 @@ import java.util.logging.Logger;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
+import com.microsoft.sqlserver.jdbc.SQLServerConnection;
+
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 
-import app.mesmedicaments.*;
-
-import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
-import com.microsoft.sqlserver.jdbc.SQLServerConnection;
+import app.mesmedicaments.BaseDeDonnees;
+import app.mesmedicaments.Utils;
 
 public class MiseAJourClassesSubstances {
 

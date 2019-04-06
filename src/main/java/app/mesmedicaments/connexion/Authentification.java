@@ -1,8 +1,6 @@
 package app.mesmedicaments.connexion;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.logging.Logger;
@@ -12,7 +10,7 @@ import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
-import app.mesmedicaments.*;
+import app.mesmedicaments.Utils;
 
 public class Authentification {
 
@@ -40,7 +38,7 @@ public class Authentification {
 		String urlPostFormDMP = System.getenv("url_post_form_dmp");
 		JSONObject retour = new JSONObject();
 		Document pageSaisieCode;
-		LocalDateTime heure;
+		//LocalDateTime heure;
 		try {
 			Connection connexion;
 			connexion = Jsoup.connect(urlConnexionDMP);
@@ -102,9 +100,9 @@ public class Authentification {
 				.cookies(cookies)
 				.execute();
 			reponse = connexion.response();
-			heure = LocalDateTime.now(ZoneId.of("ECT", ZoneId.SHORT_IDS));
+			//heure = LocalDateTime.now(ZoneId.of("ECT", ZoneId.SHORT_IDS));
 			pageSaisieCode = reponse.parse();
-			retour.put("heure", heure.toString());
+			//retour.put("heure", heure.toString());
 			retour.put("baseUri", pageSaisieCode.baseUri());
 			retour.put("sid", pageSaisieCode.getElementsByAttributeValue("name", "sid")
 				.first()

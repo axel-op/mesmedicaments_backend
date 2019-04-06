@@ -155,6 +155,7 @@ public class Authentification {
 				.data("ipCode", code)
 				.execute();
 			Connection.Response reponse = formCode.response();
+			logger.info(reponse.url().toString());
 			if (!ACCUEIL.equals(reponse.url().toString())) {
 				retour = new JSONObject();
 				retour.put("erreur", ERR_ID);

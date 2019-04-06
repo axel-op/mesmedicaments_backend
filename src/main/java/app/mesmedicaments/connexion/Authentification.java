@@ -153,6 +153,7 @@ public class Authentification {
 				.data("ipCode", code)
 				.execute();
 			Connection.Response reponse = formCode.response();
+			logger.info(ACCUEIL);
 			logger.info(reponse.url().toString());
 			if (!reponse.url().toString().matches(ACCUEIL)) {
 				retour = new JSONObject();

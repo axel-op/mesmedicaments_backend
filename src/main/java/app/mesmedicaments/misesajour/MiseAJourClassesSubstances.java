@@ -21,7 +21,7 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import app.mesmedicaments.BaseDeDonnees;
 import app.mesmedicaments.Utils;
 
-public class MiseAJourClassesSubstances {
+public final class MiseAJourClassesSubstances {
 
 	private static final String URL_CLASSES;
 	private static final Integer TAILLE_BATCH;

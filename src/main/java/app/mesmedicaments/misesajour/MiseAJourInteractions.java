@@ -23,7 +23,7 @@ import org.apache.pdfbox.text.TextPosition;
 import app.mesmedicaments.BaseDeDonnees;
 import app.mesmedicaments.Utils;
 
-public class MiseAJourInteractions {
+public final class MiseAJourInteractions {
 
     private static final Charset CHARSET_1252;
     private static final Float TAILLE_NOM_SUBSTANCE;

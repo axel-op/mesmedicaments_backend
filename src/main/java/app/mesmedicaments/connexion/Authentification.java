@@ -12,26 +12,25 @@ import org.jsoup.nodes.Document;
 
 import app.mesmedicaments.Utils;
 
-public class Authentification {
+public final class Authentification {
 
 	public static final String ERR_INTERNE;
 	public static final String ERR_ID;
 	public static final String ENVOI_SMS;
 	public static final String ENVOI_MAIL;
-	private static final String ACCUEIL;
+	private static final String REGEX_ACCUEIL;
 	private static final String USERAGENT;
 	private static final String URL_CHOIX_CODE;
 	private static final String URL_CONNEXION_DMP;
 	private static final String URL_POST_FORM_DMP;
 	private static final String URL_ENVOI_CODE;
-	//private HashMap<String, String> cookies;
 
 	static {
 		ERR_INTERNE = "interne";
 		ERR_ID = "mauvais identifiants";
 		ENVOI_SMS = "SMS";
 		ENVOI_MAIL = "Courriel";
-		ACCUEIL = System.getenv("regex_reussite_da");
+		REGEX_ACCUEIL = System.getenv("regex_reussite_da");
 		USERAGENT = System.getenv("user_agent");
 		URL_CHOIX_CODE = System.getenv("url_post_choix_code");
 		URL_CONNEXION_DMP = System.getenv("url_connexion_dmp");
@@ -156,9 +155,9 @@ public class Authentification {
 				.data("ipCode", code)
 				.execute();
 			Connection.Response reponse = formCode.response();
-			logger.info(ACCUEIL);
-			logger.info(reponse.url().toString());
-			if (!reponse.url().toString().matches(ACCUEIL)) {
+			logger.info("URL de la réponse suite à la tentative de DA : " 
+				+ reponse.url().toString());
+			if (!reponse.url().toString().matches(REGEX_ACCUEIL)) {
 				retour = new JSONObject();
 				retour.put("erreur", ERR_ID);
 				return retour;

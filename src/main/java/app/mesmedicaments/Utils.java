@@ -4,7 +4,7 @@ import java.util.logging.Logger;
 
 import org.json.JSONArray;
 
-public class Utils {
+public final class Utils {
 
 	private static final String XORKEY;
 	public static final String NEWLINE;

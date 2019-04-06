@@ -17,7 +17,7 @@ import app.mesmedicaments.Utils;
 /**
  * Met à jour la base de données à partir des informations récupérées sur la base publique des médicaments.
  */
-public class MiseAJourBDPM {
+public final class MiseAJourBDPM {
 
 	private static final String TABLE_SUBSTANCES;
 	private static final String TABLE_MEDICAMENTS;

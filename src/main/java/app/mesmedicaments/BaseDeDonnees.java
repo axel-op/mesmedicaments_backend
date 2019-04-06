@@ -10,7 +10,7 @@ import com.microsoft.sqlserver.jdbc.SQLServerDataSource;
 import com.microsoft.sqlserver.jdbc.SQLServerResultSet;
 import com.microsoft.sqlserver.jdbc.SQLServerStatement;
 
-public class BaseDeDonnees {
+public final class BaseDeDonnees {
 
 	public static final Integer TAILLE_BATCH;
 	private static SQLServerConnection connexion = null;

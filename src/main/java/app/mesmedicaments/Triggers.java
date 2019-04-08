@@ -51,20 +51,15 @@ public final class Triggers {
         JSONObject corpsReponse = new JSONObject();
         JSONObject retour = new JSONObject();
         logger = context.getLogger();
-        /*** Ajouter des contrôles ici ***/
         try {
             JSONObject corpsRequete = new JSONObject(request.getBody().get());
             if (verifierHeure(request.getHeaders().get("heure"), 10)
                 && verifierEnTeteDA(request.getHeaders().get("da"))
             ) {
-                logger.info("checks passés");
                 if (!DA) { // Première étape de la connexion
                     id = corpsRequete.getString("id");
-                    //DEBUG
-                    logger.info("id = " + id);
                     if (id.length() != 8) { throw new IllegalArgumentException(); }
                     mdp = corpsRequete.getString("mdp");
-                    logger.info("mdp = " + mdp);
                     retour = Authentification.connexionDMP(logger, id, mdp);
                     if (!retour.isNull("erreur")) {
                         codeHttp = HttpStatus.CONFLICT;
@@ -117,9 +112,6 @@ public final class Triggers {
             codeHttp = HttpStatus.BAD_REQUEST;
             corpsReponse = new JSONObject();
             corpsReponse.put(CLE_CAUSE, "Mauvais format du corps de la requête");
-            //DEBUG
-            logger.info(request.getHeaders().toString());
-            logger.info(request.getBody().toString());
         }
         corpsReponse.put("heure", obtenirHeure().toString());
         return request.createResponseBuilder(codeHttp)

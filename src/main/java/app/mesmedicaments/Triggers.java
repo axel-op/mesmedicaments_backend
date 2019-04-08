@@ -57,10 +57,14 @@ public final class Triggers {
             if (verifierHeure(request.getHeaders().get("heure"), 10)
                 && verifierEnTeteDA(request.getHeaders().get("da"))
             ) {
+                logger.info("checks passés");
                 if (!DA) { // Première étape de la connexion
                     id = corpsRequete.getString("id");
+                    //DEBUG
+                    logger.info("id = " + id);
                     if (id.length() != 8) { throw new IllegalArgumentException(); }
                     mdp = corpsRequete.getString("mdp");
+                    logger.info("mdp = " + mdp);
                     retour = Authentification.connexionDMP(logger, id, mdp);
                     if (!retour.isNull("erreur")) {
                         codeHttp = HttpStatus.CONFLICT;
@@ -114,8 +118,8 @@ public final class Triggers {
             corpsReponse = new JSONObject();
             corpsReponse.put(CLE_CAUSE, "Mauvais format du corps de la requête");
             //DEBUG
-            corpsReponse.put("entetes requete", request.getHeaders().toString());
-            corpsReponse.put("corps requete", request.getBody().toString());
+            logger.info(request.getHeaders().toString());
+            logger.info(request.getBody().toString());
         }
         corpsReponse.put("heure", obtenirHeure().toString());
         return request.createResponseBuilder(codeHttp)

@@ -113,6 +113,9 @@ public final class Triggers {
             codeHttp = HttpStatus.BAD_REQUEST;
             corpsReponse = new JSONObject();
             corpsReponse.put(CLE_CAUSE, "Mauvais format du corps de la requête");
+            //DEBUG
+            corpsReponse.put("entetes requete", request.getHeaders().toString());
+            corpsReponse.put("corps requete", request.getBody().toString());
         }
         corpsReponse.put("heure", obtenirHeure().toString());
         return request.createResponseBuilder(codeHttp)

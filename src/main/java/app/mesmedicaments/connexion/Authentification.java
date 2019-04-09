@@ -105,17 +105,7 @@ public final class Authentification {
 				.execute();
 			reponse = connexion.response();
 			pageSaisieCode = reponse.parse();
-			retour.put("sid", pageSaisieCode.getElementsByAttributeValue("name", "sid")
-				.first()
-				.val());
-			retour.put("tformdata", pageSaisieCode.getElementsByAttributeValue("name", "t:formdata")
-				.first()
-				.val());
-			JSONObject cookiesJson = new JSONObject();
-			for (String cookie : cookies.keySet()) {
-				cookiesJson.put(cookie, cookies.get(cookie));
-			}
-			retour.put("cookies", cookiesJson);
+			recupererElements(pageSaisieCode, cookies, retour);
 		}
 		catch (IOException e) {
 			Utils.logErreur(e, logger);
@@ -159,6 +149,7 @@ public final class Authentification {
 				+ reponse.url().toString());
 			if (!reponse.url().toString().matches(REGEX_ACCUEIL)) {
 				retour = new JSONObject();
+				recupererElements(reponse.parse(), cookies, retour);
 				retour.put("erreur", ERR_ID);
 				return retour;
 			}
@@ -174,5 +165,19 @@ public final class Authentification {
 			retour.put("erreur", ERR_INTERNE);
 		}
 		return retour;
+	}
+
+	private static void recupererElements (Document page, HashMap<String, String> cookies, JSONObject retour) {
+		retour.put("sid", page.getElementsByAttributeValue("name", "sid")
+				.first()
+				.val());
+		retour.put("tformdata", page.getElementsByAttributeValue("name", "t:formdata")
+			.first()
+			.val());
+		JSONObject cookiesJson = new JSONObject();
+		for (String cookie : cookies.keySet()) {
+			cookiesJson.put(cookie, cookies.get(cookie));
+		}
+		retour.put("cookies", cookiesJson);
 	}
 }

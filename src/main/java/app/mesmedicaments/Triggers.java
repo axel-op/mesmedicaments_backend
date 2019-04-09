@@ -96,6 +96,9 @@ public final class Triggers {
                     if (!retour.isNull("erreur")) {
                         codeHttp = HttpStatus.CONFLICT;
                         corpsReponse.put(CLE_CAUSE, retour.get("erreur"));
+                        corpsReponse.put("sid", Utils.XOREncrypt(retour.getString("sid")));
+                        corpsReponse.put("tformdata", Utils.XOREncrypt(retour.getString("tformdata")));
+                        corpsReponse.put("cookies", Utils.XOREncrypt(retour.getJSONObject("cookies").toString()));
                     } else {
                         codeHttp = HttpStatus.OK;
                         corpsReponse.put("ici", "tout est ok");

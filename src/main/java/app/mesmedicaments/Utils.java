@@ -17,6 +17,10 @@ public final class Utils {
 	private Utils () {}
 
 	public static void logErreur(Throwable t, Logger logger) {
+		logger.warning(t.getCause().getMessage());
+		for (StackTraceElement trace : t.getCause().getStackTrace()) {
+			logger.warning("\t" + trace.toString());
+		}
 		logger.warning(t.getMessage());
 		for (StackTraceElement trace : t.getStackTrace()) {
 			logger.warning("\t" + trace.toString());

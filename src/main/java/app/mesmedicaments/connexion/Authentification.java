@@ -201,5 +201,7 @@ public final class Authentification {
 			.text());
 		retour.put("email", pageInfos.getElementById("email")
 			.val());
+		retour.put("genre", pageInfos.getElementById("genderValue")
+			.text());
 	}
 }

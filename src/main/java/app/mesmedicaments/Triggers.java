@@ -103,6 +103,7 @@ public final class Triggers {
                         codeHttp = HttpStatus.OK;
                         corpsReponse.put("prenom", retour.get("prenom"));
                         corpsReponse.put("email", retour.get("email"));
+                        corpsReponse.put("genre", retour.get("genre"));
                     }
                 }
             }

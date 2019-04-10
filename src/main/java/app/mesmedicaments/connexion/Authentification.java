@@ -24,6 +24,11 @@ public final class Authentification {
 	private static final String URL_CONNEXION_DMP;
 	private static final String URL_POST_FORM_DMP;
 	private static final String URL_ENVOI_CODE;
+	private static final String URL_INFOS_DMP;
+
+	// Champs d'instance
+	private HashMap<String, String> cookies;
+	private JSONObject retour;
 
 	static {
 		ERR_INTERNE = "interne";
@@ -36,20 +41,23 @@ public final class Authentification {
 		URL_CONNEXION_DMP = System.getenv("url_connexion_dmp");
 		URL_POST_FORM_DMP = System.getenv("url_post_form_dmp");
 		URL_ENVOI_CODE = System.getenv("url_post_envoi_code");
+		URL_INFOS_DMP = System.getenv("url_infos_dmp");
 	}
 
-	private Authentification () {}
+	public Authentification () {
+		cookies = new HashMap<>();
+		retour = new JSONObject();
+	}
 
-	public static JSONObject connexionDMP (Logger logger, String id, String mdp) {
-		JSONObject retour = new JSONObject();
+	public JSONObject connexionDMP (Logger logger, String id, String mdp) {
 		Document pageSaisieCode;
+		Connection connexion;
 		try {
-			Connection connexion;
 			connexion = Jsoup.connect(URL_CONNEXION_DMP);
 			connexion.method(Connection.Method.GET)
 				.execute(); 
 			Connection.Response reponse = connexion.response();
-			HashMap<String, String> cookies = new HashMap<String, String>(reponse.cookies());
+			cookies = new HashMap<String, String>(reponse.cookies());
 			Document htmlId = reponse.parse();
 			connexion = Jsoup.connect(URL_POST_FORM_DMP);
 			connexion.method(Connection.Method.POST)
@@ -105,7 +113,7 @@ public final class Authentification {
 				.execute();
 			reponse = connexion.response();
 			pageSaisieCode = reponse.parse();
-			recupererElements(pageSaisieCode, cookies, retour);
+			recupererElementsConnexion(pageSaisieCode);
 		}
 		catch (IOException e) {
 			Utils.logErreur(e, logger);
@@ -120,7 +128,7 @@ public final class Authentification {
 		return retour;
 	}
 
-	public static JSONObject doubleAuthentification (
+	public JSONObject doubleAuthentification (
 		Logger logger,
 		String code,
 		String sid, 
@@ -128,8 +136,6 @@ public final class Authentification {
 		JSONObject cookiesJson
 	) {
 		/*** Instaurer un contrôle pour mdp ***/
-		JSONObject retour = new JSONObject();
-		HashMap<String, String> cookies = new HashMap<>();
 		Iterator<String> iterCookies = cookiesJson.keys();
 		while (iterCookies.hasNext()) {
 			String cookie = iterCookies.next();
@@ -149,10 +155,11 @@ public final class Authentification {
 				+ reponse.url().toString());
 			if (!reponse.url().toString().matches(REGEX_ACCUEIL)) {
 				retour = new JSONObject();
-				recupererElements(reponse.parse(), cookies, retour);
+				recupererElementsConnexion(reponse.parse());
 				retour.put("erreur", ERR_ID);
 				return retour;
 			}
+			recupererInfosPerso();
 		}
 		catch (IOException e) {
 			Utils.logErreur(e, logger);
@@ -167,7 +174,7 @@ public final class Authentification {
 		return retour;
 	}
 
-	private static void recupererElements (Document page, HashMap<String, String> cookies, JSONObject retour) {
+	private void recupererElementsConnexion (Document page) {
 		retour.put("sid", page.getElementsByAttributeValue("name", "sid")
 				.first()
 				.val());
@@ -179,5 +186,20 @@ public final class Authentification {
 			cookiesJson.put(cookie, cookies.get(cookie));
 		}
 		retour.put("cookies", cookiesJson);
+	}
+
+	private void recupererInfosPerso () throws IOException {
+		Connection connexion;
+		Document pageInfos;
+		connexion = Jsoup.connect(URL_INFOS_DMP);
+		connexion.method(Connection.Method.GET)
+			.userAgent(USERAGENT)
+			.cookies(cookies)
+			.execute();
+		pageInfos = connexion.response().parse();
+		retour.put("prenom", pageInfos.getElementById("firstNameValue")
+			.text());
+		retour.put("email", pageInfos.getElementById("email")
+			.val());
 	}
 }

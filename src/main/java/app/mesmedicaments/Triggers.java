@@ -60,7 +60,7 @@ public final class Triggers {
                     id = corpsRequete.getString("id");
                     if (id.length() != 8) { throw new IllegalArgumentException(); }
                     mdp = corpsRequete.getString("mdp");
-                    retour = Authentification.connexionDMP(logger, id, mdp);
+                    retour = new Authentification().connexionDMP(logger, id, mdp);
                     if (!retour.isNull("erreur")) {
                         codeHttp = HttpStatus.CONFLICT;
                         corpsReponse.put(CLE_CAUSE, retour.get("erreur"));
@@ -87,7 +87,7 @@ public final class Triggers {
                         || cookiesChiffres.length() < 200
                         || cookiesChiffres.length() > 250
                     ) { throw new IllegalArgumentException(); }
-                    retour = Authentification.doubleAuthentification(
+                    retour = new Authentification().doubleAuthentification(
                         logger,
                         code,
                         Utils.XORDecrypt(Utils.JSONArrayToIntArray(sidChiffre)), 
@@ -101,7 +101,8 @@ public final class Triggers {
                         corpsReponse.put("cookies", Utils.XOREncrypt(retour.getJSONObject("cookies").toString()));
                     } else {
                         codeHttp = HttpStatus.OK;
-                        corpsReponse.put("ici", "tout est ok");
+                        corpsReponse.put("prenom", retour.get("prenom"));
+                        corpsReponse.put("email", retour.get("email"));
                     }
                 }
             }

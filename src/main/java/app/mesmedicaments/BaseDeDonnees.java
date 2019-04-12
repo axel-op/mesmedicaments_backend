@@ -170,7 +170,7 @@ public final class BaseDeDonnees {
 			ds.setPortNumber(Integer.parseInt(DB_PORT));
 			ds.setDatabaseName(DB_NAME);
 			ds.setAuthentication("ActiveDirectoryMSI");
-			ds.setMSIClientId(MSI_CLIENTID);
+			ds.setMSIClientId("f830e69d-b48b-46cd-97df-bb437a9bd0eb");
 			connexion = (SQLServerConnection) ds.getConnection();
 			logger.info("(Classe BaseDeDonnees) Connexion à la base de données réussie");
 			return connexion;

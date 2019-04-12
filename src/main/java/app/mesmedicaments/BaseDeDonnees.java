@@ -13,6 +13,14 @@ import com.microsoft.sqlserver.jdbc.SQLServerStatement;
 public final class BaseDeDonnees {
 
 	public static final Integer TAILLE_BATCH;
+
+	private static final String TABLE_INTERACTIONS;
+	private static String TABLE_NOMS_SUBSTANCES;
+	private static final String DB_HOSTNAME;
+	private static final String DB_NAME;
+	private static final String DB_PORT;
+	private static final String MSI_CLIENTID;
+
 	private static SQLServerConnection connexion = null;
 	private static HashMap<String, HashSet<Integer>> nomsSubstances = new HashMap<>();
 	private static HashMap<Integer, String> codesSubstances = new HashMap<>();
@@ -26,6 +34,12 @@ public final class BaseDeDonnees {
 		else {
 			TAILLE_BATCH = 1000;
 		}
+		DB_HOSTNAME = System.getenv("db_hostname");
+		DB_NAME = System.getenv("db_name");
+		DB_PORT = System.getenv("db_port");
+		MSI_CLIENTID = System.getenv("MSI_ENDPOINT");
+		TABLE_INTERACTIONS = System.getenv("table_interactions");
+		TABLE_NOMS_SUBSTANCES = System.getenv("table_nomssubstances");
 	}
 
 	private BaseDeDonnees () {}
@@ -91,8 +105,7 @@ public final class BaseDeDonnees {
 	}
 
 	private static void importerSubstances (Logger logger) {
-		String table = System.getenv("table_nomssubstances");
-		String requete = "SELECT nom, codesubstance FROM " + table;
+		String requete = "SELECT nom, codesubstance FROM " + TABLE_NOMS_SUBSTANCES;
 		SQLServerStatement statement = null;
 		SQLServerResultSet resultset = null;
 		try {
@@ -124,8 +137,7 @@ public final class BaseDeDonnees {
 	}
 
 	private static void importerInteractions (Logger logger) {
-		String table = System.getenv("table_interactions");
-		String requete = "SELECT id, risque FROM " + table;
+		String requete = "SELECT id, risque FROM " + TABLE_INTERACTIONS;
 		SQLServerStatement statement = null;
 		SQLServerResultSet resultset = null;
 		try {
@@ -150,19 +162,15 @@ public final class BaseDeDonnees {
 
 	private static SQLServerConnection nouvelleConnexion (Logger logger) {
 		logger.info("(Classe BaseDeDonnees) Tentative de connexion à la base de données SQL Azure");
-		String hostName = System.getenv("db_hostname");
-		String dbName = System.getenv("db_name");
-		String dbPort = System.getenv("db_port");
-		String msiClientId = System.getenv("MSI_ENDPOINT");
 		try {
 			SQLServerDataSource ds = new SQLServerDataSource();
 			ds.setEncrypt(true);
 			ds.setHostNameInCertificate("*.database.windows.net");
-			ds.setServerName(hostName);
-			ds.setPortNumber(Integer.parseInt(dbPort));
-			ds.setDatabaseName(dbName);
+			ds.setServerName(DB_HOSTNAME);
+			ds.setPortNumber(Integer.parseInt(DB_PORT));
+			ds.setDatabaseName(DB_NAME);
 			ds.setAuthentication("ActiveDirectoryMSI");
-			ds.setMSIClientId(msiClientId);
+			ds.setMSIClientId(MSI_CLIENTID);
 			connexion = (SQLServerConnection) ds.getConnection();
 			logger.info("(Classe BaseDeDonnees) Connexion à la base de données réussie");
 			return connexion;

@@ -14,10 +14,19 @@ import app.mesmedicaments.Utils;
 
 public final class Authentification {
 
+	public static final String CLE_ERREUR;
+	public static final String CLE_ENVOI_CODE;
+	public static final String CLE_SID;
+	public static final String CLE_TFORMDATA;
+	public static final String CLE_COOKIES;
+	public static final String CLE_PRENOM;
+	public static final String CLE_GENRE;
+	public static final String CLE_EMAIL;
 	public static final String ERR_INTERNE;
 	public static final String ERR_ID;
 	public static final String ENVOI_SMS;
 	public static final String ENVOI_MAIL;
+
 	private static final String REGEX_ACCUEIL;
 	private static final String USERAGENT;
 	private static final String URL_CHOIX_CODE;
@@ -31,6 +40,7 @@ public final class Authentification {
 	private JSONObject retour;
 
 	static {
+		CLE_ERREUR = "erreur";
 		ERR_INTERNE = "interne";
 		ERR_ID = "mauvais identifiants";
 		ENVOI_SMS = "SMS";
@@ -42,6 +52,13 @@ public final class Authentification {
 		URL_POST_FORM_DMP = System.getenv("url_post_form_dmp");
 		URL_ENVOI_CODE = System.getenv("url_post_envoi_code");
 		URL_INFOS_DMP = System.getenv("url_infos_dmp");
+		CLE_ENVOI_CODE = "envoiCode";
+		CLE_COOKIES = "cookies";
+		CLE_SID = "sid";
+		CLE_TFORMDATA = "tformdata";
+		CLE_PRENOM = "prenom";
+		CLE_EMAIL = "email";
+		CLE_GENRE = "genre";
 	}
 
 	public Authentification () {
@@ -78,7 +95,7 @@ public final class Authentification {
 			if (reponse.url().equals(deuxiemeReponse.url())) { 
 				logger.info("La connexion a échoué (mauvais identifiants)");
 				retour = new JSONObject();
-				retour.put("erreur", ERR_ID);
+				retour.put(CLE_ERREUR, ERR_ID);
 				return retour;
 			}
 			Document pageEnvoiCode = deuxiemeReponse.parse();
@@ -86,18 +103,18 @@ public final class Authentification {
 			connexion.method(Connection.Method.POST);
 			if (pageEnvoiCode.getElementById("bySMS") != null) { 
 				connexion.data("mediaValue", "0"); 
-				retour.put("envoiCode", ENVOI_SMS);
+				retour.put(CLE_ENVOI_CODE, ENVOI_SMS);
 			}
 			else if (pageEnvoiCode.getElementById("byEmailMessage") != null) {
 				connexion.data("mediaValue", "1"); 
-				retour.put("envoiCode", ENVOI_MAIL);
+				retour.put(CLE_ENVOI_CODE, ENVOI_MAIL);
 			}
 			else { 
 				logger.info("Aucun choix d'envoi du second code disponible");
 				retour = new JSONObject();
 				//Envoyer une notification et enregistrer le HTML
 				logger.severe("Aucun choix d'envoi du second code disponible");
-				retour.put("erreur", ERR_INTERNE);
+				retour.put(CLE_ERREUR, ERR_INTERNE);
 				return retour;
 			}
 			connexion.data("sid", pageEnvoiCode
@@ -118,12 +135,12 @@ public final class Authentification {
 		catch (IOException e) {
 			Utils.logErreur(e, logger);
 			retour = new JSONObject();
-			retour.put("erreur", ERR_INTERNE);
+			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}
 		catch (Exception e) {
 			Utils.logErreur(e, logger);
 			retour = new JSONObject();
-			retour.put("erreur", ERR_INTERNE);
+			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}
 		return retour;
 	}
@@ -156,7 +173,7 @@ public final class Authentification {
 			if (!reponse.url().toString().matches(REGEX_ACCUEIL)) {
 				retour = new JSONObject();
 				recupererElementsConnexion(reponse.parse());
-				retour.put("erreur", ERR_ID);
+				retour.put(CLE_ERREUR, ERR_ID);
 				return retour;
 			}
 			recupererInfosPerso();
@@ -164,28 +181,28 @@ public final class Authentification {
 		catch (IOException e) {
 			Utils.logErreur(e, logger);
 			retour = new JSONObject();
-			retour.put("erreur", ERR_INTERNE);
+			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}
 		catch (Exception e) {
 			Utils.logErreur(e, logger);
 			retour = new JSONObject();
-			retour.put("erreur", ERR_INTERNE);
+			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}
 		return retour;
 	}
 
 	private void recupererElementsConnexion (Document page) {
-		retour.put("sid", page.getElementsByAttributeValue("name", "sid")
+		retour.put(CLE_SID, page.getElementsByAttributeValue("name", "sid")
 				.first()
 				.val());
-		retour.put("tformdata", page.getElementsByAttributeValue("name", "t:formdata")
+		retour.put(CLE_TFORMDATA, page.getElementsByAttributeValue("name", "t:formdata")
 			.first()
 			.val());
 		JSONObject cookiesJson = new JSONObject();
 		for (String cookie : cookies.keySet()) {
 			cookiesJson.put(cookie, cookies.get(cookie));
 		}
-		retour.put("cookies", cookiesJson);
+		retour.put(CLE_COOKIES, cookiesJson);
 	}
 
 	private void recupererInfosPerso () throws IOException {
@@ -197,11 +214,11 @@ public final class Authentification {
 			.cookies(cookies)
 			.execute();
 		pageInfos = connexion.response().parse();
-		retour.put("prenom", pageInfos.getElementById("firstNameValue")
+		retour.put(CLE_PRENOM, pageInfos.getElementById("firstNameValue")
 			.text());
-		retour.put("email", pageInfos.getElementById("email")
+		retour.put(CLE_EMAIL, pageInfos.getElementById("email")
 			.val());
-		retour.put("genre", pageInfos.getElementById("genderValue")
+		retour.put(CLE_GENRE, pageInfos.getElementById("genderValue")
 			.text());
 	}
 }

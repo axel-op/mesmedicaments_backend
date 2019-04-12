@@ -28,11 +28,36 @@ import app.mesmedicaments.misesajour.MiseAJourInteractions;
 public final class Triggers {
 
     private static final String CLE_CAUSE;
-    private static Logger logger;
-    private Boolean DA = null;
+    private static final String CLE_HEURE;
+    private static final String CLE_ERREUR_AUTH;
+    private static final String CLE_DA;
+    private static final String CLE_ENVOI_CODE;
+    private static final String CLE_PRENOM;
+    private static final String CLE_EMAIL;
+    private static final String CLE_GENRE;
+    private static final String CLE_SID;
+    private static final String CLE_COOKIES;
+    private static final String CLE_TFORMDATA;
+
+    private Logger logger;
+    private HttpStatus codeHttp;
+    private Boolean DA;
+    private JSONObject corpsReponse;
+    private JSONObject retour;
+    private JSONObject corpsRequete;
 
     static {
         CLE_CAUSE = "cause";
+        CLE_HEURE = "heure";
+        CLE_DA = "da";
+        CLE_ERREUR_AUTH = Authentification.CLE_ERREUR;
+        CLE_ENVOI_CODE = Authentification.CLE_ENVOI_CODE;
+        CLE_PRENOM = Authentification.CLE_PRENOM;
+        CLE_GENRE = Authentification.CLE_GENRE;
+        CLE_EMAIL = Authentification.CLE_EMAIL;
+        CLE_SID = Authentification.CLE_SID;
+        CLE_COOKIES = Authentification.CLE_COOKIES;
+        CLE_TFORMDATA = Authentification.CLE_TFORMDATA;
     }
 
     @FunctionName("connexion")
@@ -47,40 +72,39 @@ public final class Triggers {
     ) {
         String id;
         String mdp;
-        HttpStatus codeHttp = null;
-        JSONObject corpsReponse = new JSONObject();
-        JSONObject retour = new JSONObject();
+        corpsReponse = new JSONObject();
+        retour = new JSONObject();
         logger = context.getLogger();
         try {
-            JSONObject corpsRequete = new JSONObject(request.getBody().get());
-            if (verifierHeure(request.getHeaders().get("heure"), 10)
-                && verifierEnTeteDA(request.getHeaders().get("da"))
+            corpsRequete = new JSONObject(request.getBody().get());
+            if (verifierHeure(request.getHeaders().get(CLE_HEURE), 10)
+                && verifierEnTeteDA(request.getHeaders().get(CLE_DA))
             ) {
                 if (!DA) { // Première étape de la connexion
                     id = corpsRequete.getString("id");
                     if (id.length() != 8) { throw new IllegalArgumentException(); }
                     mdp = corpsRequete.getString("mdp");
                     retour = new Authentification().connexionDMP(logger, id, mdp);
-                    if (!retour.isNull("erreur")) {
+                    if (!retour.isNull(CLE_ERREUR_AUTH)) {
                         codeHttp = HttpStatus.CONFLICT;
-                        corpsReponse.put(CLE_CAUSE, retour.get("erreur"));
+                        corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
                     } else {
                         codeHttp = HttpStatus.OK;
-                        corpsReponse.put("envoiCode", retour.getString("envoiCode"));
-                        corpsReponse.put("sid", Utils.XOREncrypt(retour.getString("sid")));
-                        logger.info("Longueur du tableau chiffré sid = " + Utils.XOREncrypt(retour.getString("sid")).length);
-                        corpsReponse.put("tformdata", Utils.XOREncrypt(retour.getString("tformdata")));
-                        logger.info("Longueur du tableau chiffré tformdata = " + Utils.XOREncrypt(retour.getString("tformdata")).length);
-                        corpsReponse.put("cookies", Utils.XOREncrypt(retour.getJSONObject("cookies").toString()));
-                        logger.info("Longueur du tableau chiffré cookies = " + Utils.XOREncrypt(retour.getJSONObject("cookies").toString()).length);
+                        corpsReponse.put(CLE_ENVOI_CODE, retour.getString(CLE_ENVOI_CODE));
+                        corpsReponse.put(CLE_SID, Utils.XOREncrypt(retour.getString(CLE_SID)));
+                        logger.info("Longueur du tableau chiffré sid = " + Utils.XOREncrypt(retour.getString(CLE_SID)).length);
+                        corpsReponse.put(CLE_TFORMDATA, Utils.XOREncrypt(retour.getString(CLE_TFORMDATA)));
+                        logger.info("Longueur du tableau chiffré tformdata = " + Utils.XOREncrypt(retour.getString(CLE_TFORMDATA)).length);
+                        corpsReponse.put(CLE_COOKIES, Utils.XOREncrypt(retour.getJSONObject(CLE_COOKIES).toString()));
+                        logger.info("Longueur du tableau chiffré cookies = " + Utils.XOREncrypt(retour.getJSONObject(CLE_COOKIES).toString()).length);
                     }
                 }
                 else { // Deuxième étape de la connexion
                     String code = String.valueOf(corpsRequete.getInt("code"));
                     if (code.length() >= 10) { throw new IllegalArgumentException(); }
-                    JSONArray sidChiffre = corpsRequete.getJSONArray("sid");
-                    JSONArray tformdataChiffre = corpsRequete.getJSONArray("tformdata");
-                    JSONArray cookiesChiffres = corpsRequete.getJSONArray("cookies");
+                    JSONArray sidChiffre = corpsRequete.getJSONArray(CLE_SID);
+                    JSONArray tformdataChiffre = corpsRequete.getJSONArray(CLE_TFORMDATA);
+                    JSONArray cookiesChiffres = corpsRequete.getJSONArray(CLE_COOKIES);
                     if (sidChiffre.length() > 15
                         || tformdataChiffre.length() < 270
                         || tformdataChiffre.length() > 300
@@ -93,17 +117,17 @@ public final class Triggers {
                         Utils.XORDecrypt(Utils.JSONArrayToIntArray(sidChiffre)), 
                         Utils.XORDecrypt(Utils.JSONArrayToIntArray(tformdataChiffre)), 
                         new JSONObject(Utils.XORDecrypt(Utils.JSONArrayToIntArray(cookiesChiffres))));
-                    if (!retour.isNull("erreur")) {
+                    if (!retour.isNull(CLE_ERREUR_AUTH)) {
                         codeHttp = HttpStatus.CONFLICT;
-                        corpsReponse.put(CLE_CAUSE, retour.get("erreur"));
-                        corpsReponse.put("sid", Utils.XOREncrypt(retour.getString("sid")));
-                        corpsReponse.put("tformdata", Utils.XOREncrypt(retour.getString("tformdata")));
-                        corpsReponse.put("cookies", Utils.XOREncrypt(retour.getJSONObject("cookies").toString()));
+                        corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
+                        corpsReponse.put(CLE_SID, Utils.XOREncrypt(retour.getString(CLE_SID)));
+                        corpsReponse.put(CLE_TFORMDATA, Utils.XOREncrypt(retour.getString(CLE_TFORMDATA)));
+                        corpsReponse.put(CLE_COOKIES, Utils.XOREncrypt(retour.getJSONObject(CLE_COOKIES).toString()));
                     } else {
                         codeHttp = HttpStatus.OK;
-                        corpsReponse.put("prenom", retour.get("prenom"));
-                        corpsReponse.put("email", retour.get("email"));
-                        corpsReponse.put("genre", retour.get("genre"));
+                        corpsReponse.put(CLE_PRENOM, retour.get(CLE_PRENOM));
+                        corpsReponse.put(CLE_EMAIL, retour.get(CLE_EMAIL));
+                        corpsReponse.put(CLE_GENRE, retour.get(CLE_GENRE));
                     }
                 }
             }
@@ -118,7 +142,7 @@ public final class Triggers {
             corpsReponse = new JSONObject();
             corpsReponse.put(CLE_CAUSE, "Mauvais format du corps de la requête");
         }
-        corpsReponse.put("heure", obtenirHeure().toString());
+        corpsReponse.put(CLE_HEURE, obtenirHeure().toString());
         return request.createResponseBuilder(codeHttp)
             .body(corpsReponse)
             .build();

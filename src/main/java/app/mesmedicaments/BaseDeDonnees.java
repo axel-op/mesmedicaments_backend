@@ -19,7 +19,7 @@ public final class BaseDeDonnees {
 	private static final String DB_HOSTNAME;
 	private static final String DB_NAME;
 	private static final String DB_PORT;
-	private static final String MSI_CLIENTID;
+	private static final String MSI_CLIENTID_MAJ;
 
 	private static SQLServerConnection connexion = null;
 	private static HashMap<String, HashSet<Integer>> nomsSubstances = new HashMap<>();
@@ -37,7 +37,7 @@ public final class BaseDeDonnees {
 		DB_HOSTNAME = System.getenv("db_hostname");
 		DB_NAME = System.getenv("db_name");
 		DB_PORT = System.getenv("db_port");
-		MSI_CLIENTID = System.getenv("MSI_ENDPOINT");
+		MSI_CLIENTID_MAJ = System.getenv("msi_maj");
 		TABLE_INTERACTIONS = System.getenv("table_interactions");
 		TABLE_NOMS_SUBSTANCES = System.getenv("table_nomssubstances");
 	}
@@ -170,7 +170,7 @@ public final class BaseDeDonnees {
 			ds.setPortNumber(Integer.parseInt(DB_PORT));
 			ds.setDatabaseName(DB_NAME);
 			ds.setAuthentication("ActiveDirectoryMSI");
-			ds.setMSIClientId("f830e69d-b48b-46cd-97df-bb437a9bd0eb");
+			ds.setMSIClientId(MSI_CLIENTID_MAJ);
 			connexion = (SQLServerConnection) ds.getConnection();
 			logger.info("(Classe BaseDeDonnees) Connexion à la base de données réussie");
 			return connexion;

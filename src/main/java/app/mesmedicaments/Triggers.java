@@ -189,6 +189,21 @@ public final class Triggers {
 			.build();
     }
 
+    @FunctionName("ping")
+    public HttpResponseMessage ping (
+        @HttpTrigger(
+            name = "pingTrigger",
+            dataType = "string",
+            authLevel = AuthorizationLevel.ANONYMOUS,
+            methods = {HttpMethod.GET}
+        )
+        final HttpRequestMessage<Optional<String>> request,
+        final ExecutionContext context
+    ) {
+        return request.createResponseBuilder(HttpStatus.OK)
+            .body("Pong").build();
+    }
+
     private LocalDateTime obtenirHeure () {
         return LocalDateTime.now(ZoneId.of("ECT", ZoneId.SHORT_IDS));
     }

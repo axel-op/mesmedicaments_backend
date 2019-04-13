@@ -127,7 +127,7 @@ public final class MiseAJourClassesSubstances {
 	private static Integer obtenirIdClasse (String classe) {
 		SQLServerCallableStatement cs = null;
 		Integer id = null;
-		String requete = "{call obtenirIdClasse(?, ?)}";
+		String requete = "{call projetdmp.obtenirIdClasse(?, ?)}";
 		try {
 			cs = (SQLServerCallableStatement) conn.prepareCall(requete);
 			cs.setString(1, classe);
@@ -149,7 +149,7 @@ public final class MiseAJourClassesSubstances {
 
 	private static boolean mettreAJourClasses () {
 		SQLServerCallableStatement cs = null;
-		String requete = "{call mettreAJourClasse(?, ?, ?)}";
+		String requete = "{call projetdmp.mettreAJourClasse(?, ?, ?)}";
 		int c = 0;
 		long dureeMoyenne = 0;
 		long startTime = System.currentTimeMillis();

@@ -56,7 +56,7 @@ public final class MiseAJourBDPM {
 
     private static boolean majSubstances () {
 		SQLServerCallableStatement cs = null;
-		String requete = "{call ajouterSubstance(?, ?, ?)}";
+		String requete = "{call projetdmp.ajouterSubstance(?, ?, ?)}";
 		logger.info("Début de la mise à jour des substances");
 		try {
 			String tailleAvant1 = "Taille de la table substances avant la mise à jour : " 
@@ -121,7 +121,7 @@ public final class MiseAJourBDPM {
 
     private static boolean majMedicaments () {
 		SQLServerCallableStatement cs = null;
-		String requete = "{call ajouterMedicament(?, ?, ?, ?, ?)}";
+		String requete = "{call projetdmp.ajouterMedicament(?, ?, ?, ?, ?)}";
 		int max = 0;
 		logger.info("Début de la mise à jour des médicaments");
 		try {

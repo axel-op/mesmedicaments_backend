@@ -72,7 +72,7 @@ public final class MiseAJourInteractions {
 		reussite = true;
 		compteurBatch = 0;
 		dureeMoyenne = 0;
-		requete = "{call ajouterInteraction(?, ?, ?, ?, ?, ?)}";
+		requete = "{call projetdmp.ajouterInteraction(?, ?, ?, ?, ?, ?)}";
 	}
 
 	private MiseAJourInteractions () {}

@@ -25,6 +25,8 @@ public final class MiseAJourClassesSubstances {
 
 	private static final String URL_CLASSES;
 	private static final Integer TAILLE_BATCH;
+	private static final String ID_MSI;
+
 	private static Logger logger;
 	private static SQLServerConnection conn;
 	private static HashMap<String, HashSet<Integer>> noms = new HashMap<>();
@@ -35,6 +37,7 @@ public final class MiseAJourClassesSubstances {
 
 	static {
 		URL_CLASSES = System.getenv("url_classes");
+		ID_MSI = System.getenv("msi_maj");
 		TAILLE_BATCH = BaseDeDonnees.TAILLE_BATCH;
 	}
 		
@@ -43,7 +46,7 @@ public final class MiseAJourClassesSubstances {
 	public static boolean handler (Logger logger) {
 		MiseAJourClassesSubstances.logger = logger;
 		logger.info("Début de la mise à jour des classes de substances");
-		conn = BaseDeDonnees.obtenirConnexion(logger);
+		conn = BaseDeDonnees.obtenirConnexion(ID_MSI, logger);
 		if (conn == null) { return false; }
 		noms = BaseDeDonnees.obtenirNomsSubstances(logger);
 		codes = BaseDeDonnees.obtenirCodesSubstances(logger);

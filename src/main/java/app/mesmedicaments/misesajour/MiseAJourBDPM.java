@@ -26,6 +26,8 @@ public final class MiseAJourBDPM {
 	private static final String URL_FICHIER_BDPM;
 	private static final String URL_FICHIER_COMPO;
 	private static final Integer TAILLE_BATCH; 
+	private static final String ID_MSI;
+
 	private static Logger logger;
 	private static SQLServerConnection conn;
 	
@@ -36,6 +38,7 @@ public final class MiseAJourBDPM {
 		TABLE_NOMS_MEDICAMENTS = System.getenv("table_nomsmedicaments");
 		URL_FICHIER_BDPM = System.getenv("url_cis_bdpm");
 		URL_FICHIER_COMPO = System.getenv("url_cis_compo_bdpm");
+		ID_MSI = System.getenv("msi_maj");
 		TAILLE_BATCH = BaseDeDonnees.TAILLE_BATCH;
 	}
 
@@ -44,7 +47,7 @@ public final class MiseAJourBDPM {
 	public static boolean handler (Logger logger) {
 		MiseAJourBDPM.logger = logger;
 		logger.info("Début de la mise à jour BDPM");
-		conn = BaseDeDonnees.obtenirConnexion(logger);
+		conn = BaseDeDonnees.obtenirConnexion(ID_MSI, logger);
 		if (conn == null) { return false; }
 		if (!majSubstances()) { return false; }
 		if (!majMedicaments()) { return false; }

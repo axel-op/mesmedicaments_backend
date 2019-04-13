@@ -72,6 +72,13 @@
     <dependencies>
 
         <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>[3.0,)</version>
+        </dependency>
+
+
+        <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt</artifactId>
             <version>[0.9,)</version>

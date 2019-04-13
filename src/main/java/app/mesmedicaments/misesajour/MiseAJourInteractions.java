@@ -31,6 +31,7 @@ public final class MiseAJourInteractions {
 	private static final Float TAILLE_DESCRIPTION_PT;
 	private static final Integer TAILLE_BATCH;
 	private static final String TABLE_INTERACTIONS;
+	private static final String ID_MSI;
 
     private static Logger logger;
 	private static SQLServerConnection conn;
@@ -62,6 +63,7 @@ public final class MiseAJourInteractions {
 		TAILLE_DESCRIPTION_PT = (float) 6;
 		TAILLE_BATCH = BaseDeDonnees.TAILLE_BATCH;
 		TABLE_INTERACTIONS = System.getenv("table_interactions");
+		ID_MSI = System.getenv("msi_maj");
 		ignorerLigne = false;
 		correspondancesSubstances = new HashMap<>();
 		classes = new HashMap<>();
@@ -78,7 +80,7 @@ public final class MiseAJourInteractions {
 	public static boolean handler (Logger logger) {
 		MiseAJourInteractions.logger = logger;
 		logger.info("Début de la mise à jour des interactions");
-		conn = BaseDeDonnees.obtenirConnexion(logger);
+		conn = BaseDeDonnees.obtenirConnexion(ID_MSI, logger);
 		if (conn == null) { return false; }
 		interactionsDejaEnvoyees = BaseDeDonnees.obtenirInteractions(logger);
 		substances = BaseDeDonnees.obtenirNomsSubstances(logger);

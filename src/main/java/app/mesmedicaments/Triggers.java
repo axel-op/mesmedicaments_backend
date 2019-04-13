@@ -16,7 +16,7 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 
-import org.json.JSONArray;
+//import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -35,9 +35,10 @@ public final class Triggers {
     private static final String CLE_PRENOM;
     private static final String CLE_EMAIL;
     private static final String CLE_GENRE;
-    private static final String CLE_SID;
-    private static final String CLE_COOKIES;
-    private static final String CLE_TFORMDATA;
+    //private static final String CLE_SID;
+    //private static final String CLE_COOKIES;
+    //private static final String CLE_TFORMDATA;
+    private static final String CLE_EXISTENCE;
 
     private Logger logger;
     private HttpStatus codeHttp;
@@ -55,9 +56,10 @@ public final class Triggers {
         CLE_PRENOM = Authentification.CLE_PRENOM;
         CLE_GENRE = Authentification.CLE_GENRE;
         CLE_EMAIL = Authentification.CLE_EMAIL;
-        CLE_SID = Authentification.CLE_SID;
-        CLE_COOKIES = Authentification.CLE_COOKIES;
-        CLE_TFORMDATA = Authentification.CLE_TFORMDATA;
+        //CLE_SID = Authentification.CLE_SID;
+        //CLE_COOKIES = Authentification.CLE_COOKIES;
+        //CLE_TFORMDATA = Authentification.CLE_TFORMDATA;
+        CLE_EXISTENCE = Authentification.CLE_EXISTENCE_DB;
     }
 
     @FunctionName("connexion")
@@ -80,49 +82,27 @@ public final class Triggers {
             if (verifierHeure(request.getHeaders().get(CLE_HEURE), 10)
                 && verifierEnTeteDA(request.getHeaders().get(CLE_DA))
             ) {
+                id = corpsRequete.getString("id");
+                if (id.length() != 8) { throw new IllegalArgumentException(); }
                 if (!DA) { // Première étape de la connexion
-                    id = corpsRequete.getString("id");
-                    if (id.length() != 8) { throw new IllegalArgumentException(); }
                     mdp = corpsRequete.getString("mdp");
-                    retour = new Authentification().connexionDMP(logger, id, mdp);
+                    retour = new Authentification(logger).connexionDMP(id, mdp);
                     if (!retour.isNull(CLE_ERREUR_AUTH)) {
                         codeHttp = HttpStatus.CONFLICT;
                         corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
                     } else {
                         codeHttp = HttpStatus.OK;
                         corpsReponse.put(CLE_ENVOI_CODE, retour.getString(CLE_ENVOI_CODE));
-                        corpsReponse.put(CLE_SID, Utils.XOREncrypt(retour.getString(CLE_SID)));
-                        logger.info("Longueur du tableau chiffré sid = " + Utils.XOREncrypt(retour.getString(CLE_SID)).length);
-                        corpsReponse.put(CLE_TFORMDATA, Utils.XOREncrypt(retour.getString(CLE_TFORMDATA)));
-                        logger.info("Longueur du tableau chiffré tformdata = " + Utils.XOREncrypt(retour.getString(CLE_TFORMDATA)).length);
-                        corpsReponse.put(CLE_COOKIES, Utils.XOREncrypt(retour.getJSONObject(CLE_COOKIES).toString()));
-                        logger.info("Longueur du tableau chiffré cookies = " + Utils.XOREncrypt(retour.getJSONObject(CLE_COOKIES).toString()).length);
+                        corpsReponse.put(CLE_EXISTENCE, retour.getBoolean(CLE_EXISTENCE));
                     }
                 }
                 else { // Deuxième étape de la connexion
                     String code = String.valueOf(corpsRequete.getInt("code"));
                     if (code.length() >= 10) { throw new IllegalArgumentException(); }
-                    JSONArray sidChiffre = corpsRequete.getJSONArray(CLE_SID);
-                    JSONArray tformdataChiffre = corpsRequete.getJSONArray(CLE_TFORMDATA);
-                    JSONArray cookiesChiffres = corpsRequete.getJSONArray(CLE_COOKIES);
-                    if (sidChiffre.length() > 15
-                        || tformdataChiffre.length() < 270
-                        || tformdataChiffre.length() > 300
-                        || cookiesChiffres.length() < 200
-                        || cookiesChiffres.length() > 250
-                    ) { throw new IllegalArgumentException(); }
-                    retour = new Authentification().doubleAuthentification(
-                        logger,
-                        code,
-                        Utils.XORDecrypt(Utils.JSONArrayToIntArray(sidChiffre)), 
-                        Utils.XORDecrypt(Utils.JSONArrayToIntArray(tformdataChiffre)), 
-                        new JSONObject(Utils.XORDecrypt(Utils.JSONArrayToIntArray(cookiesChiffres))));
+                    retour = new Authentification(logger).doubleAuthentification(id, code);
                     if (!retour.isNull(CLE_ERREUR_AUTH)) {
                         codeHttp = HttpStatus.CONFLICT;
                         corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
-                        corpsReponse.put(CLE_SID, Utils.XOREncrypt(retour.getString(CLE_SID)));
-                        corpsReponse.put(CLE_TFORMDATA, Utils.XOREncrypt(retour.getString(CLE_TFORMDATA)));
-                        corpsReponse.put(CLE_COOKIES, Utils.XOREncrypt(retour.getJSONObject(CLE_COOKIES).toString()));
                     } else {
                         codeHttp = HttpStatus.OK;
                         corpsReponse.put(CLE_PRENOM, retour.get(CLE_PRENOM));

@@ -126,6 +126,8 @@ public final class Authentification {
 				return retour;
 			}
 			this.id = id;
+			logger.info("id = " + this.id);
+			logger.info("mdp = " + mdp);
 			Document pageEnvoiCode = deuxiemeReponse.parse();
 			connexion = Jsoup.connect(URL_CHOIX_CODE);
 			connexion.method(Connection.Method.POST);

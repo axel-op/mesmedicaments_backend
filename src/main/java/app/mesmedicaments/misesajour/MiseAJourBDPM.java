@@ -10,6 +10,8 @@ import java.util.logging.Logger;
 
 import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
+import com.microsoft.sqlserver.jdbc.SQLServerResultSet;
+import com.microsoft.sqlserver.jdbc.SQLServerStatement;
 
 import app.mesmedicaments.BaseDeDonnees;
 import app.mesmedicaments.Utils;
@@ -47,7 +49,7 @@ public final class MiseAJourBDPM {
 	public static boolean handler (Logger logger) {
 		MiseAJourBDPM.logger = logger;
 		logger.info("Début de la mise à jour BDPM");
-		conn = BaseDeDonnees.obtenirConnexion(ID_MSI, logger);
+		conn = BaseDeDonnees.nouvelleConnexion(ID_MSI, logger);
 		if (conn == null) { return false; }
 		if (!majSubstances()) { return false; }
 		if (!majMedicaments()) { return false; }
@@ -55,17 +57,17 @@ public final class MiseAJourBDPM {
 	}
 
     private static boolean majSubstances () {
-		SQLServerCallableStatement cs = null;
 		String requete = "{call projetdmp.ajouterSubstance(?, ?, ?)}";
 		logger.info("Début de la mise à jour des substances");
-		try {
+		try (
+			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(requete);
+		) {
 			String tailleAvant1 = "Taille de la table substances avant la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(TABLE_SUBSTANCES, logger);
+				+ obtenirTailleTable(TABLE_SUBSTANCES);
 			String tailleAvant2 = "Taille de la table noms_substances avant la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(TABLE_NOMS_SUBSTANCES, logger);
+				+ obtenirTailleTable(TABLE_NOMS_SUBSTANCES);
 			long startTime = System.currentTimeMillis();
 			conn.setAutoCommit(false);
-			cs = (SQLServerCallableStatement) conn.prepareCall(requete);
 			BufferedReader liste_substances = importerFichier(URL_FICHIER_COMPO);
 			if (liste_substances == null) { return false; }
 			String ligne;
@@ -97,9 +99,9 @@ public final class MiseAJourBDPM {
 			logger.info(tailleAvant1);
 			logger.info(tailleAvant2);
 			logger.info("Taille de la table substances après la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(TABLE_SUBSTANCES, logger));
+				+ obtenirTailleTable(TABLE_SUBSTANCES));
 			logger.info("Taille de la table noms_substances après la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(TABLE_NOMS_SUBSTANCES, logger));
+				+ obtenirTailleTable(TABLE_NOMS_SUBSTANCES));
 			logger.info("Fin de la mise à jour des substances en " 
 				+ String.valueOf(endTime - startTime) + " ms");
 			try {
@@ -113,25 +115,22 @@ public final class MiseAJourBDPM {
 			Utils.logErreur(e, logger);
 			return false;
         }
-		finally {
-			BaseDeDonnees.fermer(cs);
-		}
 		return true;
     }
 
     private static boolean majMedicaments () {
-		SQLServerCallableStatement cs = null;
 		String requete = "{call projetdmp.ajouterMedicament(?, ?, ?, ?, ?)}";
 		int max = 0;
 		logger.info("Début de la mise à jour des médicaments");
-		try {
+		try (
+			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(requete);
+		) {
 			String tailleAvant1 = "Taille de la table medicaments avant la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(TABLE_MEDICAMENTS, logger);
+				+ obtenirTailleTable(TABLE_MEDICAMENTS);
 			String tailleAvant2 = "Taille de la table noms_medicaments avant la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(TABLE_NOMS_MEDICAMENTS, logger);
+				+ obtenirTailleTable(TABLE_NOMS_MEDICAMENTS);
 			long startTime = System.currentTimeMillis();
 			conn.setAutoCommit(false);
-			cs = (SQLServerCallableStatement) conn.prepareCall(requete);
 			BufferedReader liste_medicaments = importerFichier(URL_FICHIER_BDPM);
 			if (liste_medicaments == null) { return false; }
 			String ligne;
@@ -168,9 +167,9 @@ public final class MiseAJourBDPM {
 			logger.info(tailleAvant1);
 			logger.info(tailleAvant2);
 			logger.info("Taille de la table medicaments après la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(TABLE_MEDICAMENTS, logger));
+				+ obtenirTailleTable(TABLE_MEDICAMENTS));
 			logger.info("Taille de la table noms_medicaments après la mise à jour : " 
-				+ BaseDeDonnees.obtenirTailleTable(TABLE_NOMS_MEDICAMENTS, logger));
+				+ obtenirTailleTable(TABLE_NOMS_MEDICAMENTS));
 			logger.info("Fin de la mise à jour des médicaments en " 
 				+ String.valueOf(endTime - startTime) + " ms");
 			try {
@@ -184,9 +183,6 @@ public final class MiseAJourBDPM {
             Utils.logErreur(e, logger);;
 			return false;
         }
-		finally {
-			BaseDeDonnees.fermer(cs);
-		}
 		return true;
     }
 
@@ -206,6 +202,24 @@ public final class MiseAJourBDPM {
             return null;
         }
 		return br;
-    }
+	}
+	
+	private static Integer obtenirTailleTable (String table) {
+		Integer taille = null;
+		String requete = "SELECT COUNT(*) FROM " + table;
+		try (
+			SQLServerStatement stmt = (SQLServerStatement) conn.createStatement();
+			SQLServerResultSet rs = (SQLServerResultSet) stmt.executeQuery(requete);
+		) {
+			rs.next();
+			taille = rs.getInt(1);
+		}
+		catch (SQLException e) {
+			logger.warning("Erreur lors de la requête tailleTable"
+				+ " pour la table " + table);
+			Utils.logErreur(e, logger);
+		}
+		return taille;
+	}
 
 }

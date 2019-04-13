@@ -15,6 +15,7 @@ import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import com.microsoft.sqlserver.jdbc.SQLServerPreparedStatement;
 
 //import org.json.JSONArray;
 import org.json.JSONException;
@@ -40,13 +41,6 @@ public final class Triggers {
     //private static final String CLE_TFORMDATA;
     private static final String CLE_EXISTENCE;
 
-    private Logger logger;
-    private HttpStatus codeHttp;
-    private Boolean DA;
-    private JSONObject corpsReponse;
-    private JSONObject retour;
-    private JSONObject corpsRequete;
-
     static {
         CLE_CAUSE = "cause";
         CLE_HEURE = "heure";
@@ -61,6 +55,13 @@ public final class Triggers {
         //CLE_TFORMDATA = Authentification.CLE_TFORMDATA;
         CLE_EXISTENCE = Authentification.CLE_EXISTENCE_DB;
     }
+
+    private Logger logger;
+    private HttpStatus codeHttp;
+    private Boolean DA;
+    private JSONObject corpsReponse;
+    private JSONObject retour;
+    private JSONObject corpsRequete;
 
     @FunctionName("connexion")
     public HttpResponseMessage connexion (
@@ -78,40 +79,38 @@ public final class Triggers {
         retour = new JSONObject();
         logger = context.getLogger();
         try {
+            if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 10)
+                || !verifierEnTeteDA(request.getHeaders().get(CLE_DA))
+            ) { throw new IllegalArgumentException(); }
             corpsRequete = new JSONObject(request.getBody().get());
-            if (verifierHeure(request.getHeaders().get(CLE_HEURE), 10)
-                && verifierEnTeteDA(request.getHeaders().get(CLE_DA))
-            ) {
-                id = corpsRequete.getString("id");
-                if (id.length() != 8) { throw new IllegalArgumentException(); }
-                if (!DA) { // Première étape de la connexion
-                    mdp = corpsRequete.getString("mdp");
-                    retour = new Authentification(logger).connexionDMP(id, mdp);
-                    if (!retour.isNull(CLE_ERREUR_AUTH)) {
-                        codeHttp = HttpStatus.CONFLICT;
-                        corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
-                    } else {
-                        codeHttp = HttpStatus.OK;
-                        corpsReponse.put(CLE_ENVOI_CODE, retour.getString(CLE_ENVOI_CODE));
-                        corpsReponse.put(CLE_EXISTENCE, retour.getBoolean(CLE_EXISTENCE));
-                    }
-                }
-                else { // Deuxième étape de la connexion
-                    String code = String.valueOf(corpsRequete.getInt("code"));
-                    if (code.length() >= 10) { throw new IllegalArgumentException(); }
-                    retour = new Authentification(logger).doubleAuthentification(id, code);
-                    if (!retour.isNull(CLE_ERREUR_AUTH)) {
-                        codeHttp = HttpStatus.CONFLICT;
-                        corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
-                    } else {
-                        codeHttp = HttpStatus.OK;
-                        corpsReponse.put(CLE_PRENOM, retour.get(CLE_PRENOM));
-                        corpsReponse.put(CLE_EMAIL, retour.get(CLE_EMAIL));
-                        corpsReponse.put(CLE_GENRE, retour.get(CLE_GENRE));
-                    }
+            id = corpsRequete.getString("id");
+            if (id.length() != 8) { throw new IllegalArgumentException(); }
+            if (!DA) { // Première étape de la connexion
+                mdp = corpsRequete.getString("mdp");
+                retour = new Authentification(logger).connexionDMP(id, mdp);
+                if (!retour.isNull(CLE_ERREUR_AUTH)) {
+                    codeHttp = HttpStatus.CONFLICT;
+                    corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
+                } else {
+                    codeHttp = HttpStatus.OK;
+                    corpsReponse.put(CLE_ENVOI_CODE, retour.getString(CLE_ENVOI_CODE));
+                    corpsReponse.put(CLE_EXISTENCE, retour.getBoolean(CLE_EXISTENCE));
                 }
             }
-            else { throw new IllegalArgumentException(); }
+            else { // Deuxième étape de la connexion
+                String code = String.valueOf(corpsRequete.getInt("code"));
+                if (code.length() >= 10) { throw new IllegalArgumentException(); }
+                retour = new Authentification(logger).doubleAuthentification(id, code);
+                if (!retour.isNull(CLE_ERREUR_AUTH)) {
+                    codeHttp = HttpStatus.CONFLICT;
+                    corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
+                } else {
+                    codeHttp = HttpStatus.OK;
+                    corpsReponse.put(CLE_PRENOM, retour.get(CLE_PRENOM));
+                    corpsReponse.put(CLE_EMAIL, retour.get(CLE_EMAIL));
+                    corpsReponse.put(CLE_GENRE, retour.get(CLE_GENRE));
+                }
+            }
         }
         catch (JSONException 
             | NullPointerException 
@@ -127,6 +126,37 @@ public final class Triggers {
             .body(corpsReponse)
             .build();
     }
+
+    /*@FunctionName("inscription")
+    public HttpResponseMessage inscription (
+        @HttpTrigger(
+            name = "inscriptionTrigger",
+            dataType = "string",
+            authLevel = AuthorizationLevel.FUNCTION,
+            methods = {HttpMethod.POST})
+        final HttpRequestMessage<Optional<String>> request,
+        final ExecutionContext context
+    ) {
+        String id;
+        String prenom;
+        String email;
+        SQLServerPreparedStatement ps;
+        corpsReponse = new JSONObject();
+        retour = new JSONObject();
+        logger = context.getLogger();
+        try {
+            // vérifier le jeton
+            id = corpsRequete.getString("id");
+            prenom = corpsRequete.getString("prenom");
+            email = corpsRequete.getString("email");
+            if (id.length() != 8
+                || prenom.length() > 30
+                || email.length() > 128
+            ) { throw new IllegalArgumentException(); }
+
+        }
+        return null;
+    }*/
 
     @FunctionName("mettreAJourBases")
     public HttpResponseMessage mettreAJourBases (
@@ -200,7 +230,6 @@ public final class Triggers {
         final HttpRequestMessage<Optional<String>> request,
         final ExecutionContext context
     ) {
-        BaseDeDonnees.obtenirConnexion(System.getenv("msi_auth"), context.getLogger());
         return request.createResponseBuilder(HttpStatus.OK)
             .body("Pong").build();
     }

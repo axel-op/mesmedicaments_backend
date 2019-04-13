@@ -7,7 +7,6 @@ import java.util.Iterator;
 import java.util.logging.Logger;
 
 import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
-import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 
 import org.json.JSONObject;
 import org.jsoup.Connection;
@@ -46,14 +45,6 @@ public final class Authentification {
 	private static final String ID_MSI;
 	private static final Jedis CONN_REDIS; 
 
-	private static SQLServerConnection connDB;
-
-	// Champs d'instance
-	private HashMap<String, String> cookies;
-	private JSONObject retour;
-	private Logger logger;
-	private String id;
-
 	static {
 		ERR_INTERNE = "interne";
 		ERR_ID = "mauvais identifiants";
@@ -82,19 +73,20 @@ public final class Authentification {
 		CONN_REDIS = new Jedis(shardInfo);
 	}
 
+	private HashMap<String, String> cookies;
+	private JSONObject retour;
+	private Logger logger;
+	private String id;
+
 	public Authentification (Logger logger) {
 		this.logger = logger;
 		cookies = new HashMap<>();
 		retour = new JSONObject();
-		if (connDB == null) {
-			connDB = BaseDeDonnees.obtenirConnexion(ID_MSI, logger);
-		}
 	}
 
 	public JSONObject connexionDMP (String id, String mdp) {
 		Document pageSaisieCode;
 		Connection connexion;
-		SQLServerCallableStatement cs;
 		String requete = "{call projetdmp.authentifierUtilisateur (?, ?, ?)}";
 		try {
 			connexion = Jsoup.connect(URL_CONNEXION_DMP);
@@ -161,24 +153,26 @@ public final class Authentification {
 			reponse = connexion.response();
 			pageSaisieCode = reponse.parse();
 			stockerElementsConnexion(pageSaisieCode);
-			cs = (SQLServerCallableStatement) connDB.prepareCall(requete);
-			cs.setString(1, id);
-			cs.setString(2, mdp);
-			cs.registerOutParameter(3, java.sql.Types.BIT);
-			cs.execute();
-			retour.put(CLE_EXISTENCE_DB, cs.getInt(3) == 1);
-		}
-		catch (SQLException e) {
-			Utils.logErreur(e, logger);
-			retour.put(CLE_ERREUR, ERR_SQL);
-		}
-		catch (IOException e) {
+		} catch (IOException e) {
 			Utils.logErreur(e, logger);
 			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}
 		catch (Exception e) {
 			Utils.logErreur(e, logger);
 			retour.put(CLE_ERREUR, ERR_INTERNE);
+		}
+		try (
+			java.sql.Connection connDB = BaseDeDonnees.nouvelleConnexion(ID_MSI, logger);
+			SQLServerCallableStatement cs = (SQLServerCallableStatement) connDB.prepareCall(requete);
+		) {
+			cs.setString(1, id);
+			cs.setString(2, mdp);
+			cs.registerOutParameter(3, java.sql.Types.BIT);
+			cs.execute();
+			retour.put(CLE_EXISTENCE_DB, cs.getInt(3) == 1);
+		} catch (SQLException e) {
+			Utils.logErreur(e, logger);
+			retour.put(CLE_ERREUR, ERR_SQL);
 		}
 		return retour;
 	}

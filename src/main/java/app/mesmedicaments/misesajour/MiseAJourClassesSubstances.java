@@ -14,6 +14,8 @@ import javax.net.ssl.HttpsURLConnection;
 
 import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
+import com.microsoft.sqlserver.jdbc.SQLServerResultSet;
+import com.microsoft.sqlserver.jdbc.SQLServerStatement;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -25,12 +27,13 @@ public final class MiseAJourClassesSubstances {
 
 	private static final String URL_CLASSES;
 	private static final Integer TAILLE_BATCH;
+	private static final String TABLE_NOMS_SUBSTANCES;
 	private static final String ID_MSI;
 
 	private static Logger logger;
 	private static SQLServerConnection conn;
-	private static HashMap<String, HashSet<Integer>> noms = new HashMap<>();
-	private static HashMap<Integer, String> codes = new HashMap<>();
+	private static HashMap<String, HashSet<Integer>> nomsSubstances = new HashMap<>();
+	private static HashMap<Integer, String> codesSubstances = new HashMap<>();
 	private static HashMap<Integer, Integer> majEnAttente = new HashMap<>();
 	private static HashMap<Integer, String> classes = new HashMap<>();
 	private static HashMap<String, HashSet<Integer>> cacheRecherche = new HashMap<>();
@@ -39,6 +42,7 @@ public final class MiseAJourClassesSubstances {
 		URL_CLASSES = System.getenv("url_classes");
 		ID_MSI = System.getenv("msi_maj");
 		TAILLE_BATCH = BaseDeDonnees.TAILLE_BATCH;
+		TABLE_NOMS_SUBSTANCES = System.getenv("table_nomssubstances");
 	}
 		
 	private MiseAJourClassesSubstances () {}
@@ -46,11 +50,10 @@ public final class MiseAJourClassesSubstances {
 	public static boolean handler (Logger logger) {
 		MiseAJourClassesSubstances.logger = logger;
 		logger.info("Début de la mise à jour des classes de substances");
-		conn = BaseDeDonnees.obtenirConnexion(ID_MSI, logger);
+		conn = BaseDeDonnees.nouvelleConnexion(ID_MSI, logger);
 		if (conn == null) { return false; }
-		noms = BaseDeDonnees.obtenirNomsSubstances(logger);
-		codes = BaseDeDonnees.obtenirCodesSubstances(logger);
-		if (noms.isEmpty() || codes.isEmpty()) { return false; }
+		importerSubstances();
+		if (nomsSubstances.isEmpty() || codesSubstances.isEmpty()) { return false; }
 		if (!importerClasses()) { return false; }
 		if (!mettreAJourClasses()) { return false; }
 		return true;
@@ -125,11 +128,11 @@ public final class MiseAJourClassesSubstances {
 	}
 
 	private static Integer obtenirIdClasse (String classe) {
-		SQLServerCallableStatement cs = null;
 		Integer id = null;
 		String requete = "{call projetdmp.obtenirIdClasse(?, ?)}";
-		try {
-			cs = (SQLServerCallableStatement) conn.prepareCall(requete);
+		try (
+			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(requete);
+		) {
 			cs.setString(1, classe);
 			cs.registerOutParameter(2, java.sql.Types.SMALLINT);
 			cs.execute();
@@ -137,26 +140,24 @@ public final class MiseAJourClassesSubstances {
 		} catch (SQLException e) {
 			Utils.logErreur(e, logger);
 		} finally {
-			BaseDeDonnees.fermer(cs);
 			if (id == null || id == 0) {
 				logger.warning("Impossible d'obtenir l'id de la classe " + classe
-					+ ". La procédure SQL a retourné " + id
-				);
+					+ ". La procédure SQL a retourné " + id);
 			}
 		}
 		return id;
 	}
 
 	private static boolean mettreAJourClasses () {
-		SQLServerCallableStatement cs = null;
 		String requete = "{call projetdmp.mettreAJourClasse(?, ?, ?)}";
 		int c = 0;
 		long dureeMoyenne = 0;
 		long startTime = System.currentTimeMillis();
-		try {
+		try (
+			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(requete);
+		) {
 			for (Integer codesubstance : majEnAttente.keySet()) {
 				Integer idclasse = majEnAttente.get(codesubstance);
-				cs = (SQLServerCallableStatement) conn.prepareCall(requete);
 				cs.setInt(1, codesubstance);
 				cs.setInt(2, idclasse);
 				cs.setInt(3, 0);
@@ -187,8 +188,6 @@ public final class MiseAJourClassesSubstances {
 		} catch (SQLException e) {
 			Utils.logErreur(e, logger);
 			return false;
-		} finally {
-			BaseDeDonnees.fermer(cs);
 		}
 		return true;
 	}
@@ -198,9 +197,9 @@ public final class MiseAJourClassesSubstances {
 		HashSet<Integer> resultats = cacheRecherche.get(recherche);
 		if (resultats == null) {
 			resultats = new HashSet<Integer>();
-			for (String nom : noms.keySet()) {
+			for (String nom : nomsSubstances.keySet()) {
 				if (normaliser(nom).matches("(?i:.*" + recherche + ".*)")) { 
-					resultats.addAll(noms.get(nom)); 
+					resultats.addAll(nomsSubstances.get(nom)); 
 				}
 			}
 			cacheRecherche.put(recherche, resultats);
@@ -216,5 +215,32 @@ public final class MiseAJourClassesSubstances {
 			original = original.trim();
 			original = original.replaceAll("  ", " ");
 			return original;
+	}
+
+	private static void importerSubstances () {
+		String requete = "SELECT nom, codesubstance FROM " + TABLE_NOMS_SUBSTANCES;
+		try (
+			SQLServerStatement statement = (SQLServerStatement) conn.createStatement();
+			SQLServerResultSet resultset = (SQLServerResultSet) statement.executeQuery(requete);
+		) {
+			while (resultset.next()) {
+				String nom = resultset.getString(1);
+				Integer code = resultset.getInt(2);
+				if (nomsSubstances.containsKey(nom)) { nomsSubstances.get(nom).add(code); }
+				else {
+					HashSet<Integer> nouveauset = new HashSet<>();
+					nouveauset.add(code);
+					nomsSubstances.put(nom, nouveauset);
+				}
+				codesSubstances.put(code, nom);
+			}
+		} 
+		catch (SQLException e) {
+			logger.warning("Erreur lors de l'importation des substances");
+			Utils.logErreur(e, logger);
+		}
+		logger.info("Substances importées : "
+			+ Utils.NEWLINE + "taille du HashSet noms = " + nomsSubstances.size()
+			+ Utils.NEWLINE + "taille du HashSet codes = " + codesSubstances.size());
 	}
 }

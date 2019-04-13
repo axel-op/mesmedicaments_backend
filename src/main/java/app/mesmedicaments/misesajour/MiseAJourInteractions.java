@@ -15,6 +15,8 @@ import javax.net.ssl.HttpsURLConnection;
 
 import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
+import com.microsoft.sqlserver.jdbc.SQLServerResultSet;
+import com.microsoft.sqlserver.jdbc.SQLServerStatement;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -31,7 +33,9 @@ public final class MiseAJourInteractions {
 	private static final Float TAILLE_DESCRIPTION_PT;
 	private static final Integer TAILLE_BATCH;
 	private static final String TABLE_INTERACTIONS;
+	private static final String TABLE_NOMS_SUBSTANCES;
 	private static final String ID_MSI;
+	private static final String REQUETE;
 
     private static Logger logger;
 	private static SQLServerConnection conn;
@@ -53,8 +57,6 @@ public final class MiseAJourInteractions {
 	private static boolean reussite;
 	private static int compteurBatch;
 	private static long dureeMoyenne;
-	private static String requete;
-	private static SQLServerCallableStatement callableStatement;
 
 	static {
 		CHARSET_1252 = Charset.forName("cp1252");
@@ -63,6 +65,7 @@ public final class MiseAJourInteractions {
 		TAILLE_DESCRIPTION_PT = (float) 6;
 		TAILLE_BATCH = BaseDeDonnees.TAILLE_BATCH;
 		TABLE_INTERACTIONS = System.getenv("table_interactions");
+		TABLE_NOMS_SUBSTANCES = System.getenv("table_nomssubstances");
 		ID_MSI = System.getenv("msi_maj");
 		ignorerLigne = false;
 		correspondancesSubstances = new HashMap<>();
@@ -72,7 +75,7 @@ public final class MiseAJourInteractions {
 		reussite = true;
 		compteurBatch = 0;
 		dureeMoyenne = 0;
-		requete = "{call projetdmp.ajouterInteraction(?, ?, ?, ?, ?, ?)}";
+		REQUETE = "{call projetdmp.ajouterInteraction(?, ?, ?, ?, ?, ?)}";
 	}
 
 	private MiseAJourInteractions () {}
@@ -80,31 +83,32 @@ public final class MiseAJourInteractions {
 	public static boolean handler (Logger logger) {
 		MiseAJourInteractions.logger = logger;
 		logger.info("Début de la mise à jour des interactions");
-		conn = BaseDeDonnees.obtenirConnexion(ID_MSI, logger);
+		conn = BaseDeDonnees.nouvelleConnexion(ID_MSI, logger);
 		if (conn == null) { return false; }
-		interactionsDejaEnvoyees = BaseDeDonnees.obtenirInteractions(logger);
-		substances = BaseDeDonnees.obtenirNomsSubstances(logger);
+		importerInteractions();
+		importerSubstances();
 		if (substances.isEmpty()) { return false; }
 		try { 
 			conn.setAutoCommit(false);
-			callableStatement = (SQLServerCallableStatement) conn.prepareCall(requete);
 		}
 		catch (SQLException e) {
 			Utils.logErreur(e, logger);
 			return false;
 		}
 		String tailleAvant = "Taille de la table " + TABLE_INTERACTIONS + " avant mise à jour : " 
-			+ BaseDeDonnees.obtenirTailleTable(TABLE_INTERACTIONS, logger);
+			+ obtenirTailleTable(TABLE_INTERACTIONS);
 		nouveauxChamps();
 		if (!mettreAJourInteractions()) { return false; }
-		try {
+		try (
+			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(REQUETE);
+		) {
 			logger.info("Execution batch SQL avec " 
 				+ String.valueOf(compteurBatch % TAILLE_BATCH) + " requêtes");
-			callableStatement.executeBatch();
+			cs.executeBatch();
 			conn.commit();
             logger.info(tailleAvant);
             logger.info("Taille de la table " + TABLE_INTERACTIONS + " après mise à jour : " 
-                + BaseDeDonnees.obtenirTailleTable(TABLE_INTERACTIONS, logger));
+                + obtenirTailleTable(TABLE_INTERACTIONS));
 			try {
 				logger.info("Durée moyenne de l'exécution d'un batch de "
 					+ TAILLE_BATCH + " requêtes : "
@@ -116,7 +120,6 @@ public final class MiseAJourInteractions {
 			Utils.logErreur(e, logger);
 			return false;
 		}
-		BaseDeDonnees.fermer(callableStatement);
 		return true;
 	}
 
@@ -346,25 +349,27 @@ public final class MiseAJourInteractions {
 	}
 	
 	private static boolean exporterInteraction (String[] interaction) {
-		try {
+		try (
+			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(REQUETE);
+		) {
 			Long id = Long.parseLong(interaction[0]);
 			Integer risque = Integer.parseInt(interaction[1]);
 			if (interactionsDejaEnvoyees.get(id) == null
 				|| interactionsDejaEnvoyees.get(id) < risque) {
-				callableStatement.setLong(1, id);
-				callableStatement.setInt(2, Integer.parseInt(interaction[2]));
-				callableStatement.setInt(3, Integer.parseInt(interaction[3]));
-				callableStatement.setInt(4, risque);
-				callableStatement.setString(5, interaction[4]);
-				callableStatement.setString(6, interaction[5]);
-				callableStatement.addBatch();
+				cs.setLong(1, id);
+				cs.setInt(2, Integer.parseInt(interaction[2]));
+				cs.setInt(3, Integer.parseInt(interaction[3]));
+				cs.setInt(4, risque);
+				cs.setString(5, interaction[4]);
+				cs.setString(6, interaction[5]);
+				cs.addBatch();
 				compteurBatch++;
 				if (compteurBatch % TAILLE_BATCH == 0) {
 					logger.info("Execution batch de "
 						+ TAILLE_BATCH + " requêtes (" 
 						+ String.valueOf(compteurBatch / TAILLE_BATCH) + ")" );
 					long start = System.currentTimeMillis();
-					callableStatement.executeBatch();
+					cs.executeBatch();
 					dureeMoyenne += System.currentTimeMillis() - start;
 				}
 			}
@@ -558,5 +563,67 @@ public final class MiseAJourInteractions {
 		s = s.trim();
 		s = s.replaceAll("  ", " ");
 		return s;
-    }
+	}
+	
+	private static void importerInteractions () {
+		String requete = "SELECT id, risque FROM " + TABLE_INTERACTIONS;
+		try (
+			SQLServerStatement statement = (SQLServerStatement) conn.createStatement();
+			SQLServerResultSet resultset = (SQLServerResultSet) statement.executeQuery(requete);
+		) {
+			while (resultset.next()) {
+				Long id = resultset.getLong(1);
+				Integer risque = resultset.getInt(2);
+				interactionsDejaEnvoyees.put(id, risque);
+			}
+		}
+		catch (SQLException e) {
+			logger.warning("Erreur lors de l'importation des interactions");
+			Utils.logErreur(e, logger);
+		}
+		logger.info(interactionsDejaEnvoyees.size() + " interactions importées");
+	}
+
+	private static void importerSubstances () {
+		String requete = "SELECT nom, codesubstance FROM " + TABLE_NOMS_SUBSTANCES;
+		try (
+			SQLServerStatement statement = (SQLServerStatement) conn.createStatement();
+			SQLServerResultSet resultset = (SQLServerResultSet) statement.executeQuery(requete);
+		) {
+			while (resultset.next()) {
+				String nom = resultset.getString(1);
+				Integer code = resultset.getInt(2);
+				if (substances.containsKey(nom)) { substances.get(nom).add(code); }
+				else {
+					HashSet<Integer> nouveauset = new HashSet<>();
+					nouveauset.add(code);
+					substances.put(nom, nouveauset);
+				}
+			}
+		} 
+		catch (SQLException e) {
+			logger.warning("Erreur lors de l'importation des substances");
+			Utils.logErreur(e, logger);
+		}
+		logger.info("Substances importées : "
+			+ Utils.NEWLINE + "taille du HashSet noms = " + substances.size());
+	}
+
+	private static Integer obtenirTailleTable (String table) {
+		Integer taille = null;
+		String requete = "SELECT COUNT(*) FROM " + table;
+		try (
+			SQLServerStatement stmt = (SQLServerStatement) conn.createStatement();
+			SQLServerResultSet rs = (SQLServerResultSet) stmt.executeQuery(requete);
+		) {
+			rs.next();
+			taille = rs.getInt(1);
+		}
+		catch (SQLException e) {
+			logger.warning("Erreur lors de la requête tailleTable"
+				+ " pour la table " + table);
+			Utils.logErreur(e, logger);
+		}
+		return taille;
+	}
 }

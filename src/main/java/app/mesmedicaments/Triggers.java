@@ -200,6 +200,7 @@ public final class Triggers {
         final HttpRequestMessage<Optional<String>> request,
         final ExecutionContext context
     ) {
+        BaseDeDonnees.obtenirConnexion(System.getenv("msi_auth"), context.getLogger());
         return request.createResponseBuilder(HttpStatus.OK)
             .body("Pong").build();
     }

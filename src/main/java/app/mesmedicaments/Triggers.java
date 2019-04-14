@@ -89,7 +89,8 @@ public final class Triggers {
             ) { throw new IllegalArgumentException(); }
             JSONObject corpsRequete = new JSONObject(request.getBody().get());
             id = corpsRequete.getString("id");
-            mdp = corpsRequete.getString("mdp");
+            try { mdp = corpsRequete.getString("mdp"); }
+            catch (JSONException e) { mdp = ""; }
             if (id.length() != 8
                 || mdp.length() > 128) { throw new IllegalArgumentException(); }
             if (!DA) { // Première étape de la connexion
@@ -100,7 +101,7 @@ public final class Triggers {
                 } else {
                     codeHttp = HttpStatus.OK;
                     corpsReponse.put(CLE_ENVOI_CODE, retour.getString(CLE_ENVOI_CODE));
-                    corpsReponse.put(CLE_EXISTENCE, retour.getBoolean(CLE_EXISTENCE));
+                    //corpsReponse.put(CLE_EXISTENCE, retour.getBoolean(CLE_EXISTENCE));
                 }
             }
             else { // Deuxième étape de la connexion

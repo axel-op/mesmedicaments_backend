@@ -1,22 +1,35 @@
 package app.mesmedicaments.connexion;
 
 import java.io.IOException;
-import java.sql.SQLException;
+import java.net.URISyntaxException;
+import java.security.InvalidKeyException;
+//import java.sql.SQLException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
-import java.util.Iterator;
+//import java.util.Iterator;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
-import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
+import com.microsoft.azure.storage.CloudStorageAccount;
+import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.table.CloudTable;
+import com.microsoft.azure.storage.table.DynamicTableEntity;
+//import com.microsoft.azure.storage.table.EntityProperty;
+import com.microsoft.azure.storage.table.TableOperation;
+//import com.microsoft.azure.storage.table.TableResult;
+//import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
+//import com.microsoft.sqlserver.jdbc.SQLServerConnection;
+//import com.microsoft.sqlserver.jdbc.SQLServerPreparedStatement;
 
 import org.json.JSONObject;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
-import app.mesmedicaments.BaseDeDonnees;
+//import app.mesmedicaments.BaseDeDonnees;
+import app.mesmedicaments.JSONObjectUneCle;
 import app.mesmedicaments.Utils;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisShardInfo;
 
 public final class Authentification {
 
@@ -42,9 +55,9 @@ public final class Authentification {
 	private static final String URL_POST_FORM_DMP;
 	private static final String URL_ENVOI_CODE;
 	private static final String URL_INFOS_DMP;
-	private static final String ID_MSI;
-	private static final Jedis CONN_REDIS; 
-
+	//private static final String ID_MSI;
+	//private static final String TABLE_UTILISATEURS;
+	
 	static {
 		ERR_INTERNE = "interne";
 		ERR_ID = "mauvais identifiants";
@@ -58,7 +71,8 @@ public final class Authentification {
 		URL_POST_FORM_DMP = System.getenv("url_post_form_dmp");
 		URL_ENVOI_CODE = System.getenv("url_post_envoi_code");
 		URL_INFOS_DMP = System.getenv("url_infos_dmp");
-		ID_MSI = System.getenv("msi_auth");
+		//ID_MSI = System.getenv("msi_auth");
+		//TABLE_UTILISATEURS = System.getenv("table_utilisateurs");
 		CLE_ERREUR = "erreur";
 		CLE_ENVOI_CODE = "envoiCode";
 		CLE_COOKIES = "cookies";
@@ -68,58 +82,72 @@ public final class Authentification {
 		CLE_EMAIL = "email";
 		CLE_GENRE = "genre";
 		CLE_EXISTENCE_DB = "existence";
-		JedisShardInfo shardInfo = new JedisShardInfo(System.getenv("redis_hostname"), 6380, true);
-		shardInfo.setPassword(System.getenv("redis_key"));
-		CONN_REDIS = new Jedis(shardInfo);
+	}
+	
+	//private final CloudTableClient clientTablesAzure;
+	private final CloudTable CLOUDTABLE_UTILISATEURS;
+	private final String CLE_PARTITION_CONNEXIONS;
+	private final String CLE_PARTITION_INSCRIPTIONS;
+	private final String CLE_PARTITION_INFORMATIONS;
+	private Logger logger;
+	
+	public Authentification (Logger logger) throws InvalidKeyException, URISyntaxException, StorageException {
+		this.logger = logger;
+		CLOUDTABLE_UTILISATEURS = CloudStorageAccount
+			.parse(System.getenv("connexion_tablesazure")) //////////
+			.createCloudTableClient()
+			.getTableReference(System.getenv("tableazure_utilisateurs")); //////////
+		CLE_PARTITION_CONNEXIONS = System.getenv("clepartition_connexions"); //////////
+		CLE_PARTITION_INSCRIPTIONS = System.getenv("clepartition_inscriptions"); //////////
+		CLE_PARTITION_INFORMATIONS = System.getenv("clepartition_informations"); //////////
 	}
 
-	private HashMap<String, String> cookies;
-	private JSONObject retour;
-	private Logger logger;
-	private String id;
-
-	public Authentification (Logger logger) {
-		this.logger = logger;
-		cookies = new HashMap<>();
-		retour = new JSONObject();
+	public boolean inscription (String id, String prenom, String email) {
+		/*try (
+            SQLServerConnection conn = BaseDeDonnees.nouvelleConnexion(System.getenv("msi_auth"), logger);
+            SQLServerPreparedStatement ps = (SQLServerPreparedStatement) conn.prepareStatement(
+                "INSERT INTO " + TABLE_UTILISATEURS
+                + " (prenom, mail) VALUES (?, ?)"
+                + " WHERE id = ?");
+        ) {
+			ps.setString(1, prenom);
+            ps.setString(2, email);
+            ps.setString(3, id);
+			ps.executeUpdate();
+		}
+		catch (SQLException e) {
+			Utils.logErreur(e, logger);
+			return false;
+		}*/
+		return true;
 	}
 
 	public JSONObject connexionDMP (String id, String mdp) {
 		Document pageSaisieCode;
 		Connection connexion;
-		String requete = "{call projetdmp.authentifierUtilisateur (?, ?, ?)}";
+		JSONObject retour = new JSONObject();
+		//String requete = "{call projetdmp.authentifierUtilisateur (?, ?, ?)}";
 		try {
 			connexion = Jsoup.connect(URL_CONNEXION_DMP);
 			connexion.method(Connection.Method.GET)
 				.execute(); 
 			Connection.Response reponse = connexion.response();
-			cookies = new HashMap<String, String>(reponse.cookies());
+			HashMap<String, String> cookies = new HashMap<>(reponse.cookies());
 			Document htmlId = reponse.parse();
 			connexion = Jsoup.connect(URL_POST_FORM_DMP);
 			connexion.method(Connection.Method.POST)
 				.data("login", id)
 				.data("password", mdp)
-				.data("sid", htmlId
-					.getElementsByAttributeValue("name", "sid")
-					.first()
-					.val()) 
-				.data("t:formdata", htmlId
-					.getElementsByAttributeValue("name", "t:formdata")
-					.first()
-					.val())
-				.userAgent(USERAGENT)
+				.data("sid", obtenirSid(htmlId)) 
+				.data("t:formdata", obtenirTformdata(htmlId))
 				.cookies(cookies)
+				.userAgent(USERAGENT)
 				.execute();
 			Connection.Response deuxiemeReponse = connexion.response();
 			if (reponse.url().equals(deuxiemeReponse.url())) { 
 				logger.info("La connexion a échoué (mauvais identifiants)");
-				retour = new JSONObject();
-				retour.put(CLE_ERREUR, ERR_ID);
-				return retour;
+				return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
 			}
-			this.id = id;
-			logger.info("id = " + this.id);
-			logger.info("mdp = " + mdp);
 			Document pageEnvoiCode = deuxiemeReponse.parse();
 			connexion = Jsoup.connect(URL_CHOIX_CODE);
 			connexion.method(Connection.Method.POST);
@@ -132,36 +160,24 @@ public final class Authentification {
 				retour.put(CLE_ENVOI_CODE, ENVOI_MAIL);
 			}
 			else { 
-				logger.info("Aucun choix d'envoi du second code disponible");
-				retour = new JSONObject();
 				//Envoyer une notification et enregistrer le HTML
 				logger.severe("Aucun choix d'envoi du second code disponible");
-				retour.put(CLE_ERREUR, ERR_INTERNE);
-				return retour;
+				return new JSONObjectUneCle(CLE_ERREUR, ERR_INTERNE);
 			}
-			connexion.data("sid", pageEnvoiCode
-					.getElementsByAttributeValue("name", "sid")
-					.first()
-					.val())
-				.data("t:formdata", pageEnvoiCode
-					.getElementsByAttributeValue("name", "t:formdata")
-					.first()
-					.val())
+			connexion
+				.data("sid", obtenirSid(pageEnvoiCode))
+				.data("t:formdata", obtenirTformdata(pageEnvoiCode))
 				.userAgent(USERAGENT)
 				.cookies(cookies)
 				.execute();
 			reponse = connexion.response();
 			pageSaisieCode = reponse.parse();
-			stockerElementsConnexion(pageSaisieCode);
-		} catch (IOException e) {
+			stockerElementsSession(pageSaisieCode, id, cookies);
+		} catch (IOException | StorageException e) {
 			Utils.logErreur(e, logger);
 			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}
-		catch (Exception e) {
-			Utils.logErreur(e, logger);
-			retour.put(CLE_ERREUR, ERR_INTERNE);
-		}
-		try (
+		/*try (
 			java.sql.Connection connDB = BaseDeDonnees.nouvelleConnexion(ID_MSI, logger);
 			SQLServerCallableStatement cs = (SQLServerCallableStatement) connDB.prepareCall(requete);
 		) {
@@ -173,40 +189,50 @@ public final class Authentification {
 		} catch (SQLException e) {
 			Utils.logErreur(e, logger);
 			retour.put(CLE_ERREUR, ERR_SQL);
+		}*/
+		try {
+			retour.put(CLE_EXISTENCE_DB, stockerInfosUtilisateur(id, mdp, null, null));
+		}
+		catch (StorageException e) {
+			Utils.logErreur(e, logger);
+			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}
 		return retour;
 	}
 
-	public JSONObject doubleAuthentification (String id, String code) throws IllegalArgumentException {
+	public JSONObject doubleAuthentification (String id, String code) throws IllegalArgumentException, TimeoutException {
 		/*** Instaurer un contrôle pour mdp ***/
-		String cle = "auth:" + id;
-		if (!CONN_REDIS.exists(cle)) { throw new IllegalArgumentException(); }
-		HashMap<String, String> cache = new HashMap<>(CONN_REDIS.hgetAll(cle));
-		JSONObject cookiesJson = new JSONObject(cache.get(CLE_COOKIES));
-		Iterator<String> iterCookies = cookiesJson.keys();
+		JSONObject retour = new JSONObject();
+		EntiteConnexion entite = obtenirEntiteConnexion(id);
+		if (entite == null) { throw new IllegalArgumentException(); }
+		ZoneId timezone = ZoneId.of("ECT", ZoneId.SHORT_IDS);
+		LocalDateTime timestamp = LocalDateTime.ofInstant(
+			entite.getTimestamp().toInstant(), timezone);
+		LocalDateTime maintenant = LocalDateTime.now(timezone);
+		if (maintenant.minusMinutes(10).isAfter(timestamp)) { 
+			throw new TimeoutException(); 
+		}
+		HashMap<String, String> cookies = entite.getCookies();
+		/*Iterator<String> iterCookies = cookiesJson.keys();
 		while (iterCookies.hasNext()) {
 			String cookie = iterCookies.next();
 			cookies.put(cookie, cookiesJson.getString(cookie));
-		}
+		}*/
 		try {
 			Connection formCode = Jsoup.connect(URL_ENVOI_CODE);
 			formCode.method(Connection.Method.POST)
-				.data("sid", cache.get(CLE_SID))
-				.data("t:formdata", cache.get(CLE_TFORMDATA))
+				.data("sid", entite.getSid())
+				.data("t:formdata", entite.getTformdata())
+				.data("ipCode", code)
 				.userAgent(USERAGENT)
 				.cookies(cookies)
-				.data("ipCode", code)
 				.execute();
 			Connection.Response reponse = formCode.response();
-			logger.info("URL de la réponse suite à la tentative de DA : " 
-				+ reponse.url().toString());
 			if (!reponse.url().toString().matches(REGEX_ACCUEIL)) {
-				retour = new JSONObject();
-				stockerElementsConnexion(reponse.parse());
-				retour.put(CLE_ERREUR, ERR_ID);
-				return retour;
+				stockerElementsSession(reponse.parse(), id, cookies);
+				return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
 			}
-			recupererInfosPerso();
+			recupererInfosPerso(cookies, retour);
 		}
 		catch (IOException e) {
 			Utils.logErreur(e, logger);
@@ -219,25 +245,42 @@ public final class Authentification {
 		return retour;
 	}
 
-	private void stockerElementsConnexion (Document page) {
-		HashMap<String, String> cache = new HashMap<>();
-		cache.put(CLE_SID, page.getElementsByAttributeValue("name", "sid")
-				.first()
-				.val());
-		cache.put(CLE_TFORMDATA, page.getElementsByAttributeValue("name", "t:formdata")
-			.first()
-			.val());
+	private boolean stockerInfosUtilisateur (String id, String mdp, String prenom, String email) throws StorageException {
+		EntiteUtilisateur entite = obtenirEntiteUtilisateur(id);
+		boolean existeDeja = entite != null;
+		if (!existeDeja
+			|| !entite.getPrenom().equals(prenom)
+			|| !entite.getEmail().equals(email)
+		) {
+			EntiteUtilisateur nouvelleEntite = new EntiteUtilisateur(id, mdp, prenom, email);
+			CLOUDTABLE_UTILISATEURS.execute(
+				TableOperation.insertOrMerge(nouvelleEntite));
+		}
+		return existeDeja;
+	}
+
+	private void stockerElementsSession (Document page, String id, HashMap<String, String> cookies) throws StorageException {
+		EntiteConnexion entite = new EntiteConnexion(
+			id, 
+			obtenirSid(page), 
+			obtenirTformdata(page), 
+			cookies);
+		CLOUDTABLE_UTILISATEURS.execute(
+			TableOperation.insertOrMerge(entite));
+		/*HashMap<String, String> cache = new HashMap<>();
+		cache.put(CLE_SID, obtenirSid(page));
+		cache.put(CLE_TFORMDATA, obtenirTformdata(page));
 		JSONObject cookiesJson = new JSONObject();
 		for (String cookie : cookies.keySet()) {
 			cookiesJson.put(cookie, cookies.get(cookie));
 		}
 		cache.put(CLE_COOKIES, cookiesJson.toString());
-		String cle = "auth:" + id;
+		//String cle = "auth:" + id;
 		CONN_REDIS.hmset(cle, cache);
-		CONN_REDIS.expire(cle, 600);
+		CONN_REDIS.expire(cle, 600);*/
 	}
 
-	private void recupererInfosPerso () throws IOException {
+	private void recupererInfosPerso (HashMap<String, String> cookies, JSONObject retour) throws IOException {
 		Connection connexion;
 		Document pageInfos;
 		connexion = Jsoup.connect(URL_INFOS_DMP);
@@ -252,5 +295,77 @@ public final class Authentification {
 			.val());
 		retour.put(CLE_GENRE, pageInfos.getElementById("genderValue")
 			.text());
+	}
+
+	private String obtenirSid (Document page) {
+		return page.getElementsByAttributeValue("name", "sid")
+			.first()
+			.val();
+	}
+
+	private String obtenirTformdata (Document page) {
+		return page.getElementsByAttributeValue("name", "t:formdata")
+			.first()
+			.val();
+	}
+
+	private EntiteConnexion obtenirEntiteConnexion (String id) throws IllegalArgumentException {
+		try {
+			TableOperation operation = TableOperation.retrieve(
+				CLE_PARTITION_CONNEXIONS, 
+				id, 
+				EntiteConnexion.class);
+			return CLOUDTABLE_UTILISATEURS
+				.execute(operation)
+				.getResultAsType();
+		}
+		catch (StorageException e) {
+			throw new IllegalArgumentException("Cet utilisateur n'existe pas");
+		}
+	}
+
+	private EntiteUtilisateur obtenirEntiteUtilisateur (String id) throws StorageException {
+		TableOperation operation = TableOperation.retrieve(
+			CLE_PARTITION_INFORMATIONS, 
+			id, 
+			EntiteUtilisateur.class);
+		return CLOUDTABLE_UTILISATEURS
+			.execute(operation)
+			.getResultAsType();
+	}
+
+	private class EntiteConnexion extends DynamicTableEntity {
+		private String sid;
+		private String tformdata;
+		private HashMap<String, String> cookies;
+
+		EntiteConnexion (String id, String sid, String tformdata, HashMap<String, String> cookies) {
+			super(CLE_PARTITION_CONNEXIONS, id);
+			this.sid = sid;
+			this.tformdata = tformdata;
+			this.cookies = cookies;
+		}
+
+		String getSid() { return sid; }
+		//private void setSid(String sid) { this.sid = sid; }
+		String getTformdata() { return tformdata; }
+		//private void setTformdata(String tformdata) { this.tformdata = tformdata; }
+		HashMap<String, String> getCookies() { return cookies; }
+	}
+
+	private class EntiteUtilisateur extends DynamicTableEntity {
+		private String prenom;
+		private String email;
+		private String motDePasseTemporaire;
+
+		EntiteUtilisateur (String id, String mdp, String prenom, String email) {
+			super(CLE_PARTITION_INFORMATIONS, id);
+			this.prenom = prenom;
+			this.email = email;
+			motDePasseTemporaire = mdp;
+		}
+
+		String getPrenom() { return prenom; }
+		String getEmail() { return email; }
 	}
 }

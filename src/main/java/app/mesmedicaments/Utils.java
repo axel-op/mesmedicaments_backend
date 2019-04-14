@@ -2,16 +2,16 @@ package app.mesmedicaments;
 
 import java.util.logging.Logger;
 
-import org.json.JSONArray;
+//import org.json.JSONArray;
 
 public final class Utils {
 
-	private static final String XORKEY;
+	//private static final String XORKEY;
 	public static final String NEWLINE;
 
 	static {
 		NEWLINE = System.getProperty("line.separator");
-		XORKEY = System.getenv("cle_XOR");
+		//XORKEY = System.getenv("cle_XOR");
 	}
 
 	private Utils () {}
@@ -28,7 +28,7 @@ public final class Utils {
 		}
 	}
 
-	public static int[] XOREncrypt (String str) {
+	/*public static int[] XOREncrypt (String str) {
 		int[] output = new int[str.length()];
 		for (int i = 0; i < output.length; i++) {
 			output[i] = (Integer.valueOf(str.charAt(i)) 
@@ -54,5 +54,5 @@ public final class Utils {
 			tab[i] = Integer.parseInt(ja.get(i).toString());
 		}
 		return tab;
-	}
+	}*/
 }

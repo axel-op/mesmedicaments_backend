@@ -1,10 +1,13 @@
 package app.mesmedicaments;
 
+import java.net.URISyntaxException;
+import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
 import com.microsoft.azure.functions.ExecutionContext;
@@ -15,7 +18,7 @@ import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
-import com.microsoft.sqlserver.jdbc.SQLServerPreparedStatement;
+import com.microsoft.azure.storage.StorageException;
 
 //import org.json.JSONArray;
 import org.json.JSONException;
@@ -40,6 +43,7 @@ public final class Triggers {
     //private static final String CLE_COOKIES;
     //private static final String CLE_TFORMDATA;
     private static final String CLE_EXISTENCE;
+    private static final String ERR_INTERNE;
 
     static {
         CLE_CAUSE = "cause";
@@ -54,6 +58,7 @@ public final class Triggers {
         //CLE_COOKIES = Authentification.CLE_COOKIES;
         //CLE_TFORMDATA = Authentification.CLE_TFORMDATA;
         CLE_EXISTENCE = Authentification.CLE_EXISTENCE_DB;
+        ERR_INTERNE = Authentification.ERR_INTERNE;
     }
 
     private Logger logger;
@@ -61,7 +66,7 @@ public final class Triggers {
     private Boolean DA;
     private JSONObject corpsReponse;
     private JSONObject retour;
-    private JSONObject corpsRequete;
+    //private JSONObject corpsRequete;
 
     @FunctionName("connexion")
     public HttpResponseMessage connexion (
@@ -82,11 +87,12 @@ public final class Triggers {
             if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 10)
                 || !verifierEnTeteDA(request.getHeaders().get(CLE_DA))
             ) { throw new IllegalArgumentException(); }
-            corpsRequete = new JSONObject(request.getBody().get());
+            JSONObject corpsRequete = new JSONObject(request.getBody().get());
             id = corpsRequete.getString("id");
-            if (id.length() != 8) { throw new IllegalArgumentException(); }
+            mdp = corpsRequete.getString("mdp");
+            if (id.length() != 8
+                || mdp.length() > 128) { throw new IllegalArgumentException(); }
             if (!DA) { // Première étape de la connexion
-                mdp = corpsRequete.getString("mdp");
                 retour = new Authentification(logger).connexionDMP(id, mdp);
                 if (!retour.isNull(CLE_ERREUR_AUTH)) {
                     codeHttp = HttpStatus.CONFLICT;
@@ -109,6 +115,7 @@ public final class Triggers {
                     corpsReponse.put(CLE_PRENOM, retour.get(CLE_PRENOM));
                     corpsReponse.put(CLE_EMAIL, retour.get(CLE_EMAIL));
                     corpsReponse.put(CLE_GENRE, retour.get(CLE_GENRE));
+                    // générer et envoyer un jeton
                 }
             }
         }
@@ -118,8 +125,20 @@ public final class Triggers {
             | IllegalArgumentException e
         ) {
             codeHttp = HttpStatus.BAD_REQUEST;
-            corpsReponse = new JSONObject();
-            corpsReponse.put(CLE_CAUSE, "Mauvais format du corps de la requête");
+            corpsReponse = new JSONObjectUneCle(CLE_CAUSE, "Mauvais format du corps de la requête");
+        }
+        catch (InvalidKeyException
+            | URISyntaxException
+            | StorageException e
+        ) {
+            codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
+            corpsReponse = new JSONObjectUneCle(CLE_CAUSE, ERR_INTERNE);
+        }
+        catch (TimeoutException e) {
+            // Ce n'est pas le bon type d'exception
+            // Par la suite, retenter automatiquement
+            codeHttp = HttpStatus.REQUEST_TIMEOUT;
+            corpsReponse = new JSONObjectUneCle(CLE_CAUSE, "10 minutes se sont passées");
         }
         corpsReponse.put(CLE_HEURE, obtenirHeure().toString());
         return request.createResponseBuilder(codeHttp)
@@ -127,7 +146,7 @@ public final class Triggers {
             .build();
     }
 
-    /*@FunctionName("inscription")
+    @FunctionName("inscription")
     public HttpResponseMessage inscription (
         @HttpTrigger(
             name = "inscriptionTrigger",
@@ -140,12 +159,12 @@ public final class Triggers {
         String id;
         String prenom;
         String email;
-        SQLServerPreparedStatement ps;
         corpsReponse = new JSONObject();
         retour = new JSONObject();
         logger = context.getLogger();
         try {
             // vérifier le jeton
+            JSONObject corpsRequete = new JSONObject(request.getBody().get());
             id = corpsRequete.getString("id");
             prenom = corpsRequete.getString("prenom");
             email = corpsRequete.getString("email");
@@ -153,10 +172,29 @@ public final class Triggers {
                 || prenom.length() > 30
                 || email.length() > 128
             ) { throw new IllegalArgumentException(); }
-
+            if (new Authentification(logger).inscription(id, prenom, email)) {
+                codeHttp = HttpStatus.OK;
+            } else {
+                codeHttp = HttpStatus.BAD_REQUEST;
+            }
         }
-        return null;
-    }*/
+        catch (IllegalArgumentException
+            | JSONException
+            | NoSuchElementException e) {
+            codeHttp = HttpStatus.UNAUTHORIZED;
+        }
+        catch (InvalidKeyException
+            | URISyntaxException
+            | StorageException e
+        ) {
+            codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
+            corpsReponse = new JSONObjectUneCle(CLE_CAUSE, ERR_INTERNE);
+        }
+        corpsReponse.put(CLE_HEURE, obtenirHeure().toString());
+        return request.createResponseBuilder(codeHttp)
+            .body(corpsReponse)
+            .build();
+    }
 
     @FunctionName("mettreAJourBases")
     public HttpResponseMessage mettreAJourBases (

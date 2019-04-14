@@ -1,0 +1,15 @@
+{
+  "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
+  "entryPoint" : "app.mesmedicaments.Triggers.inscription",
+  "bindings" : [ {
+    "type" : "httpTrigger",
+    "direction" : "in",
+    "name" : "inscriptionTrigger",
+    "methods" : [ "POST" ],
+    "dataType" : "string"
+  }, {
+    "type" : "http",
+    "direction" : "out",
+    "name" : "$return"
+  } ]
+}

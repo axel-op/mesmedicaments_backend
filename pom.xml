@@ -72,9 +72,9 @@
     <dependencies>
 
         <dependency>
-            <groupId>redis.clients</groupId>
-            <artifactId>jedis</artifactId>
-            <version>3.1.0-m1</version>
+            <groupId>com.microsoft.azure</groupId>
+            <artifactId>azure-storage</artifactId>
+            <version>[8.2,)</version>
         </dependency>
 
 
@@ -255,9 +255,9 @@
     </build>
 
     <scm>
-        <connection>scm:git:git@github.com:axel-op/mesmedicaments.git</connection>
-        <url>scm:git:git@github.com:axel-op/mesmedicaments.git</url>
-        <developerConnection>scm:git:git@github.com:axel-op/mesmedicaments.git</developerConnection>
+        <connection>scm:git:git@github.com:axel-op/azure-mesmedicaments.git</connection>
+        <url>scm:git:git@github.com:axel-op/azure-mesmedicaments.git</url>
+        <developerConnection>scm:git:git@github.com:axel-op/azure-mesmedicaments.git</developerConnection>
       <tag>mesmedicaments-1.1</tag>
   	</scm>
 
@@ -265,7 +265,7 @@
 		<repository>
 			<id>repomesmedicaments</id>
 			<name>GitHub Repository</name>
-			<url>scm:git:git@github.com:axel-op/mesmedicaments.git</url>
+			<url>scm:git:git@github.com:axel-op/azure-mesmedicaments.git</url>
 			<layout>default</layout>
 		</repository>
   	</distributionManagement>

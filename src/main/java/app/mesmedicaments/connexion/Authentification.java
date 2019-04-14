@@ -9,9 +9,7 @@ import java.util.HashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
-import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.table.CloudTable;
 
 import org.json.JSONObject;
 import org.jsoup.Connection;
@@ -75,21 +73,21 @@ public final class Authentification {
 	}
 	
 	//private final CloudTableClient clientTablesAzure;
-	private final CloudTable CLOUDTABLE_UTILISATEURS;
+	/*private final CloudTable CLOUDTABLE_UTILISATEURS;
 	private final String CLE_PARTITION_CONNEXIONS;
 	private final String CLE_PARTITION_INSCRIPTIONS;
-	private final String CLE_PARTITION_INFORMATIONS;
+	private final String CLE_PARTITION_INFORMATIONS;*/
 	private Logger logger;
 	
 	public Authentification (Logger logger) throws InvalidKeyException, URISyntaxException, StorageException {
 		this.logger = logger;
-		CLOUDTABLE_UTILISATEURS = CloudStorageAccount
+		/*CLOUDTABLE_UTILISATEURS = CloudStorageAccount
 			.parse(System.getenv("connexion_tablesazure"))
 			.createCloudTableClient()
 			.getTableReference(System.getenv("tableazure_utilisateurs")); 
 		CLE_PARTITION_CONNEXIONS = System.getenv("clepartition_connexions"); 
 		CLE_PARTITION_INSCRIPTIONS = System.getenv("clepartition_inscriptions"); 
-		CLE_PARTITION_INFORMATIONS = System.getenv("clepartition_informations"); 
+		CLE_PARTITION_INFORMATIONS = System.getenv("clepartition_informations");*/
 	}
 
 	public boolean inscription (String id, String prenom, String email) {

@@ -161,7 +161,6 @@ public final class Authentification {
 				.execute();
 			reponse = connexion.response();
 			pageReponse = reponse.parse();
-			logger.info("Connexion étape 1 effectuée");
 			if (!EntiteConnexion.creerEntite(
 				id,
 				obtenirSid(pageReponse),
@@ -174,7 +173,6 @@ public final class Authentification {
 			| InvalidKeyException
 			| URISyntaxException
 			| StorageException e) {
-			System.out.println("Erreur catch dans connexionDMP()");
 			Utils.logErreur(e, logger);
 			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}

@@ -18,6 +18,7 @@ import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import com.microsoft.azure.functions.annotation.TableInput;
 import com.microsoft.azure.storage.StorageException;
 
 //import org.json.JSONArray;
@@ -25,6 +26,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.Authentification;
+import app.mesmedicaments.connexion.EntiteConnexion;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
 import app.mesmedicaments.misesajour.MiseAJourInteractions;
@@ -76,6 +78,13 @@ public final class Triggers {
             authLevel = AuthorizationLevel.FUNCTION,
             methods = {HttpMethod.POST})
         final HttpRequestMessage<Optional<String>> request,
+        @TableInput(
+            name = "inputTableUtilisateurs", 
+            connection = "AzureWebJobsStorage",
+            tableName = "utilisateurs", 
+            dataType = "",
+            partitionKey = "clepartition_connexions")
+        EntiteConnexion[] entitesConnexion,
         final ExecutionContext context
     ) {
         String id;
@@ -83,8 +92,8 @@ public final class Triggers {
         corpsReponse = new JSONObject();
         retour = new JSONObject();
         logger = context.getLogger();
-        //debug
-        logger.info("connectionstring = " + System.getenv("connexion_tablesazure"));
+        logger.info("entitesConnexion.length = " + entitesConnexion.length);
+        for (EntiteConnexion ent : entitesConnexion) { logger.info(ent.toString()); }
         try {
             if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 10)
                 || !verifierEnTeteDA(request.getHeaders().get(CLE_DA))

@@ -83,7 +83,8 @@ public final class Triggers {
         corpsReponse = new JSONObject();
         retour = new JSONObject();
         logger = context.getLogger();
-        System.out.println("logger : " + logger.toString());
+        //debug
+        logger.info("connectionstring = " + System.getenv("connexion_tablesazure"));
         try {
             if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 10)
                 || !verifierEnTeteDA(request.getHeaders().get(CLE_DA))

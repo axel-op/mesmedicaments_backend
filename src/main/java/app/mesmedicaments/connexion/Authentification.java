@@ -3,8 +3,11 @@ package app.mesmedicaments.connexion;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.logging.Logger;
 
@@ -28,7 +31,6 @@ public final class Authentification {
 	public static final String CLE_PRENOM;
 	public static final String CLE_GENRE;
 	public static final String CLE_EMAIL;
-	//public static final String CLE_EXISTENCE_DB;
 	public static final String CLE_INSCRIPTION_REQUISE;
 	public static final String ERR_INTERNE;
 	public static final String ERR_ID;
@@ -44,7 +46,7 @@ public final class Authentification {
 	private static final String URL_ENVOI_CODE;
 	private static final String URL_INFOS_DMP;
 	//private static final String ID_MSI;
-	//private static final String TABLE_UTILISATEURS;
+	private static final ZoneId TIMEZONE;
 	
 	static {
 		ERR_INTERNE = "interne";
@@ -60,7 +62,6 @@ public final class Authentification {
 		URL_ENVOI_CODE = System.getenv("url_post_envoi_code");
 		URL_INFOS_DMP = System.getenv("url_infos_dmp");
 		//ID_MSI = System.getenv("msi_auth");
-		//TABLE_UTILISATEURS = System.getenv("table_utilisateurs");
 		CLE_ERREUR = "erreur";
 		CLE_ENVOI_CODE = "envoiCode";
 		CLE_COOKIES = "cookies";
@@ -69,15 +70,10 @@ public final class Authentification {
 		CLE_PRENOM = "prenom";
 		CLE_EMAIL = "email";
 		CLE_GENRE = "genre";
-		//CLE_EXISTENCE_DB = "existence";
 		CLE_INSCRIPTION_REQUISE = "inscription requise";
+		TIMEZONE = ZoneId.of("ECT", ZoneId.SHORT_IDS);
 	}
 	
-	//private final CloudTableClient clientTablesAzure;
-	/*private final CloudTable CLOUDTABLE_UTILISATEURS;
-	private final String CLE_PARTITION_CONNEXIONS;
-	private final String CLE_PARTITION_INSCRIPTIONS;
-	private final String CLE_PARTITION_INFORMATIONS;*/
 	private Logger logger;
 	
 	public Authentification (Logger logger) throws InvalidKeyException, URISyntaxException, StorageException {
@@ -91,30 +87,25 @@ public final class Authentification {
 		CLE_PARTITION_INFORMATIONS = System.getenv("clepartition_informations");*/
 	}
 
-	public boolean inscription (String id, String prenom, String email) {
-		/*try (
-            SQLServerConnection conn = BaseDeDonnees.nouvelleConnexion(System.getenv("msi_auth"), logger);
-            SQLServerPreparedStatement ps = (SQLServerPreparedStatement) conn.prepareStatement(
-                "INSERT INTO " + TABLE_UTILISATEURS
-                + " (prenom, mail) VALUES (?, ?)"
-                + " WHERE id = ?");
-        ) {
-			ps.setString(1, prenom);
-            ps.setString(2, email);
-            ps.setString(3, id);
-			ps.executeUpdate();
-		}
-		catch (SQLException e) {
-			Utils.logErreur(e, logger);
-			return false;
-		}*/
-		return true;
+	public void inscription (String id, String prenom, String email, String genre) 
+		throws StorageException, IllegalArgumentException
+	{
+		EntiteUtilisateur entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
+		if (entiteUtilisateur == null) { throw new IllegalArgumentException(); }
+		entiteUtilisateur.setPrenom(prenom);
+		entiteUtilisateur.setEmail(email);
+		entiteUtilisateur.setGenre(genre);
+		entiteUtilisateur.setDateInscription(
+			Date.from(Instant.now(Clock.system(TIMEZONE))));
+		EntiteUtilisateur.mettreAJourEntite(entiteUtilisateur);
 	}
 
 	public JSONObject connexionDMP (String id, String mdp) {
 		Document pageReponse;
 		Connection connexion;
 		HashMap<String, String> cookies;
+		EntiteUtilisateur entiteUtilisateur;
+		EntiteConnexion entiteConnexion;
 		JSONObject retour = new JSONObject();
 		try {
 			connexion = Jsoup.connect(URL_CONNEXION_DMP);
@@ -154,11 +145,14 @@ public final class Authentification {
 				logger.severe("Aucun choix d'envoi du second code disponible");
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_INTERNE);
 			}
-			/////////// TEST /////////////
-				logger.info("TEST : doit afficher null : ");
-				EntiteUtilisateur entiteTest = EntiteUtilisateur.obtenirEntite("nexistepas");
-				if (entiteTest == null) { logger.info("null (réussite)"); }
-				else { logger.info(entiteTest.toString() + " (échec)"); }
+			// Vérification de l'existence de l'utilisateur
+			entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
+			boolean inscriptionRequise = entiteUtilisateur == null;
+			if (inscriptionRequise) {
+				entiteUtilisateur = new EntiteUtilisateur(id);
+				entiteUtilisateur.setMotDePasse(mdp);
+				EntiteUtilisateur.definirEntite(entiteUtilisateur);
+			}
 			// Envoi du code
 			connexion
 				.data("sid", obtenirSid(pageReponse))
@@ -168,10 +162,11 @@ public final class Authentification {
 				.execute();
 			reponse = connexion.response();
 			pageReponse = reponse.parse();
-			EntiteConnexion entiteConnexion = new EntiteConnexion(id);
+			entiteConnexion = new EntiteConnexion(id);
 			entiteConnexion.setSid(obtenirSid(pageReponse));
 			entiteConnexion.setTformdata(obtenirTformdata(pageReponse));
 			entiteConnexion.definirCookiesMap(cookies);
+			entiteConnexion.setInscriptionRequise(inscriptionRequise);
 			EntiteConnexion.definirEntite(entiteConnexion);
 		} catch (IOException | StorageException e) {
 			Utils.logErreur(e, logger);
@@ -190,8 +185,7 @@ public final class Authentification {
 		boolean inscriptionRequise;
 		EntiteConnexion entiteConnexion;
 		JSONObject retour = new JSONObject();
-		ZoneId timezone = ZoneId.of("ECT", ZoneId.SHORT_IDS);
-		LocalDateTime maintenant = LocalDateTime.now(timezone);
+		LocalDateTime maintenant = LocalDateTime.now(TIMEZONE);
 		try {
 			entiteConnexion = EntiteConnexion.obtenirEntite(id);
 			if (entiteConnexion == null) {
@@ -199,7 +193,7 @@ public final class Authentification {
 				throw new IllegalArgumentException("Pas d'élément de l'étape 1 trouvé"); 
 			}
 			LocalDateTime timestamp = LocalDateTime.ofInstant(
-				entiteConnexion.getTimestamp().toInstant(), timezone);
+				entiteConnexion.getTimestamp().toInstant(), TIMEZONE);
 			if (maintenant.minusMinutes(10).isAfter(timestamp)) { 
 				throw new IllegalArgumentException("L'heure ne correspond pas ou plus"); 
 			}
@@ -221,13 +215,12 @@ public final class Authentification {
 				EntiteConnexion.mettreAJourEntite(entiteConnexion);
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
 			}
-			// Vérification de l'existence de l'utilisateur
-			EntiteUtilisateur entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
-			inscriptionRequise = entiteUtilisateur == null;
+			inscriptionRequise = entiteConnexion.getInscriptionRequise();
 			retour.put(CLE_INSCRIPTION_REQUISE, inscriptionRequise);
 			// Récupération des infos sur l'utilisateur
 			if (inscriptionRequise) { recupererInfosPerso(cookies, retour); }
 			else {
+				EntiteUtilisateur entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
 				retour.put(CLE_PRENOM, entiteUtilisateur.getPrenom());
 				retour.put(CLE_EMAIL, entiteUtilisateur.getEmail());
 				retour.put(CLE_GENRE, entiteUtilisateur.getGenre());

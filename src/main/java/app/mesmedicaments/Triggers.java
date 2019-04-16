@@ -84,7 +84,7 @@ public final class Triggers {
         retour = new JSONObject();
         logger = context.getLogger();
         try {
-            if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 10)
+            if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)
                 || !verifierEnTeteDA(request.getHeaders().get(CLE_DA))
             ) { throw new IllegalArgumentException(); }
             JSONObject corpsRequete = new JSONObject(request.getBody().get());
@@ -157,27 +157,33 @@ public final class Triggers {
         String id;
         String prenom;
         String email;
+        String genre;
+        codeHttp = HttpStatus.OK;
         corpsReponse = new JSONObject();
         retour = new JSONObject();
         logger = context.getLogger();
         try {
             // vérifier le jeton
+            if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)) {
+                throw new IllegalArgumentException();
+            }
             JSONObject corpsRequete = new JSONObject(request.getBody().get());
             id = corpsRequete.getString("id");
             prenom = corpsRequete.getString("prenom");
             email = corpsRequete.getString("email");
+            genre = corpsRequete.getString("genre");
             if (id.length() != 8
                 || prenom.length() > 30
                 || email.length() > 128
+                || genre.length() != 1
             ) { throw new IllegalArgumentException(); }
-            if (new Authentification(logger).inscription(id, prenom, email)) {
-                codeHttp = HttpStatus.OK;
-            } else {
-                codeHttp = HttpStatus.BAD_REQUEST;
-            }
+            new Authentification(logger).inscription(id, prenom, email, genre);
         }
-        catch (IllegalArgumentException
-            | JSONException
+        catch (NullPointerException 
+            | IllegalArgumentException e) {
+            codeHttp = HttpStatus.BAD_REQUEST;
+        }
+        catch (JSONException
             | NoSuchElementException e) {
             codeHttp = HttpStatus.UNAUTHORIZED;
         }

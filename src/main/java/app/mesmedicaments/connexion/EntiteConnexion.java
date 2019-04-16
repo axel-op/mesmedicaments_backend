@@ -63,7 +63,7 @@ public class EntiteConnexion extends TableServiceEntity {
 	String sid;
 	String tformdata;
 	String cookies;
-	//boolean inscriptionRequise;
+	boolean inscriptionRequise;
 
 	// Le type HashMap n'est pas supporté et doit être String dès en entrant pour les cookies
 	public EntiteConnexion (String id) {
@@ -85,7 +85,7 @@ public class EntiteConnexion extends TableServiceEntity {
 		}
 		return map;
 	}
-	//public boolean getInscriptionRequise () { return inscriptionRequise; }
+	public boolean getInscriptionRequise () { return inscriptionRequise; }
 
 	// Setters
 	public void setSid (String sid) { this.sid = sid; }
@@ -94,7 +94,7 @@ public class EntiteConnexion extends TableServiceEntity {
 	public void definirCookiesMap (HashMap<String,String> cookies) {
 		this.cookies = new JSONObject(cookies).toString();
 	}
-	//public void setInscriptionRequise (boolean inscriptionRequise) { this.inscriptionRequise = inscriptionRequise; }
+	public void setInscriptionRequise (boolean inscriptionRequise) { this.inscriptionRequise = inscriptionRequise; }
 
 	// Affichage
 	public String toString () {

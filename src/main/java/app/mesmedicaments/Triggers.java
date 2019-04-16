@@ -7,7 +7,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
 import com.microsoft.azure.functions.ExecutionContext;
@@ -18,15 +17,12 @@ import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
-import com.microsoft.azure.functions.annotation.TableInput;
 import com.microsoft.azure.storage.StorageException;
 
-//import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.Authentification;
-import app.mesmedicaments.connexion.EntiteConnexion;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
 import app.mesmedicaments.misesajour.MiseAJourInteractions;
@@ -44,7 +40,8 @@ public final class Triggers {
     //private static final String CLE_SID;
     //private static final String CLE_COOKIES;
     //private static final String CLE_TFORMDATA;
-    private static final String CLE_EXISTENCE;
+    //private static final String CLE_EXISTENCE;
+    private static final String CLE_INSCRIPTION_REQUISE;
     private static final String ERR_INTERNE;
 
     static {
@@ -59,7 +56,8 @@ public final class Triggers {
         //CLE_SID = Authentification.CLE_SID;
         //CLE_COOKIES = Authentification.CLE_COOKIES;
         //CLE_TFORMDATA = Authentification.CLE_TFORMDATA;
-        CLE_EXISTENCE = Authentification.CLE_EXISTENCE_DB;
+        //CLE_EXISTENCE = Authentification.CLE_EXISTENCE_DB;
+        CLE_INSCRIPTION_REQUISE = Authentification.CLE_INSCRIPTION_REQUISE;
         ERR_INTERNE = Authentification.ERR_INTERNE;
     }
 
@@ -118,6 +116,7 @@ public final class Triggers {
                     corpsReponse.put(CLE_PRENOM, retour.get(CLE_PRENOM));
                     corpsReponse.put(CLE_EMAIL, retour.get(CLE_EMAIL));
                     corpsReponse.put(CLE_GENRE, retour.get(CLE_GENRE));
+                    corpsReponse.put(CLE_INSCRIPTION_REQUISE, retour.get(CLE_INSCRIPTION_REQUISE));
                     // générer et envoyer un jeton
                 }
             }
@@ -138,12 +137,6 @@ public final class Triggers {
             Utils.logErreur(e, logger);
             codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
             corpsReponse = new JSONObjectUneCle(CLE_CAUSE, ERR_INTERNE);
-        }
-        catch (TimeoutException e) {
-            // Ce n'est pas le bon type d'exception
-            // Par la suite, retenter automatiquement
-            codeHttp = HttpStatus.REQUEST_TIMEOUT;
-            corpsReponse = new JSONObjectUneCle(CLE_CAUSE, "10 minutes se sont passées");
         }
         corpsReponse.put(CLE_HEURE, obtenirHeure().toString());
         return request.createResponseBuilder(codeHttp)

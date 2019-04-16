@@ -6,7 +6,6 @@ import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
-import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
 import com.microsoft.azure.storage.StorageException;
@@ -29,7 +28,8 @@ public final class Authentification {
 	public static final String CLE_PRENOM;
 	public static final String CLE_GENRE;
 	public static final String CLE_EMAIL;
-	public static final String CLE_EXISTENCE_DB;
+	//public static final String CLE_EXISTENCE_DB;
+	public static final String CLE_INSCRIPTION_REQUISE;
 	public static final String ERR_INTERNE;
 	public static final String ERR_ID;
 	public static final String ERR_SQL;
@@ -69,7 +69,8 @@ public final class Authentification {
 		CLE_PRENOM = "prenom";
 		CLE_EMAIL = "email";
 		CLE_GENRE = "genre";
-		CLE_EXISTENCE_DB = "existence";
+		//CLE_EXISTENCE_DB = "existence";
+		CLE_INSCRIPTION_REQUISE = "inscription requise";
 	}
 	
 	//private final CloudTableClient clientTablesAzure;
@@ -115,7 +116,6 @@ public final class Authentification {
 		Connection connexion;
 		HashMap<String, String> cookies;
 		JSONObject retour = new JSONObject();
-		//String requete = "{call projetdmp.authentifierUtilisateur (?, ?, ?)}";
 		try {
 			connexion = Jsoup.connect(URL_CONNEXION_DMP);
 			connexion.method(Connection.Method.GET)
@@ -137,6 +137,7 @@ public final class Authentification {
 				logger.info("La connexion a échoué (mauvais identifiants)");
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
 			}
+			// Récupération du moyen d'envoi du code
 			pageReponse = deuxiemeReponse.parse();
 			connexion = Jsoup.connect(URL_CHOIX_CODE);
 			connexion.method(Connection.Method.POST);
@@ -153,6 +154,12 @@ public final class Authentification {
 				logger.severe("Aucun choix d'envoi du second code disponible");
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_INTERNE);
 			}
+			/////////// TEST /////////////
+				logger.info("TEST : doit afficher null : ");
+				EntiteUtilisateur entiteTest = EntiteUtilisateur.obtenirEntite("nexistepas");
+				if (entiteTest == null) { logger.info("null (réussite)"); }
+				else { logger.info(entiteTest.toString() + " (échec)"); }
+			// Envoi du code
 			connexion
 				.data("sid", obtenirSid(pageReponse))
 				.data("t:formdata", obtenirTformdata(pageReponse))
@@ -161,18 +168,12 @@ public final class Authentification {
 				.execute();
 			reponse = connexion.response();
 			pageReponse = reponse.parse();
-			if (!EntiteConnexion.creerEntite(
-				id,
-				obtenirSid(pageReponse),
-				obtenirTformdata(pageReponse),
-				cookies)
-			) { 
-				throw new InvalidKeyException("Impossible d'ajouter l'entité connexion"); 
-			}
-		} catch (IOException 
-			| InvalidKeyException
-			| URISyntaxException
-			| StorageException e) {
+			EntiteConnexion entiteConnexion = new EntiteConnexion(id);
+			entiteConnexion.setSid(obtenirSid(pageReponse));
+			entiteConnexion.setTformdata(obtenirTformdata(pageReponse));
+			entiteConnexion.definirCookiesMap(cookies);
+			EntiteConnexion.definirEntite(entiteConnexion);
+		} catch (IOException | StorageException e) {
 			Utils.logErreur(e, logger);
 			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}
@@ -180,33 +181,33 @@ public final class Authentification {
 	}
 
 	public JSONObject doubleAuthentification (String id, String code) 
-		throws IllegalArgumentException, 
-		TimeoutException
+		throws IllegalArgumentException
 	{
 		/*** Instaurer un contrôle pour mdp ***/
 		Connection connexion;
 		Connection.Response reponse;
 		HashMap<String, String> cookies;
-		EntiteConnexion entite;
+		boolean inscriptionRequise;
+		EntiteConnexion entiteConnexion;
 		JSONObject retour = new JSONObject();
 		ZoneId timezone = ZoneId.of("ECT", ZoneId.SHORT_IDS);
 		LocalDateTime maintenant = LocalDateTime.now(timezone);
 		try {
-			entite = EntiteConnexion.obtenirEntite(id);
-			if (entite == null) { 
+			entiteConnexion = EntiteConnexion.obtenirEntite(id);
+			if (entiteConnexion == null) {
+				logger.info("Appel API connexion étape 2 mais pas d'élément de l'étape 1 trouvé");
 				throw new IllegalArgumentException("Pas d'élément de l'étape 1 trouvé"); 
 			}
-			logger.info(entite.toString());
 			LocalDateTime timestamp = LocalDateTime.ofInstant(
-				entite.getTimestamp().toInstant(), timezone);
+				entiteConnexion.getTimestamp().toInstant(), timezone);
 			if (maintenant.minusMinutes(10).isAfter(timestamp)) { 
-				throw new TimeoutException(); 
+				throw new IllegalArgumentException("L'heure ne correspond pas ou plus"); 
 			}
-			cookies = entite.obtenirCookiesMap();
+			cookies = entiteConnexion.obtenirCookiesMap();
 			connexion = Jsoup.connect(URL_ENVOI_CODE);
 			connexion.method(Connection.Method.POST)
-				.data("sid", entite.getSid())
-				.data("t:formdata", entite.getTformdata())
+				.data("sid", entiteConnexion.getSid())
+				.data("t:formdata", entiteConnexion.getTformdata())
 				.data("ipCode", code)
 				.userAgent(USERAGENT)
 				.cookies(cookies)
@@ -214,19 +215,26 @@ public final class Authentification {
 			reponse = connexion.response();
 			if (!reponse.url().toString().matches(REGEX_ACCUEIL)) {
 				Document page = reponse.parse();
-				EntiteConnexion.creerEntite(
-					id, 
-					obtenirSid(page), 
-					obtenirTformdata(page), 
-					cookies);
+				entiteConnexion.setSid(obtenirSid(page));
+				entiteConnexion.setTformdata(obtenirTformdata(page));
+				entiteConnexion.definirCookiesMap(cookies);
+				EntiteConnexion.mettreAJourEntite(entiteConnexion);
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
 			}
-			recupererInfosPerso(cookies, retour);
+			// Vérification de l'existence de l'utilisateur
+			EntiteUtilisateur entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
+			inscriptionRequise = entiteUtilisateur == null;
+			retour.put(CLE_INSCRIPTION_REQUISE, inscriptionRequise);
+			// Récupération des infos sur l'utilisateur
+			if (inscriptionRequise) { recupererInfosPerso(cookies, retour); }
+			else {
+				retour.put(CLE_PRENOM, entiteUtilisateur.getPrenom());
+				retour.put(CLE_EMAIL, entiteUtilisateur.getEmail());
+				retour.put(CLE_GENRE, entiteUtilisateur.getGenre());
+			}
+
 		}
-		catch (IOException
-			| InvalidKeyException
-			| URISyntaxException
-			| StorageException e) {
+		catch (IOException | StorageException e) {
 			Utils.logErreur(e, logger);
 			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}

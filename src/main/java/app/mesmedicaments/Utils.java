@@ -17,24 +17,30 @@ public final class Utils {
 	private Utils () {}
 
 	public static void logErreur(Throwable t, Logger logger) {
-		//debug
-		if (t == null) { System.out.println("throwable est null"); }
-		if (logger == null) { System.out.println("logger est null"); }
 		logger.warning(t.toString());
+		try { logger.warning(t.getCause().getMessage()); }
+		catch (NullPointerException e) {
+			logger.warning("(Classe Utils) L'objet Throwable n'a pas de méthode getCause().getMessage()"); 
+		}
 		try {
-			try { logger.warning(t.getCause().getMessage()); }
-			catch (NullPointerException e) {
-				logger.warning("(Classe Utils) L'objet Throwable n'a pas de méthode getMessage()"); }
 			for (StackTraceElement trace : t.getCause().getStackTrace()) {
-				logger.warning("\t" + trace.toString());
-			}
-			logger.warning(t.getMessage());
-			for (StackTraceElement trace : t.getStackTrace()) {
 				logger.warning("\t" + trace.toString());
 			}
 		}
 		catch (NullPointerException e) {
 			logger.warning("(Classe Utils) L'objet Throwable n'a pas de méthode getCause()");
+		}
+		try { logger.warning(t.getMessage()); }
+		catch (NullPointerException e) {
+			logger.warning("(Classe Utils) L'objet Throwable n'a pas de méthode getMessage()");
+		}
+		try {
+			for (StackTraceElement trace : t.getStackTrace()) {
+				logger.warning("\t" + trace.toString());
+			}
+		}
+		catch (NullPointerException e) {
+			logger.warning("(Classe Utils) L'objet Throwable n'a pas de méthode getStackTrace()");
 		}
 	}
 

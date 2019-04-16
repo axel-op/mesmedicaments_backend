@@ -21,6 +21,7 @@ public class EntiteConnexion extends TableServiceEntity {
 
     static { 
         CHAINE_CONN_TABLES = System.getenv("connexion_tablesazure");
+        System.err.println("chaine de connexion = " + CHAINE_CONN_TABLES);
         ///////// échanger la clé avec KeyVault
         CLE_PARTITION_CONNEXIONS = System.getenv("clepartition_connexions"); 
         TABLE_UTILISATEURS = System.getenv("tableazure_utilisateurs");

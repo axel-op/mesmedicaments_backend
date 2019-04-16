@@ -17,6 +17,9 @@ public final class Utils {
 	private Utils () {}
 
 	public static void logErreur(Throwable t, Logger logger) {
+		//debug
+		if (t == null) { System.err.println("throwable est null"); }
+		if (logger == null) { System.err.println("logger est null"); }
 		logger.warning(t.toString());
 		logger.warning(t.getCause().getMessage());
 		for (StackTraceElement trace : t.getCause().getStackTrace()) {

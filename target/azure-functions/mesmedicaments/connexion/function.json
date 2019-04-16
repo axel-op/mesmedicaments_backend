@@ -8,13 +8,6 @@
     "methods" : [ "POST" ],
     "dataType" : "string"
   }, {
-    "type" : "table",
-    "direction" : "in",
-    "name" : "inputTableUtilisateurs",
-    "partitionKey" : "clepartition_connexions",
-    "connection" : "AzureWebJobsStorage",
-    "tableName" : "utilisateurs"
-  }, {
     "type" : "http",
     "direction" : "out",
     "name" : "$return"

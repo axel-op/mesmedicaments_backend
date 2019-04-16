@@ -78,13 +78,6 @@ public final class Triggers {
             authLevel = AuthorizationLevel.FUNCTION,
             methods = {HttpMethod.POST})
         final HttpRequestMessage<Optional<String>> request,
-        @TableInput(
-            name = "inputTableUtilisateurs", 
-            connection = "AzureWebJobsStorage",
-            tableName = "utilisateurs", 
-            dataType = "",
-            partitionKey = "clepartition_connexions")
-        EntiteConnexion[] entitesConnexion,
         final ExecutionContext context
     ) {
         String id;
@@ -92,8 +85,6 @@ public final class Triggers {
         corpsReponse = new JSONObject();
         retour = new JSONObject();
         logger = context.getLogger();
-        logger.info("entitesConnexion.length = " + entitesConnexion.length);
-        for (EntiteConnexion ent : entitesConnexion) { logger.info(ent.toString()); }
         try {
             if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 10)
                 || !verifierEnTeteDA(request.getHeaders().get(CLE_DA))

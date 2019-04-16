@@ -174,7 +174,7 @@ public final class Authentification {
 			| InvalidKeyException
 			| URISyntaxException
 			| StorageException e) {
-			System.err.println("Erreur catch dans connexionDMP()");
+			System.out.println("Erreur catch dans connexionDMP()");
 			Utils.logErreur(e, logger);
 			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}

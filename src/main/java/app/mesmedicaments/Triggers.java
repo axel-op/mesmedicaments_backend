@@ -83,7 +83,7 @@ public final class Triggers {
         corpsReponse = new JSONObject();
         retour = new JSONObject();
         logger = context.getLogger();
-        System.err.println("logger : " + logger.toString());
+        System.out.println("logger : " + logger.toString());
         try {
             if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 10)
                 || !verifierEnTeteDA(request.getHeaders().get(CLE_DA))

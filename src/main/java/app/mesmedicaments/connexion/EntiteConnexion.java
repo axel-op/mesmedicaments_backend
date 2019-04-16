@@ -21,7 +21,7 @@ public class EntiteConnexion extends TableServiceEntity {
 
     static { 
         CHAINE_CONN_TABLES = System.getenv("connexion_tablesazure");
-        System.err.println("chaine de connexion = " + CHAINE_CONN_TABLES);
+        System.out.println("chaine de connexion = " + CHAINE_CONN_TABLES);
         ///////// échanger la clé avec KeyVault
         CLE_PARTITION_CONNEXIONS = System.getenv("clepartition_connexions"); 
         TABLE_UTILISATEURS = System.getenv("tableazure_utilisateurs");
@@ -33,16 +33,16 @@ public class EntiteConnexion extends TableServiceEntity {
         InvalidKeyException
     {
         EntiteConnexion entite = new EntiteConnexion(id, sid, tformdata, cookies);
-        System.err.println("Création de l'objet CloudTable");
+        System.out.println("Création de l'objet CloudTable");
         CloudTable tableUtilisateurs = CloudStorageAccount
             .parse(CHAINE_CONN_TABLES)
             .createCloudTableClient()
             .getTableReference(TABLE_UTILISATEURS); 
         TableOperation operation = TableOperation.insertOrMerge(entite);
-        System.err.println("Execution de la requete");
+        System.out.println("Execution de la requete");
         TableResult resultat = tableUtilisateurs.execute(operation);
-        System.err.println(resultat.toString());
-        System.err.println(resultat.getHttpStatusCode());
+        System.out.println(resultat.toString());
+        System.out.println(resultat.getHttpStatusCode());
         return resultat.getHttpStatusCode() >= 200
             && resultat.getHttpStatusCode() < 300;
 	}

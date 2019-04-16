@@ -161,6 +161,7 @@ public final class Authentification {
 				.execute();
 			reponse = connexion.response();
 			pageReponse = reponse.parse();
+			logger.info("Connexion étape 1 effectuée");
 			if (!EntiteConnexion.creerEntite(
 				id,
 				obtenirSid(pageReponse),

@@ -32,11 +32,13 @@ public class EntiteConnexion extends TableServiceEntity {
         InvalidKeyException
     {
         EntiteConnexion entite = new EntiteConnexion(id, sid, tformdata, cookies);
+        System.err.println("Création de l'objet CloudTable");
         CloudTable tableUtilisateurs = CloudStorageAccount
             .parse(CHAINE_CONN_TABLES)
             .createCloudTableClient()
             .getTableReference(TABLE_UTILISATEURS); 
         TableOperation operation = TableOperation.insertOrMerge(entite);
+        System.err.println("Execution de la requete");
         TableResult resultat = tableUtilisateurs.execute(operation);
         System.err.println(resultat.toString());
         System.err.println(resultat.getHttpStatusCode());

@@ -9,6 +9,13 @@
       "hostName": "127.0.0.1",
       "port": 5005,
       "preLaunchTask": "func: host start"
+    },
+    {
+      "name": "Attach to Azure Functions on Cloud",
+      "type": "java",
+      "request": "attach",
+      "hostName": "localhost",
+      "port": 8898
     }
   ]
 }

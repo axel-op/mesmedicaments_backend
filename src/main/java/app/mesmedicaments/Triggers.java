@@ -125,6 +125,7 @@ public final class Triggers {
             | NoSuchElementException
             | IllegalArgumentException e
         ) {
+            Utils.logErreur(e, logger);
             codeHttp = HttpStatus.BAD_REQUEST;
             corpsReponse = new JSONObjectUneCle(CLE_CAUSE, "Mauvais format du corps de la requête");
         }

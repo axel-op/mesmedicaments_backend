@@ -85,6 +85,7 @@ public final class Triggers {
             if (etape == 0) { // Renouvellement du token d'accès
                 jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
                 jwt = parserEnTeteAuthorization(jwt);
+                logger.info("token = " + jwt);
                 if (Authentification.checkRefreshToken(jwt)) { 
                     id = Authentification.getIdFromToken(jwt);
                     auth = new Authentification(logger, id);
@@ -139,6 +140,7 @@ public final class Triggers {
         }
         catch (JwtException e) 
         {
+            Utils.logErreur(e, logger);
             codeHttp = HttpStatus.UNAUTHORIZED;
         }
         catch (Exception e) {

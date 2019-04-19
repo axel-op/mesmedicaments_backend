@@ -1,6 +1,7 @@
 package app.mesmedicaments.connexion;
 
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -112,11 +113,14 @@ public final class Authentification {
 		{ return false; }
 		EntiteUtilisateur entite = EntiteUtilisateur.obtenirEntite(id);
 		if (entite == null) { return false; }
-		LocalDateTime derniereConnexion = LocalDateTime.ofInstant(
-			entite.getDerniereConnexion().toInstant(), TIMEZONE);
-		if (derniereConnexion.plusYears(1).isBefore(LocalDateTime.now())
-			|| !Arrays.equals(entite.getJwtSalt(), sel)) 
-		{ return false; }
+		Date derniereConnexion = entite.getDerniereConnexion();
+		if (derniereConnexion != null) {
+			LocalDateTime derniereConnexionLocale = LocalDateTime.ofInstant(
+				derniereConnexion.toInstant(), TIMEZONE);
+			if (derniereConnexionLocale.plusYears(1).isBefore(LocalDateTime.now())
+				|| !Arrays.equals(entite.getJwtSalt(), sel))
+			{ return false; }
+		}
 		entite.setDerniereConnexion(new Date());
 		EntiteUtilisateur.mettreAJourEntite(entite);
 		return true;
@@ -141,9 +145,11 @@ public final class Authentification {
 	}
 
 	public String createRefreshToken () throws StorageException {
+		byte[] sel = new byte[16];
+		new SecureRandom().nextBytes(sel);
 		EntiteUtilisateur entite = EntiteUtilisateur.obtenirEntite(id);
-		entite.setJwtSalt();
-		byte[] sel = entite.getJwtSalt();
+		entite.setJwtSalt(sel);
+		EntiteUtilisateur.mettreAJourEntite(entite);
 		Claims claims = Jwts.claims();
 		claims.put("id", id);
 		claims.put("type", "refresh");

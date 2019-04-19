@@ -83,12 +83,7 @@ public class EntiteUtilisateur extends TableServiceEntity {
     }
     public void setMotDePasse (String motDePasse) { this.motDePasse = motDePasse; }
     public void setDateInscription (Date dateInscription) { this.dateInscription = dateInscription; }
-    public void setJwtSalt (String inutile) { setJwtSalt(); } // tester sans cette fonction
-    public void setJwtSalt () {
-        byte[] salt = new byte[16];
-        new SecureRandom().nextBytes(salt);
-        jwtSalt = salt;
-    }
+    public void setJwtSalt (byte[] salt) { jwtSalt = salt; }
     public void setDerniereConnexion (Date date) { derniereConnexion = date; }
 
     // Affichage

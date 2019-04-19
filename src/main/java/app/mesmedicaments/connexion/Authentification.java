@@ -100,40 +100,29 @@ public final class Authentification {
 			.get("id");
 	}
 
-	public static boolean checkRefreshToken (String refreshJwt, Logger logger) throws StorageException {
-		logger.info("token = " + refreshJwt);
-		logger.info("obtention des claims");
+	public static boolean checkRefreshToken (String refreshJwt) throws StorageException {
 		Claims claims = Jwts.parser()
 			.setSigningKey(JWT_SIGNING_KEY)
 			.parseClaimsJws(refreshJwt)
 			.getBody();
-		logger.info("get id");
 		String id = (String) claims.get("id");
-		logger.info("get type");
 		String type = (String) claims.get("type");
-		logger.info("decode sel");
 		byte[] sel = Base64.getDecoder().decode((String) claims.get("sel"));
 		if (id.length() != 8 
 			|| !type.equals("refresh")) 
-		{ logger.info("erreur id.length ou type = refresh"); 
-			return false; }
-		logger.info("obtention entite");
+		{ return false; }
 		EntiteUtilisateur entite = EntiteUtilisateur.obtenirEntite(id);
-		if (entite == null) { logger.info("entite == null"); return false; }
+		if (entite == null) { return false; }
 		Date derniereConnexion = entite.getDerniereConnexion();
 		if (derniereConnexion != null) {
-			logger.info("derniere conn non null");
 			LocalDateTime derniereConnexionLocale = LocalDateTime.ofInstant(
 				derniereConnexion.toInstant(), TIMEZONE);
-			logger.info("test date");
 			if (derniereConnexionLocale.plusYears(1).isBefore(LocalDateTime.now())
 				|| !Arrays.equals(entite.getJwtSalt(), sel))
-			{ logger.info("test date echoue"); return false; }
+			{ return false; }
 		}
 		entite.setDerniereConnexion(new Date());
-		logger.info("maj entite");
 		EntiteUtilisateur.mettreAJourEntite(entite);
-		logger.info("return true");
 		return true;
 	}
 	

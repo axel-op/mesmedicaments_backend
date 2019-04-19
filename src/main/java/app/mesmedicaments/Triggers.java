@@ -83,18 +83,15 @@ public final class Triggers {
                 throw new IllegalArgumentException(); }
             JSONObject corpsRequete = new JSONObject(request.getBody().get());
             if (etape == 0) { // Renouvellement du token d'accès
-                jwt = request.getHeaders().get(HEADER_AUTHORIZATION).toString();
-                if (Authentification.checkRefreshToken(jwt, logger)) { 
-                    logger.info("extraction de l'id"); //debug
+                jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
+                jwt = parserEnTeteAuthorization(jwt);
+                if (Authentification.checkRefreshToken(jwt)) { 
                     id = Authentification.getIdFromToken(jwt);
                     auth = new Authentification(logger, id);
-                    logger.info("creation accessToken"); //debug
                     corpsReponse.put("accessToken", auth.createAccessToken()); 
                     codeHttp = HttpStatus.OK;
                 }
-                else { 
-                    logger.info("token non valide"); //debug
-                    throw new JwtException("Le token de rafraîchissement n'est pas valide"); }
+                else { throw new JwtException("Le token de rafraîchissement n'est pas valide"); }
             }
             else if (etape == 1) { // Première étape de la connexion
                 id = corpsRequete.getString("id");
@@ -142,7 +139,6 @@ public final class Triggers {
         }
         catch (JwtException e) 
         {
-            Utils.logErreur(e, logger);
             codeHttp = HttpStatus.UNAUTHORIZED;
         }
         catch (Exception e) {
@@ -290,5 +286,12 @@ public final class Triggers {
             catch (DateTimeParseException e) {}
         }
         return false;
+    }
+
+    private String parserEnTeteAuthorization (String entete) {
+        if (entete.matches("(?i:bearer *.*)")) {
+			return entete.replaceFirst("(?i:bearer *)", "");
+        }
+        return entete;
     }
 }

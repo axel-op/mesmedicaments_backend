@@ -101,6 +101,7 @@ public final class Authentification {
 	}
 
 	public static boolean checkRefreshToken (String refreshJwt, Logger logger) throws StorageException {
+		logger.info("token = " + refreshJwt);
 		logger.info("obtention des claims");
 		Claims claims = Jwts.parser()
 			.setSigningKey(JWT_SIGNING_KEY)

@@ -142,6 +142,7 @@ public final class Triggers {
         }
         catch (JwtException e) 
         {
+            Utils.logErreur(e, logger);
             codeHttp = HttpStatus.UNAUTHORIZED;
         }
         catch (Exception e) {

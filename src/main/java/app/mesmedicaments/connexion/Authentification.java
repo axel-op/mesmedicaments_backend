@@ -1,12 +1,12 @@
 package app.mesmedicaments.connexion;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.security.InvalidKeyException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.logging.Logger;
@@ -20,6 +20,13 @@ import org.jsoup.nodes.Document;
 
 import app.mesmedicaments.JSONObjectUneCle;
 import app.mesmedicaments.Utils;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.SignatureException;
+import io.jsonwebtoken.UnsupportedJwtException;
 
 public final class Authentification {
 
@@ -47,6 +54,8 @@ public final class Authentification {
 	private static final String URL_INFOS_DMP;
 	//private static final String ID_MSI;
 	private static final ZoneId TIMEZONE;
+	private static SignatureAlgorithm JWT_SIGNING_ALG;
+    private static String JWT_SIGNING_KEY;
 	
 	static {
 		ERR_INTERNE = "interne";
@@ -72,24 +81,87 @@ public final class Authentification {
 		CLE_GENRE = "genre";
 		CLE_INSCRIPTION_REQUISE = "inscription requise";
 		TIMEZONE = ZoneId.of("ECT", ZoneId.SHORT_IDS);
+		JWT_SIGNING_ALG = SignatureAlgorithm.HS512;
+		JWT_SIGNING_KEY = "SuperSecretTest";
+		///////////////// définir un secret et le lier à KEYVAULT
+	}
+
+	public static String getIdFromToken (String jwt) 
+		throws SignatureException, 
+		ExpiredJwtException,
+		MalformedJwtException,
+		UnsupportedJwtException
+	{
+		return (String) Jwts.parser()
+			.setSigningKey(JWT_SIGNING_KEY)
+			.parseClaimsJws(jwt)
+			.getBody()
+			.get("id");
+	}
+
+	public static boolean checkRefreshToken (String refreshJwt) throws StorageException {
+		Claims claims = Jwts.parser()
+			.setSigningKey(JWT_SIGNING_KEY)
+			.parseClaimsJws(refreshJwt)
+			.getBody();
+		String id = (String) claims.get("id");
+		String type = (String) claims.get("type");
+		byte[] sel = Base64.getDecoder().decode((String) claims.get("sel"));
+		if (id.length() != 8 
+			|| !type.equals("refresh")) 
+		{ return false; }
+		EntiteUtilisateur entite = EntiteUtilisateur.obtenirEntite(id);
+		if (entite == null) { return false; }
+		LocalDateTime derniereConnexion = LocalDateTime.ofInstant(
+			entite.getDerniereConnexion().toInstant(), TIMEZONE);
+		if (derniereConnexion.plusYears(1).isBefore(LocalDateTime.now())
+			|| !Arrays.equals(entite.getJwtSalt(), sel)) 
+		{ return false; }
+		entite.setDerniereConnexion(new Date());
+		EntiteUtilisateur.mettreAJourEntite(entite);
+		return true;
 	}
 	
 	private Logger logger;
+	private String id;
 	
-	public Authentification (Logger logger) throws InvalidKeyException, URISyntaxException, StorageException {
+	public Authentification (Logger logger, String id) {
+		if (id.length() != 8) { throw new IllegalArgumentException(); }
 		this.logger = logger;
-		/*CLOUDTABLE_UTILISATEURS = CloudStorageAccount
-			.parse(System.getenv("connexion_tablesazure"))
-			.createCloudTableClient()
-			.getTableReference(System.getenv("tableazure_utilisateurs")); 
-		CLE_PARTITION_CONNEXIONS = System.getenv("clepartition_connexions"); 
-		CLE_PARTITION_INSCRIPTIONS = System.getenv("clepartition_inscriptions"); 
-		CLE_PARTITION_INFORMATIONS = System.getenv("clepartition_informations");*/
+		this.id = id;
 	}
 
-	public void inscription (String id, String prenom, String email, String genre) 
-		throws StorageException, IllegalArgumentException
+    public String createAccessToken () {
+        return Jwts.builder()
+            .signWith(JWT_SIGNING_ALG, JWT_SIGNING_KEY)
+            .setClaims(new JSONObjectUneCle("id", id).toMap())
+            .setExpiration(new Date(System.currentTimeMillis() + 3600000)) // une heure
+            .setIssuedAt(new Date())
+            .compact();            
+	}
+
+	public String createRefreshToken () throws StorageException {
+		EntiteUtilisateur entite = EntiteUtilisateur.obtenirEntite(id);
+		entite.setJwtSalt();
+		byte[] sel = entite.getJwtSalt();
+		Claims claims = Jwts.claims();
+		claims.put("id", id);
+		claims.put("type", "refresh");
+		claims.put("sel", Base64.getEncoder().encodeToString(sel));
+		return Jwts.builder()
+			.signWith(JWT_SIGNING_ALG, JWT_SIGNING_KEY)
+			.setClaims(claims)
+			.setIssuedAt(new Date())
+			.compact();
+	}
+
+	public void inscription (String prenom, String email, String genre) 
+		throws StorageException
 	{
+		if (prenom.length() > 30
+			|| email.length() > 128
+			|| genre.length() != 1
+		) { throw new IllegalArgumentException(); }
 		EntiteUtilisateur entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
 		if (entiteUtilisateur == null) { throw new IllegalArgumentException(); }
 		entiteUtilisateur.setPrenom(prenom);
@@ -100,7 +172,8 @@ public final class Authentification {
 		EntiteUtilisateur.mettreAJourEntite(entiteUtilisateur);
 	}
 
-	public JSONObject connexionDMP (String id, String mdp) {
+	public JSONObject connexionDMP (String mdp) {
+		if (mdp.length() > 128) { throw new IllegalArgumentException(); }
 		Document pageReponse;
 		Connection connexion;
 		HashMap<String, String> cookies;
@@ -147,8 +220,8 @@ public final class Authentification {
 			}
 			// Vérification de l'existence de l'utilisateur
 			entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
-			boolean inscriptionRequise = entiteUtilisateur == null;
-			if (inscriptionRequise) {
+			//boolean inscriptionRequise = entiteUtilisateur == null;
+			if (entiteUtilisateur == null) {
 				entiteUtilisateur = new EntiteUtilisateur(id);
 				entiteUtilisateur.setMotDePasse(mdp);
 				EntiteUtilisateur.definirEntite(entiteUtilisateur);
@@ -166,7 +239,7 @@ public final class Authentification {
 			entiteConnexion.setSid(obtenirSid(pageReponse));
 			entiteConnexion.setTformdata(obtenirTformdata(pageReponse));
 			entiteConnexion.definirCookiesMap(cookies);
-			entiteConnexion.setInscriptionRequise(inscriptionRequise);
+			//entiteConnexion.setInscriptionRequise(inscriptionRequise);
 			EntiteConnexion.definirEntite(entiteConnexion);
 		} catch (IOException | StorageException e) {
 			Utils.logErreur(e, logger);
@@ -175,14 +248,13 @@ public final class Authentification {
 		return retour;
 	}
 
-	public JSONObject doubleAuthentification (String id, String code) 
-		throws IllegalArgumentException
-	{
+	public JSONObject doubleAuthentification (String code) {
+		if (code.length() >= 10) { throw new IllegalArgumentException(); }
 		/*** Instaurer un contrôle pour mdp ***/
 		Connection connexion;
 		Connection.Response reponse;
 		HashMap<String, String> cookies;
-		boolean inscriptionRequise;
+		//boolean inscriptionRequise;
 		EntiteConnexion entiteConnexion;
 		JSONObject retour = new JSONObject();
 		LocalDateTime maintenant = LocalDateTime.now(TIMEZONE);
@@ -215,17 +287,7 @@ public final class Authentification {
 				EntiteConnexion.mettreAJourEntite(entiteConnexion);
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
 			}
-			inscriptionRequise = entiteConnexion.getInscriptionRequise();
-			retour.put(CLE_INSCRIPTION_REQUISE, inscriptionRequise);
-			// Récupération des infos sur l'utilisateur
-			if (inscriptionRequise) { recupererInfosPerso(cookies, retour); }
-			else {
-				EntiteUtilisateur entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
-				retour.put(CLE_PRENOM, entiteUtilisateur.getPrenom());
-				retour.put(CLE_EMAIL, entiteUtilisateur.getEmail());
-				retour.put(CLE_GENRE, entiteUtilisateur.getGenre());
-			}
-
+			recupererInfosUtilisateur(cookies, retour);
 		}
 		catch (IOException | StorageException e) {
 			Utils.logErreur(e, logger);
@@ -234,21 +296,34 @@ public final class Authentification {
 		return retour;
 	}
 
-	private void recupererInfosPerso (HashMap<String, String> cookies, JSONObject retour) throws IOException {
+	private void recupererInfosUtilisateur (HashMap<String, String> cookies, JSONObject retour) 
+		throws IOException, StorageException
+	{
 		Connection connexion;
 		Document pageInfos;
-		connexion = Jsoup.connect(URL_INFOS_DMP);
-		connexion.method(Connection.Method.GET)
-			.userAgent(USERAGENT)
-			.cookies(cookies)
-			.execute();
-		pageInfos = connexion.response().parse();
-		retour.put(CLE_PRENOM, pageInfos.getElementById("firstNameValue")
-			.text());
-		retour.put(CLE_EMAIL, pageInfos.getElementById("email")
-			.val());
-		retour.put(CLE_GENRE, pageInfos.getElementById("genderValue")
-			.text());
+		EntiteUtilisateur entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
+		Date inscription = entiteUtilisateur.getDateInscription();
+		if (inscription == null) {
+			retour.put(CLE_INSCRIPTION_REQUISE, true);
+			connexion = Jsoup.connect(URL_INFOS_DMP);
+			connexion.method(Connection.Method.GET)
+				.userAgent(USERAGENT)
+				.cookies(cookies)
+				.execute();
+			pageInfos = connexion.response().parse();
+			retour.put(CLE_PRENOM, pageInfos.getElementById("firstNameValue")
+				.text());
+			retour.put(CLE_EMAIL, pageInfos.getElementById("email")
+				.val());
+			retour.put(CLE_GENRE, pageInfos.getElementById("genderValue")
+				.text());
+		}
+		else {
+			retour.put(CLE_INSCRIPTION_REQUISE, false);
+			retour.put(CLE_PRENOM, entiteUtilisateur.getPrenom());
+			retour.put(CLE_EMAIL, entiteUtilisateur.getEmail());
+			retour.put(CLE_GENRE, entiteUtilisateur.getGenre());
+		}
 	}
 
 	private String obtenirSid (Document page) {

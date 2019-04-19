@@ -5,6 +5,7 @@
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "connexionTrigger",
+    "route" : "connexion/{etape:int}",
     "methods" : [ "POST" ],
     "dataType" : "string"
   }, {

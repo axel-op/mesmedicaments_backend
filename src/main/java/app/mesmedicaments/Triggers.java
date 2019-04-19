@@ -1,7 +1,5 @@
 package app.mesmedicaments;
 
-import java.net.URISyntaxException;
-import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
@@ -15,9 +13,9 @@ import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
+import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
-import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -26,44 +24,37 @@ import app.mesmedicaments.connexion.Authentification;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
 import app.mesmedicaments.misesajour.MiseAJourInteractions;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 
 public final class Triggers {
 
     private static final String CLE_CAUSE;
     private static final String CLE_HEURE;
     private static final String CLE_ERREUR_AUTH;
-    private static final String CLE_DA;
     private static final String CLE_ENVOI_CODE;
     private static final String CLE_PRENOM;
     private static final String CLE_EMAIL;
     private static final String CLE_GENRE;
-    //private static final String CLE_SID;
-    //private static final String CLE_COOKIES;
-    //private static final String CLE_TFORMDATA;
-    //private static final String CLE_EXISTENCE;
     private static final String CLE_INSCRIPTION_REQUISE;
     private static final String ERR_INTERNE;
+    private static final String HEADER_AUTHORIZATION;
 
     static {
         CLE_CAUSE = "cause";
         CLE_HEURE = "heure";
-        CLE_DA = "da";
         CLE_ERREUR_AUTH = Authentification.CLE_ERREUR;
         CLE_ENVOI_CODE = Authentification.CLE_ENVOI_CODE;
         CLE_PRENOM = Authentification.CLE_PRENOM;
         CLE_GENRE = Authentification.CLE_GENRE;
         CLE_EMAIL = Authentification.CLE_EMAIL;
-        //CLE_SID = Authentification.CLE_SID;
-        //CLE_COOKIES = Authentification.CLE_COOKIES;
-        //CLE_TFORMDATA = Authentification.CLE_TFORMDATA;
-        //CLE_EXISTENCE = Authentification.CLE_EXISTENCE_DB;
         CLE_INSCRIPTION_REQUISE = Authentification.CLE_INSCRIPTION_REQUISE;
         ERR_INTERNE = Authentification.ERR_INTERNE;
+        HEADER_AUTHORIZATION = "authorization";
     }
 
     private Logger logger;
     private HttpStatus codeHttp;
-    private Boolean DA;
     private JSONObject corpsReponse;
     private JSONObject retour;
     //private JSONObject corpsRequete;
@@ -74,40 +65,51 @@ public final class Triggers {
             name = "connexionTrigger",
             dataType = "string",
             authLevel = AuthorizationLevel.FUNCTION,
-            methods = {HttpMethod.POST})
+            methods = {HttpMethod.POST},
+            route = "connexion/{etape:int}")
         final HttpRequestMessage<Optional<String>> request,
+        @BindingName("etape") int etape,
         final ExecutionContext context
     ) {
-        String id;
-        String mdp;
+        final String id;
+        final String mdp;
+        String jwt = null;
         corpsReponse = new JSONObject();
         retour = new JSONObject();
         logger = context.getLogger();
+        Authentification auth;
         try {
-            if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)
-                || !verifierEnTeteDA(request.getHeaders().get(CLE_DA))
-            ) { throw new IllegalArgumentException(); }
+            if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)) { 
+                throw new IllegalArgumentException(); }
             JSONObject corpsRequete = new JSONObject(request.getBody().get());
-            id = corpsRequete.getString("id");
-            try { mdp = corpsRequete.getString("mdp"); }
-            catch (JSONException e) { mdp = ""; }
-            if (id.length() != 8
-                || mdp.length() > 128) { throw new IllegalArgumentException(); }
-            if (!DA) { // Première étape de la connexion
-                retour = new Authentification(logger).connexionDMP(id, mdp);
+            if (etape == 0) { // Renouvellement du token d'accès
+                jwt = request.getHeaders().get(HEADER_AUTHORIZATION).toString();
+                if (Authentification.checkRefreshToken(jwt)) { 
+                    id = Authentification.getIdFromToken(jwt);
+                    auth = new Authentification(logger, id);
+                    corpsReponse.put("accessToken", auth.createAccessToken()); 
+                }
+                else { throw new JwtException("Le token de rafraîchissement n'est pas valide"); }
+            }
+            else if (etape == 1) { // Première étape de la connexion
+                id = corpsRequete.getString("id");
+                mdp = corpsRequete.getString("mdp");
+                auth = new Authentification(logger, id);
+                retour = auth.connexionDMP(mdp);
                 if (!retour.isNull(CLE_ERREUR_AUTH)) {
                     codeHttp = HttpStatus.CONFLICT;
                     corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
                 } else {
                     codeHttp = HttpStatus.OK;
                     corpsReponse.put(CLE_ENVOI_CODE, retour.getString(CLE_ENVOI_CODE));
-                    //corpsReponse.put(CLE_EXISTENCE, retour.getBoolean(CLE_EXISTENCE));
                 }
             }
-            else { // Deuxième étape de la connexion
+            else if (etape == 2) { // Deuxième étape de la connexion
+                //id = Authentification.getIdFromToken(request.getHeaders().get(HEADER_AUTHORIZATION));
+                id = corpsRequete.getString("id");
+                auth = new Authentification(logger, id);
                 String code = String.valueOf(corpsRequete.getInt("code"));
-                if (code.length() >= 10) { throw new IllegalArgumentException(); }
-                retour = new Authentification(logger).doubleAuthentification(id, code);
+                retour = auth.doubleAuthentification(code);
                 if (!retour.isNull(CLE_ERREUR_AUTH)) {
                     codeHttp = HttpStatus.CONFLICT;
                     corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
@@ -117,23 +119,29 @@ public final class Triggers {
                     corpsReponse.put(CLE_EMAIL, retour.get(CLE_EMAIL));
                     corpsReponse.put(CLE_GENRE, retour.get(CLE_GENRE));
                     corpsReponse.put(CLE_INSCRIPTION_REQUISE, retour.get(CLE_INSCRIPTION_REQUISE));
-                    // générer et envoyer un jeton
+                    corpsReponse.put("accessToken", auth.createAccessToken());
+                    corpsReponse.put("refreshToken", auth.createRefreshToken());
                 }
-            }
+            } else { throw new IllegalArgumentException(); }
         }
         catch (JSONException 
             | NullPointerException 
             | NoSuchElementException
-            | IllegalArgumentException e
-        ) {
+            | IllegalArgumentException e) 
+        {
             Utils.logErreur(e, logger);
             codeHttp = HttpStatus.BAD_REQUEST;
             corpsReponse = new JSONObjectUneCle(CLE_CAUSE, "Mauvais format du corps de la requête");
         }
-        catch (InvalidKeyException
-            | URISyntaxException
-            | StorageException e
-        ) {
+        catch (ExpiredJwtException e) {
+            codeHttp = HttpStatus.UNAUTHORIZED;
+            corpsReponse = new JSONObjectUneCle(CLE_CAUSE, "Jeton expiré");
+        }
+        catch (JwtException e) 
+        {
+            codeHttp = HttpStatus.UNAUTHORIZED;
+        }
+        catch (Exception e) {
             Utils.logErreur(e, logger);
             codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
             corpsReponse = new JSONObjectUneCle(CLE_CAUSE, ERR_INTERNE);
@@ -158,10 +166,10 @@ public final class Triggers {
         String prenom;
         String email;
         String genre;
-        codeHttp = HttpStatus.OK;
         corpsReponse = new JSONObject();
         retour = new JSONObject();
         logger = context.getLogger();
+        Authentification auth;
         try {
             // vérifier le jeton
             if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)) {
@@ -172,12 +180,9 @@ public final class Triggers {
             prenom = corpsRequete.getString("prenom");
             email = corpsRequete.getString("email");
             genre = corpsRequete.getString("genre");
-            if (id.length() != 8
-                || prenom.length() > 30
-                || email.length() > 128
-                || genre.length() != 1
-            ) { throw new IllegalArgumentException(); }
-            new Authentification(logger).inscription(id, prenom, email, genre);
+            auth = new Authentification(logger, id);
+            auth.inscription(prenom, email, genre);
+            codeHttp = HttpStatus.OK;
         }
         catch (NullPointerException 
             | IllegalArgumentException e) {
@@ -187,10 +192,8 @@ public final class Triggers {
             | NoSuchElementException e) {
             codeHttp = HttpStatus.UNAUTHORIZED;
         }
-        catch (InvalidKeyException
-            | URISyntaxException
-            | StorageException e
-        ) {
+        catch (Exception e) {
+            Utils.logErreur(e, logger);
             codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
             corpsReponse = new JSONObjectUneCle(CLE_CAUSE, ERR_INTERNE);
         }
@@ -206,40 +209,30 @@ public final class Triggers {
             name = "majTrigger", 
             dataType = "string", 
             authLevel = AuthorizationLevel.FUNCTION,
-            methods = {HttpMethod.GET})
+            methods = {HttpMethod.GET},
+            route = "mettreAJourBases/{etape:int}")
         final HttpRequestMessage<Optional<String>> request,
+        @BindingName("etape") int etape,
         final ExecutionContext context
     ) {
 		long startTime = System.currentTimeMillis();
 		HttpStatus codeHttp = null;
 		String corps = "";
         logger = context.getLogger();
-        String parametre = request
-            .getQueryParameters()
-            .get("maj")
-            .toLowerCase();
-        if (parametre == null) {
-            codeHttp = HttpStatus.BAD_REQUEST;
-            corps = "La mise à jour à effectuer doit être précisée en paramètre de la requête.";
-        }
-        switch (parametre) {
-            case "1":
-            case "bdpm":
+        switch (etape) {
+            case 1:
                 if (MiseAJourBDPM.handler(logger)) {
                     codeHttp = HttpStatus.OK;
                     corps = "Mise à jour BDPM terminée.";
                 }
                 break;
-            case "2":
-            case "classes":
-            case "classessubstances":
+            case 2:
                 if (MiseAJourClassesSubstances.handler(logger)) {
                     codeHttp = HttpStatus.OK;
                     corps = "Mise à jour des classes de substances terminée.";
                 }
                 break;
-            case "3":
-            case "interactions":
+            case 3:
                 if (MiseAJourInteractions.handler(logger)) {
                     codeHttp = HttpStatus.OK;
                     corps = "Mise à jour des interactions terminée.";
@@ -291,20 +284,6 @@ public final class Triggers {
                 ) { return true; }
             }
             catch (DateTimeParseException e) {}
-        }
-        return false;
-    }
-    
-    private boolean verifierEnTeteDA (String entete) {
-        if (entete != null && (entete.length() == 4 || entete.length() == 5)) {
-            if (entete.matches("(?i:true)")) { 
-                DA = true; 
-                return true;
-            }
-            else if (entete.matches("(?i:false)")) { 
-                DA = false; 
-                return true;
-            }
         }
         return false;
     }

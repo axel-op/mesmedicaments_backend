@@ -2,6 +2,7 @@ package app.mesmedicaments.connexion;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.security.SecureRandom;
 import java.util.Date;
 
 import com.microsoft.azure.storage.CloudStorageAccount;
@@ -16,7 +17,7 @@ public class EntiteUtilisateur extends TableServiceEntity {
     private static final String CLE_PARTITION_UTILISATEURS;
 
     static {
-        CLE_PARTITION_UTILISATEURS = System.getenv("clepartition_utilisateurs");
+        CLE_PARTITION_UTILISATEURS = "utilisateur";
         TABLE_UTILISATEURS = obtenirCloudTable();
     }
 
@@ -49,6 +50,8 @@ public class EntiteUtilisateur extends TableServiceEntity {
     String email;
     String motDePasse;
     Date dateInscription;
+    byte[] jwtSalt;
+    Date derniereConnexion;
 
     public EntiteUtilisateur () {}
 
@@ -63,6 +66,8 @@ public class EntiteUtilisateur extends TableServiceEntity {
     public String getEmail () { return email; }
     public String getMotDePasse () { return motDePasse; }
     public Date getDateInscription () { return dateInscription; }
+    public byte[] getJwtSalt () { return jwtSalt; }
+    public Date getDerniereConnexion () { return derniereConnexion; }
 
     // Setters
     public void setPrenom (String prenom) { this.prenom = prenom; }
@@ -78,6 +83,13 @@ public class EntiteUtilisateur extends TableServiceEntity {
     }
     public void setMotDePasse (String motDePasse) { this.motDePasse = motDePasse; }
     public void setDateInscription (Date dateInscription) { this.dateInscription = dateInscription; }
+    public void setJwtSalt (String inutile) { setJwtSalt(); } // tester sans cette fonction
+    public void setJwtSalt () {
+        byte[] salt = new byte[16];
+        new SecureRandom().nextBytes(salt);
+        jwtSalt = salt;
+    }
+    public void setDerniereConnexion (Date date) { derniereConnexion = date; }
 
     // Affichage
 	public String toString () {

@@ -84,13 +84,17 @@ public final class Triggers {
             JSONObject corpsRequete = new JSONObject(request.getBody().get());
             if (etape == 0) { // Renouvellement du token d'accès
                 jwt = request.getHeaders().get(HEADER_AUTHORIZATION).toString();
-                if (Authentification.checkRefreshToken(jwt)) { 
+                if (Authentification.checkRefreshToken(jwt, logger)) { 
+                    logger.info("extraction de l'id"); //debug
                     id = Authentification.getIdFromToken(jwt);
                     auth = new Authentification(logger, id);
+                    logger.info("creation accessToken"); //debug
                     corpsReponse.put("accessToken", auth.createAccessToken()); 
                     codeHttp = HttpStatus.OK;
                 }
-                else { throw new JwtException("Le token de rafraîchissement n'est pas valide"); }
+                else { 
+                    logger.info("token non valide"); //debug
+                    throw new JwtException("Le token de rafraîchissement n'est pas valide"); }
             }
             else if (etape == 1) { // Première étape de la connexion
                 id = corpsRequete.getString("id");
@@ -106,7 +110,6 @@ public final class Triggers {
                 }
             }
             else if (etape == 2) { // Deuxième étape de la connexion
-                //id = Authentification.getIdFromToken(request.getHeaders().get(HEADER_AUTHORIZATION));
                 id = corpsRequete.getString("id");
                 auth = new Authentification(logger, id);
                 String code = String.valueOf(corpsRequete.getInt("code"));

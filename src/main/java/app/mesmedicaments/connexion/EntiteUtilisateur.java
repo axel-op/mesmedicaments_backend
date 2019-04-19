@@ -2,7 +2,6 @@ package app.mesmedicaments.connexion;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
-import java.security.SecureRandom;
 import java.util.Date;
 
 import com.microsoft.azure.storage.CloudStorageAccount;

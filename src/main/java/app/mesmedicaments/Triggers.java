@@ -88,6 +88,7 @@ public final class Triggers {
                     id = Authentification.getIdFromToken(jwt);
                     auth = new Authentification(logger, id);
                     corpsReponse.put("accessToken", auth.createAccessToken()); 
+                    codeHttp = HttpStatus.OK;
                 }
                 else { throw new JwtException("Le token de rafraîchissement n'est pas valide"); }
             }

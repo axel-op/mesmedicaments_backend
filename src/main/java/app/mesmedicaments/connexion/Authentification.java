@@ -115,7 +115,7 @@ public final class Authentification {
 				.execute();
 			Connection.Response reponse = connexion.response();
 			logger.info(reponse.url().toString());
-			if (!reponse.url().toString().matches("https://mondmp3\\.dmp\\.gouv\\.fr/dmp/recapitulatif/?")) {
+			if (!reponse.url().toString().matches("https://mondmp3\\.dmp\\.gouv\\.fr/dmp/recapitulatif/?.*")) {
 				logger.info("Le test a échoué à partir de "
 					+ LocalDateTime.now(TIMEZONE).toString());
 				logger.info(reponse.parse().body().text());

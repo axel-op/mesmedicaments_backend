@@ -12,6 +12,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.logging.Logger;
 
+import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.annotation.FunctionName;
+import com.microsoft.azure.functions.annotation.TimerTrigger;
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONObject;
@@ -86,6 +89,44 @@ public final class Authentification {
 		JWT_SIGNING_KEY = "SuperSecretTest";
 		///////////////// définir un secret et le lier à KEYVAULT
 	}
+
+	public Authentification () {} ////uniquement pour le test
+	
+    @FunctionName("testMaintienConnexion")
+    public void testMaintien (
+        @TimerTrigger(
+            name = "timerTestMaintien",
+            schedule = "0 */20 * * * *"
+        )
+        final String timerInfo,
+        final ExecutionContext context
+    ) {
+		Logger logger = context.getLogger();
+		try {
+			EntiteConnexion entite = EntiteConnexion.obtenirEntite(System.getenv("id_test_maintien"));
+			HashMap<String, String> cookies = entite.obtenirCookiesMap();
+			String sid = entite.getSid();
+			//String tformdata = entite.getTformdata();
+			Connection connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr/dmp/recapitulatif");
+			connexion.method(Connection.Method.GET)
+				.userAgent(USERAGENT)
+				.cookies(cookies)
+				.data("sid", sid)
+				.execute();
+			Connection.Response reponse = connexion.response();
+			if (!reponse.url().toString().matches("https://mondmp3.dmp.gouv.fr/dmp/recapitulatif")) {
+				logger.info("Le test a échoué à partir de "
+					+ LocalDateTime.now(TIMEZONE).toString());
+				logger.info(reponse.parse().body().text());
+			} else {
+				logger.info("Test OK à "
+					+ LocalDateTime.now(TIMEZONE));
+			}
+		}
+		catch (Exception e) {
+			Utils.logErreur(e, logger);
+		}
+    }
 
 	public static String getIdFromToken (String jwt) 
 		throws SignatureException, 

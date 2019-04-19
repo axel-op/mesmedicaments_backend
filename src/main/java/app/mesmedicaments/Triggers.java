@@ -16,6 +16,7 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import com.microsoft.azure.functions.annotation.TimerTrigger;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -253,21 +254,6 @@ public final class Triggers {
                 + String.valueOf(System.currentTimeMillis() - startTime) 
                 + " ms")
 			.build();
-    }
-
-    @FunctionName("ping")
-    public HttpResponseMessage ping (
-        @HttpTrigger(
-            name = "pingTrigger",
-            dataType = "string",
-            authLevel = AuthorizationLevel.ANONYMOUS,
-            methods = {HttpMethod.GET}
-        )
-        final HttpRequestMessage<Optional<String>> request,
-        final ExecutionContext context
-    ) {
-        return request.createResponseBuilder(HttpStatus.OK)
-            .body("Pong").build();
     }
 
     private LocalDateTime obtenirHeure () {

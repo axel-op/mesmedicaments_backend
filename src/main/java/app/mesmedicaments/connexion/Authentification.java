@@ -114,7 +114,8 @@ public final class Authentification {
 				.data("sid", sid)
 				.execute();
 			Connection.Response reponse = connexion.response();
-			if (!reponse.url().toString().matches("https://mondmp3.dmp.gouv.fr/dmp/recapitulatif")) {
+			logger.info(reponse.url().toString());
+			if (!reponse.url().toString().matches("https://mondmp3\\.dmp\\.gouv\\.fr/dmp/recapitulatif/?")) {
 				logger.info("Le test a échoué à partir de "
 					+ LocalDateTime.now(TIMEZONE).toString());
 				logger.info(reponse.parse().body().text());

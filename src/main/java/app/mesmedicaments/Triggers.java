@@ -50,7 +50,7 @@ public final class Triggers {
         CLE_EMAIL = Authentification.CLE_EMAIL;
         CLE_INSCRIPTION_REQUISE = Authentification.CLE_INSCRIPTION_REQUISE;
         ERR_INTERNE = Authentification.ERR_INTERNE;
-        HEADER_AUTHORIZATION = "authorization";
+        HEADER_AUTHORIZATION = "jwt";
     }
 
     private Logger logger;
@@ -84,7 +84,6 @@ public final class Triggers {
             JSONObject corpsRequete = new JSONObject(request.getBody().get());
             if (etape == 0) { // Renouvellement du token d'accès
                 jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
-                jwt = parserEnTeteAuthorization(jwt);
                 logger.info("token = " + jwt);
                 if (Authentification.checkRefreshToken(jwt)) { 
                     id = Authentification.getIdFromToken(jwt);
@@ -288,12 +287,5 @@ public final class Triggers {
             catch (DateTimeParseException e) {}
         }
         return false;
-    }
-
-    private String parserEnTeteAuthorization (String entete) {
-        if (entete.matches("(?i:bearer *.*)")) {
-			return entete.replaceFirst("(?i:bearer *)", "");
-        }
-        return entete;
     }
 }

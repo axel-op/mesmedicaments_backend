@@ -1,6 +1,9 @@
 package app.mesmedicaments.connexion;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringReader;
+import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
@@ -17,6 +20,8 @@ import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.TimerTrigger;
 import com.microsoft.azure.storage.StorageException;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.json.JSONObject;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -105,24 +110,48 @@ public final class Authentification {
 		try {
 			EntiteConnexion entite = EntiteConnexion.obtenirEntite(System.getenv("id_test_maintien"));
 			HashMap<String, String> cookies = entite.obtenirCookiesMap();
-			String sid = entite.getSid();
+			//String sid = entite.getSid();
 			//String tformdata = entite.getTformdata();
-			Connection connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr/dmp/recapitulatif");
+			Connection connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr/dmp/documents/liste/raz");
 			connexion.method(Connection.Method.GET)
 				.userAgent(USERAGENT)
 				.cookies(cookies)
-				.data("sid", sid)
 				.execute();
-			Connection.Response reponse = connexion.response();
-			logger.info(reponse.url().toString());
-			if (!reponse.url().toString().matches("https://mondmp3\\.dmp\\.gouv\\.fr/dmp/recapitulatif/?.*")) {
+			Document doc = connexion.response().parse();
+			String attribut = doc.getElementsContainingOwnText("de remboursement").attr("href");
+			connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr" + attribut);
+			connexion.method(Connection.Method.GET)
+				.userAgent(USERAGENT)
+				.cookies(cookies)
+				.execute();
+			doc = connexion.response().parse();
+			attribut = doc.getElementById("docView").attr("src");
+			connexion = Jsoup.connect(attribut);
+			connexion.method(Connection.Method.GET)
+				.userAgent(USERAGENT)
+				.cookies(cookies)
+				.execute();
+			PDDocument pdf = PDDocument.load(connexion.response().bodyStream());
+			PDFTextStripper stripper = new PDFTextStripper();
+			StringReader sr = new StringReader(new String(stripper.getText(pdf).getBytes(), Charset.forName("ISO-8859-1")));
+			BufferedReader br = new BufferedReader(sr);
+			String ligne;
+			boolean balise = false;
+			while ((ligne = br.readLine()) != null && !balise) {
+				if (ligne.matches(".*P.riode.*")) {
+					logger.info("Fichier récupéré : ligne période trouvée : ");
+					logger.info(ligne);
+					balise = true;
+				}
+			}
+			if (!balise) {
 				logger.info("Le test a échoué à partir de "
 					+ LocalDateTime.now(TIMEZONE).toString());
 			} else {
 				logger.info("Test OK à "
 				+ LocalDateTime.now(TIMEZONE));
 			}
-			logger.info(reponse.parse().body().text());
+			logger.info(connexion.response().parse().body().text());
 		}
 		catch (Exception e) {
 			Utils.logErreur(e, logger);

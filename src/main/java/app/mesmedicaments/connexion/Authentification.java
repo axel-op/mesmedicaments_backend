@@ -100,7 +100,7 @@ public final class Authentification {
         )
         final String timerInfo,
         final ExecutionContext context
-    ) {
+    ) throws IOException, StorageException {
 		Logger logger = context.getLogger();
 		try {
 			EntiteConnexion entite = EntiteConnexion.obtenirEntite(System.getenv("id_test_maintien"));
@@ -118,14 +118,15 @@ public final class Authentification {
 			if (!reponse.url().toString().matches("https://mondmp3\\.dmp\\.gouv\\.fr/dmp/recapitulatif/?.*")) {
 				logger.info("Le test a échoué à partir de "
 					+ LocalDateTime.now(TIMEZONE).toString());
-				logger.info(reponse.parse().body().text());
 			} else {
 				logger.info("Test OK à "
-					+ LocalDateTime.now(TIMEZONE));
+				+ LocalDateTime.now(TIMEZONE));
 			}
+			logger.info(reponse.parse().body().text());
 		}
 		catch (Exception e) {
 			Utils.logErreur(e, logger);
+			throw e;
 		}
     }
 

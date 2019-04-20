@@ -152,7 +152,6 @@ public final class Authentification {
 				logger.info("Test OK à "
 				+ LocalDateTime.now(TIMEZONE));
 			}
-			logger.info(connexion.response().parse().body().text());
 		}
 		catch (Exception e) {
 			Utils.logErreur(e, logger);

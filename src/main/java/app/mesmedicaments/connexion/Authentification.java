@@ -129,13 +129,9 @@ public final class Authentification {
 				.execute();
 			doc = connexion.response().parse();
 			attribut = doc.getElementById("docView").attr("src");
-			/*connexion = Jsoup.connect(attribut);
-			connexion.method(Connection.Method.GET)
-				.userAgent(USERAGENT)
-				.cookies(cookies)
-				.execute();*/
 			HttpsURLConnection connPDF = (HttpsURLConnection) new URL(attribut).openConnection();
 			connPDF.setRequestMethod("GET");
+			for (String c : cookies.keySet()) { connPDF.addRequestProperty("Cookie", c + "=" + cookies.get(c) + "; "); }
 			PDDocument pdf = PDDocument.load(connPDF.getInputStream());
 			PDFTextStripper stripper = new PDFTextStripper();
 			StringReader sr = new StringReader(new String(stripper.getText(pdf).getBytes(), Charset.forName("ISO-8859-1")));

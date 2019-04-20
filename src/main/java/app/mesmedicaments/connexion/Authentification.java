@@ -3,6 +3,7 @@ package app.mesmedicaments.connexion;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -14,6 +15,8 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.logging.Logger;
+
+import javax.net.ssl.HttpsURLConnection;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;
@@ -101,7 +104,7 @@ public final class Authentification {
     public void testMaintien (
         @TimerTrigger(
             name = "timerTestMaintien",
-            schedule = "0 */20 * * * *"
+            schedule = "0 */50 * * * *"
         )
         final String timerInfo,
         final ExecutionContext context
@@ -126,12 +129,14 @@ public final class Authentification {
 				.execute();
 			doc = connexion.response().parse();
 			attribut = doc.getElementById("docView").attr("src");
-			connexion = Jsoup.connect(attribut);
+			/*connexion = Jsoup.connect(attribut);
 			connexion.method(Connection.Method.GET)
 				.userAgent(USERAGENT)
 				.cookies(cookies)
-				.execute();
-			PDDocument pdf = PDDocument.load(connexion.response().bodyStream());
+				.execute();*/
+			HttpsURLConnection connPDF = (HttpsURLConnection) new URL(attribut).openConnection();
+			connPDF.setRequestMethod("GET");
+			PDDocument pdf = PDDocument.load(connPDF.getInputStream());
 			PDFTextStripper stripper = new PDFTextStripper();
 			StringReader sr = new StringReader(new String(stripper.getText(pdf).getBytes(), Charset.forName("ISO-8859-1")));
 			BufferedReader br = new BufferedReader(sr);

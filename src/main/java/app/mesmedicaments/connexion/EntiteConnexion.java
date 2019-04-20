@@ -41,13 +41,6 @@ public class EntiteConnexion extends TableServiceEntity {
 		TABLE_UTILISATEURS.execute(operation);
 	}
 	
-	protected static void mettreAJourEntite (EntiteConnexion entite)
-		throws StorageException
-	{
-		TableOperation operation = TableOperation.merge(entite);
-		TABLE_UTILISATEURS.execute(operation);
-	}
-
 	protected static EntiteConnexion obtenirEntite (String id) 
 		throws StorageException
 	{
@@ -64,6 +57,7 @@ public class EntiteConnexion extends TableServiceEntity {
 	String tformdata;
 	String cookies;
 	//boolean inscriptionRequise;
+    String urlFichierRemboursements;
 
 	// Le type HashMap n'est pas supporté et doit être String dès en entrant pour les cookies
 	public EntiteConnexion (String id) {
@@ -86,6 +80,7 @@ public class EntiteConnexion extends TableServiceEntity {
 		return map;
 	}
 	//public boolean getInscriptionRequise () { return inscriptionRequise; }
+    public String getUrlFichierRemboursements () { return urlFichierRemboursements; }
 
 	// Setters
 	public void setSid (String sid) { this.sid = sid; }
@@ -95,6 +90,7 @@ public class EntiteConnexion extends TableServiceEntity {
 		this.cookies = new JSONObject(cookies).toString();
 	}
 	//public void setInscriptionRequise (boolean inscriptionRequise) { this.inscriptionRequise = inscriptionRequise; }
+    public void setUrlFichierRemboursements (String url) { urlFichierRemboursements = url; }
 
 	// Affichage
 	public String toString () {
@@ -106,4 +102,10 @@ public class EntiteConnexion extends TableServiceEntity {
 			+ "\n******************";
 		return s;
 	}
+
+	protected void mettreAJourEntite () throws StorageException {
+		TableOperation operation = TableOperation.merge(this);
+		TABLE_UTILISATEURS.execute(operation);
+	}
+
 }

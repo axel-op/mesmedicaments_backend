@@ -113,23 +113,26 @@ public final class Authentification {
 		try {
 			EntiteConnexion entite = EntiteConnexion.obtenirEntite(System.getenv("id_test_maintien"));
 			HashMap<String, String> cookies = entite.obtenirCookiesMap();
-			//String sid = entite.getSid();
-			//String tformdata = entite.getTformdata();
-			Connection connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr/dmp/documents/liste/raz");
-			connexion.method(Connection.Method.GET)
-				.userAgent(USERAGENT)
-				.cookies(cookies)
-				.execute();
-			Document doc = connexion.response().parse();
-			String attribut = doc.getElementsContainingOwnText("de remboursement").attr("href");
-			connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr" + attribut);
-			connexion.method(Connection.Method.GET)
-				.userAgent(USERAGENT)
-				.cookies(cookies)
-				.execute();
-			doc = connexion.response().parse();
-			attribut = doc.getElementById("docView").attr("src");
-			HttpsURLConnection connPDF = (HttpsURLConnection) new URL(attribut).openConnection();
+			String urlFichier = entite.getUrlFichierRemboursements();
+			if (urlFichier == null) {
+				Connection connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr/dmp/documents/liste/raz");
+				connexion.method(Connection.Method.GET)
+					.userAgent(USERAGENT)
+					.cookies(cookies)
+					.execute();
+				Document doc = connexion.response().parse();
+				String attribut = doc.getElementsContainingOwnText("de remboursement").attr("href");
+				connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr" + attribut);
+				connexion.method(Connection.Method.GET)
+					.userAgent(USERAGENT)
+					.cookies(cookies)
+					.execute();
+				doc = connexion.response().parse();
+				urlFichier = doc.getElementById("docView").attr("src");
+				entite.setUrlFichierRemboursements(urlFichier);
+				entite.mettreAJourEntite();
+			}
+			HttpsURLConnection connPDF = (HttpsURLConnection) new URL(urlFichier).openConnection();
 			connPDF.setRequestMethod("GET");
 			for (String c : cookies.keySet()) { connPDF.addRequestProperty("Cookie", c + "=" + cookies.get(c) + "; "); }
 			PDDocument pdf = PDDocument.load(connPDF.getInputStream());
@@ -194,7 +197,7 @@ public final class Authentification {
 			{ return false; }
 		}
 		entite.setDerniereConnexion(new Date());
-		EntiteUtilisateur.mettreAJourEntite(entite);
+		entite.mettreAJourEntite();
 		return true;
 	}
 	
@@ -221,7 +224,7 @@ public final class Authentification {
 		new SecureRandom().nextBytes(sel);
 		EntiteUtilisateur entite = EntiteUtilisateur.obtenirEntite(id);
 		entite.setJwtSalt(sel);
-		EntiteUtilisateur.mettreAJourEntite(entite);
+		entite.mettreAJourEntite();
 		Claims claims = Jwts.claims();
 		claims.put("id", id);
 		claims.put("type", "refresh");
@@ -247,7 +250,7 @@ public final class Authentification {
 		entiteUtilisateur.setGenre(genre);
 		entiteUtilisateur.setDateInscription(
 			Date.from(Instant.now(Clock.system(TIMEZONE))));
-		EntiteUtilisateur.mettreAJourEntite(entiteUtilisateur);
+		entiteUtilisateur.mettreAJourEntite();
 	}
 
 	public JSONObject connexionDMP (String mdp) {
@@ -362,7 +365,7 @@ public final class Authentification {
 				entiteConnexion.setSid(obtenirSid(page));
 				entiteConnexion.setTformdata(obtenirTformdata(page));
 				entiteConnexion.definirCookiesMap(cookies);
-				EntiteConnexion.mettreAJourEntite(entiteConnexion);
+				entiteConnexion.mettreAJourEntite();
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
 			}
 			recupererInfosUtilisateur(cookies, retour);

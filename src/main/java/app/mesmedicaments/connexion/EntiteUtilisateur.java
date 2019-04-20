@@ -34,11 +34,6 @@ public class EntiteUtilisateur extends TableServiceEntity {
         TABLE_UTILISATEURS.execute(operation);
     }
 
-    protected static void mettreAJourEntite(EntiteUtilisateur entite) throws StorageException {
-        TableOperation operation = TableOperation.merge(entite);
-        TABLE_UTILISATEURS.execute(operation);
-    }
-
     protected static EntiteUtilisateur obtenirEntite(String id) throws StorageException {
         TableOperation operation = TableOperation.retrieve(CLE_PARTITION_UTILISATEURS, id, EntiteUtilisateur.class);
         return TABLE_UTILISATEURS.execute(operation).getResultAsType();
@@ -95,5 +90,10 @@ public class EntiteUtilisateur extends TableServiceEntity {
             + "\ntimestamp = " + getTimestamp().toString()
 			+ "\n******************";
 		return s;
-	}
+    }
+    
+    protected void mettreAJourEntite() throws StorageException {
+        TableOperation operation = TableOperation.merge(this);
+        TABLE_UTILISATEURS.execute(operation);
+    }
 }

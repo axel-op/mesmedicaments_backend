@@ -3,8 +3,10 @@ package app.mesmedicaments.connexion;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.security.InvalidKeyException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
@@ -104,11 +106,15 @@ public final class Authentification {
     public void testMaintien (
         @TimerTrigger(
             name = "timerTestMaintien",
-            schedule = "0 */50 * * * *"
+            schedule = "0 */25 * * * *"
         )
         final String timerInfo,
         final ExecutionContext context
-    ) throws IOException, StorageException {
+	) throws IOException, 
+		StorageException,
+		URISyntaxException,
+		InvalidKeyException
+	{
 		Logger logger = context.getLogger();
 		try {
 			EntiteConnexion entite = EntiteConnexion.obtenirEntite(System.getenv("id_test_maintien"));
@@ -175,7 +181,11 @@ public final class Authentification {
 			.get("id");
 	}
 
-	public static boolean checkRefreshToken (String refreshJwt) throws StorageException {
+	public static boolean checkRefreshToken (String refreshJwt) 
+		throws StorageException,
+		URISyntaxException,
+		InvalidKeyException
+	{
 		Claims claims = Jwts.parser()
 			.setSigningKey(JWT_SIGNING_KEY)
 			.parseClaimsJws(refreshJwt)
@@ -219,7 +229,9 @@ public final class Authentification {
             .compact();            
 	}
 
-	public String createRefreshToken () throws StorageException {
+	public String createRefreshToken () 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
 		byte[] sel = new byte[16];
 		new SecureRandom().nextBytes(sel);
 		EntiteUtilisateur entite = EntiteUtilisateur.obtenirEntite(id);
@@ -237,7 +249,7 @@ public final class Authentification {
 	}
 
 	public void inscription (String prenom, String email, String genre) 
-		throws StorageException
+		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		if (prenom.length() > 30
 			|| email.length() > 128
@@ -305,7 +317,7 @@ public final class Authentification {
 			if (entiteUtilisateur == null) {
 				entiteUtilisateur = new EntiteUtilisateur(id);
 				entiteUtilisateur.setMotDePasse(mdp);
-				EntiteUtilisateur.definirEntite(entiteUtilisateur);
+				entiteUtilisateur.creerEntite();
 			}
 			// Envoi du code
 			connexion
@@ -321,8 +333,11 @@ public final class Authentification {
 			entiteConnexion.setTformdata(obtenirTformdata(pageReponse));
 			entiteConnexion.definirCookiesMap(cookies);
 			//entiteConnexion.setInscriptionRequise(inscriptionRequise);
-			EntiteConnexion.definirEntite(entiteConnexion);
-		} catch (IOException | StorageException e) {
+			entiteConnexion.mettreAJourEntite();
+		} catch (IOException 
+			| InvalidKeyException
+			| URISyntaxException
+			| StorageException e) {
 			Utils.logErreur(e, logger);
 			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}
@@ -370,7 +385,10 @@ public final class Authentification {
 			}
 			recupererInfosUtilisateur(cookies, retour);
 		}
-		catch (IOException | StorageException e) {
+		catch (IOException 
+			| InvalidKeyException
+			| URISyntaxException
+			| StorageException e) {
 			Utils.logErreur(e, logger);
 			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}
@@ -378,7 +396,7 @@ public final class Authentification {
 	}
 
 	private void recupererInfosUtilisateur (HashMap<String, String> cookies, JSONObject retour) 
-		throws IOException, StorageException
+		throws IOException, StorageException, URISyntaxException, InvalidKeyException
 	{
 		Connection connexion;
 		Document pageInfos;

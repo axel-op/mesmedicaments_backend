@@ -4,51 +4,30 @@ import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.HashMap;
 
-import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.table.CloudTable;
 import com.microsoft.azure.storage.table.TableOperation;
-import com.microsoft.azure.storage.table.TableServiceEntity;
 
 import org.json.JSONObject;
 
-public class EntiteConnexion extends TableServiceEntity {
+import app.mesmedicaments.TableEntite;
 
-	private static final CloudTable TABLE_UTILISATEURS;
-	private static final String CLE_PARTITION_CONNEXIONS;
+public class EntiteConnexion extends TableEntite {
+
+	//private static final CloudTable TABLE_UTILISATEURS;
+	private static final String CLE_PARTITION;
 
 	static { 
-		CLE_PARTITION_CONNEXIONS = "connexion"; // a modifier 
-		TABLE_UTILISATEURS = obtenirCloudTable();
+		CLE_PARTITION = "connexion"; // a modifier 
 	}
 
-	private static CloudTable obtenirCloudTable () {
-		try {
-			return CloudStorageAccount
-				.parse(System.getenv("AzureWebJobsStorage"))
-				.createCloudTableClient()
-				.getTableReference(System.getenv("tableazure_connexions"));
-		}
-		catch (StorageException | URISyntaxException | InvalidKeyException e) {
-			return null;
-		}
-	} 
-
-	protected static void definirEntite (EntiteConnexion entite) 
-		throws StorageException
-	{
-		TableOperation operation = TableOperation.insertOrReplace(entite);
-		TABLE_UTILISATEURS.execute(operation);
-	}
-	
 	protected static EntiteConnexion obtenirEntite (String id) 
-		throws StorageException
+		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		TableOperation operation = TableOperation.retrieve(
-			CLE_PARTITION_CONNEXIONS, 
+			CLE_PARTITION, 
 			id, 
 			EntiteConnexion.class);
-		return TABLE_UTILISATEURS
+		return obtenirCloudTable(System.getenv("tableazure_connexions"))
 			.execute(operation)
 			.getResultAsType();
 	}
@@ -60,12 +39,23 @@ public class EntiteConnexion extends TableServiceEntity {
     String urlFichierRemboursements;
 
 	// Le type HashMap n'est pas supporté et doit être String dès en entrant pour les cookies
-	public EntiteConnexion (String id) {
-		this.partitionKey = CLE_PARTITION_CONNEXIONS;
-		this.rowKey = id;
+	public EntiteConnexion (String id) 
+		throws StorageException, InvalidKeyException, URISyntaxException
+	{
+		super(System.getenv("tableazure_connexions"), CLE_PARTITION, id);
 	}
 
-	public EntiteConnexion () {}
+	/**
+	 * NE PAS UTILISER
+	 * @throws StorageException
+	 * @throws URISyntaxException
+	 * @throws InvalidKeyException
+	 */
+	public EntiteConnexion () 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		super(System.getenv("tableazure_connexions"));
+	}
 
 	// Getters
 	public String getSid () { return sid; }
@@ -101,11 +91,6 @@ public class EntiteConnexion extends TableServiceEntity {
 			+ "\ncookies = " + cookies
 			+ "\n******************";
 		return s;
-	}
-
-	protected void mettreAJourEntite () throws StorageException {
-		TableOperation operation = TableOperation.merge(this);
-		TABLE_UTILISATEURS.execute(operation);
 	}
 
 }

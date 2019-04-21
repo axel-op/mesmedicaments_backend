@@ -4,39 +4,28 @@ import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.Date;
 
-import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.table.CloudTable;
 import com.microsoft.azure.storage.table.TableOperation;
-import com.microsoft.azure.storage.table.TableServiceEntity;
 
-public class EntiteUtilisateur extends TableServiceEntity {
+import app.mesmedicaments.TableEntite;
 
-    private static final CloudTable TABLE_UTILISATEURS;
-    private static final String CLE_PARTITION_UTILISATEURS;
+public class EntiteUtilisateur extends TableEntite {
+
+    //private static final CloudTable TABLE_UTILISATEURS;
+    private static final String CLE_PARTITION;
 
     static {
-        CLE_PARTITION_UTILISATEURS = "utilisateur";
-        TABLE_UTILISATEURS = obtenirCloudTable();
+        CLE_PARTITION = "utilisateur";
+        //TABLE_UTILISATEURS = obtenirCloudTable();
     }
 
-    private static CloudTable obtenirCloudTable() {
-        try {
-            return CloudStorageAccount.parse(System.getenv("AzureWebJobsStorage")).createCloudTableClient()
-                    .getTableReference(System.getenv("tableazure_utilisateurs"));
-        } catch (StorageException | URISyntaxException | InvalidKeyException e) {
-            return null;
-        }
-    }
-
-    protected static void definirEntite(EntiteUtilisateur entite) throws StorageException {
-        TableOperation operation = TableOperation.insertOrReplace(entite);
-        TABLE_UTILISATEURS.execute(operation);
-    }
-
-    protected static EntiteUtilisateur obtenirEntite(String id) throws StorageException {
-        TableOperation operation = TableOperation.retrieve(CLE_PARTITION_UTILISATEURS, id, EntiteUtilisateur.class);
-        return TABLE_UTILISATEURS.execute(operation).getResultAsType();
+    protected static EntiteUtilisateur obtenirEntite(String id) 
+        throws StorageException,
+        URISyntaxException,
+        InvalidKeyException
+    {
+        TableOperation operation = TableOperation.retrieve(CLE_PARTITION, id, EntiteUtilisateur.class);
+        return obtenirCloudTable(System.getenv("tableazure_utilisateurs")).execute(operation).getResultAsType();
     }
 
     String prenom;
@@ -47,11 +36,22 @@ public class EntiteUtilisateur extends TableServiceEntity {
     byte[] jwtSalt;
     Date derniereConnexion;
 
-    public EntiteUtilisateur () {}
+    /**
+     * NE PAS UTILISER
+     * @throws StorageException
+     * @throws InvalidKeyException
+     * @throws URISyntaxException
+     */
+    public EntiteUtilisateur ()
+        throws StorageException, InvalidKeyException, URISyntaxException
+    {
+        super(System.getenv("tableazure_utilisateurs"));
+    }
 
-    public EntiteUtilisateur (String id) {
-        this.partitionKey = CLE_PARTITION_UTILISATEURS;
-        this.rowKey = id;
+    public EntiteUtilisateur (String id)
+        throws StorageException, InvalidKeyException, URISyntaxException
+    {
+        super(System.getenv("tableazure_utilisateurs"), CLE_PARTITION, id);
     }
 
     // Getters
@@ -90,10 +90,5 @@ public class EntiteUtilisateur extends TableServiceEntity {
             + "\ntimestamp = " + getTimestamp().toString()
 			+ "\n******************";
 		return s;
-    }
-    
-    protected void mettreAJourEntite() throws StorageException {
-        TableOperation operation = TableOperation.merge(this);
-        TABLE_UTILISATEURS.execute(operation);
     }
 }

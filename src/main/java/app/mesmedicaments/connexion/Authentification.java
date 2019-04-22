@@ -16,6 +16,8 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -34,6 +36,8 @@ import org.jsoup.nodes.Document;
 
 import app.mesmedicaments.JSONObjectUneCle;
 import app.mesmedicaments.Utils;
+import app.mesmedicaments.entitestables.EntiteConnexion;
+import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
@@ -120,24 +124,6 @@ public final class Authentification {
 			EntiteConnexion entite = EntiteConnexion.obtenirEntite(System.getenv("id_test_maintien"));
 			HashMap<String, String> cookies = entite.obtenirCookiesMap();
 			String urlFichier = entite.getUrlFichierRemboursements();
-			if (urlFichier == null) {
-				Connection connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr/dmp/documents/liste/raz");
-				connexion.method(Connection.Method.GET)
-					.userAgent(USERAGENT)
-					.cookies(cookies)
-					.execute();
-				Document doc = connexion.response().parse();
-				String attribut = doc.getElementsContainingOwnText("de remboursement").attr("href");
-				connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr" + attribut);
-				connexion.method(Connection.Method.GET)
-					.userAgent(USERAGENT)
-					.cookies(cookies)
-					.execute();
-				doc = connexion.response().parse();
-				urlFichier = doc.getElementById("docView").attr("src");
-				entite.setUrlFichierRemboursements(urlFichier);
-				entite.mettreAJourEntite();
-			}
 			HttpsURLConnection connPDF = (HttpsURLConnection) new URL(urlFichier).openConnection();
 			connPDF.setRequestMethod("GET");
 			for (String c : cookies.keySet()) { connPDF.addRequestProperty("Cookie", c + "=" + cookies.get(c) + "; "); }
@@ -174,6 +160,7 @@ public final class Authentification {
 		MalformedJwtException,
 		UnsupportedJwtException
 	{
+		if (jwt == null) { throw new MalformedJwtException("Le token est absent"); }
 		return (String) Jwts.parser()
 			.setSigningKey(JWT_SIGNING_KEY)
 			.parseClaimsJws(jwt)
@@ -270,7 +257,6 @@ public final class Authentification {
 		Document pageReponse;
 		Connection connexion;
 		HashMap<String, String> cookies;
-		EntiteUtilisateur entiteUtilisateur;
 		EntiteConnexion entiteConnexion;
 		JSONObject retour = new JSONObject();
 		try {
@@ -311,14 +297,14 @@ public final class Authentification {
 				logger.severe("Aucun choix d'envoi du second code disponible");
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_INTERNE);
 			}
-			// Vérification de l'existence de l'utilisateur
+			/*// Vérification de l'existence de l'utilisateur
 			entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
 			//boolean inscriptionRequise = entiteUtilisateur == null;
 			if (entiteUtilisateur == null) {
 				entiteUtilisateur = new EntiteUtilisateur(id);
 				entiteUtilisateur.setMotDePasse(mdp);
 				entiteUtilisateur.creerEntite();
-			}
+			}*/
 			// Envoi du code
 			connexion
 				.data("sid", obtenirSid(pageReponse))
@@ -333,6 +319,7 @@ public final class Authentification {
 			entiteConnexion.setTformdata(obtenirTformdata(pageReponse));
 			entiteConnexion.definirCookiesMap(cookies);
 			//entiteConnexion.setInscriptionRequise(inscriptionRequise);
+			entiteConnexion.setMotDePasse(mdp);
 			entiteConnexion.mettreAJourEntite();
 		} catch (IOException 
 			| InvalidKeyException
@@ -375,12 +362,13 @@ public final class Authentification {
 				.cookies(cookies)
 				.execute();
 			reponse = connexion.response();
+			Document page = reponse.parse();
+			entiteConnexion.setSid(obtenirSid(page));
+			entiteConnexion.setTformdata(obtenirTformdata(page));
+			entiteConnexion.definirCookiesMap(cookies);
+			entiteConnexion.setUrlFichierRemboursements(obtenirURLFichierRemboursements(cookies).orElse(null));
+			entiteConnexion.mettreAJourEntite();
 			if (!reponse.url().toString().matches(REGEX_ACCUEIL)) {
-				Document page = reponse.parse();
-				entiteConnexion.setSid(obtenirSid(page));
-				entiteConnexion.setTformdata(obtenirTformdata(page));
-				entiteConnexion.definirCookiesMap(cookies);
-				entiteConnexion.mettreAJourEntite();
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
 			}
 			recupererInfosUtilisateur(cookies, retour);
@@ -395,7 +383,7 @@ public final class Authentification {
 		return retour;
 	}
 
-	private void recupererInfosUtilisateur (HashMap<String, String> cookies, JSONObject retour) 
+	private void recupererInfosUtilisateur (Map<String, String> cookies, JSONObject retour) 
 		throws IOException, StorageException, URISyntaxException, InvalidKeyException
 	{
 		Connection connexion;
@@ -423,6 +411,30 @@ public final class Authentification {
 			retour.put(CLE_EMAIL, entiteUtilisateur.getEmail());
 			retour.put(CLE_GENRE, entiteUtilisateur.getGenre());
 		}
+	}
+
+	private Optional<String> obtenirURLFichierRemboursements (Map<String, String> cookies) throws IOException {
+		Connection connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr/dmp/documents/liste/raz");
+		connexion.method(Connection.Method.GET)
+			.userAgent(USERAGENT)
+			.cookies(cookies)
+			.execute();
+		Document doc = connexion.response().parse();
+		String attribut;
+		try {
+			attribut = doc.getElementsContainingOwnText("de remboursement").attr("href");
+		}
+		catch (NullPointerException e) {
+			// Notifier
+			return Optional.empty();
+		}
+		connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr" + attribut);
+		connexion.method(Connection.Method.GET)
+			.userAgent(USERAGENT)
+			.cookies(cookies)
+			.execute();
+		doc = connexion.response().parse();
+		return Optional.ofNullable(doc.getElementById("docView").attr("src"));
 	}
 
 	private String obtenirSid (Document page) {

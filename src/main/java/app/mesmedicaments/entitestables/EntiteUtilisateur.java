@@ -1,4 +1,4 @@
-package app.mesmedicaments.connexion;
+package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
@@ -7,9 +7,7 @@ import java.util.Date;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.TableOperation;
 
-import app.mesmedicaments.TableEntite;
-
-public class EntiteUtilisateur extends TableEntite {
+public class EntiteUtilisateur extends AbstractEntite {
 
     //private static final CloudTable TABLE_UTILISATEURS;
     private static final String CLE_PARTITION;
@@ -19,7 +17,7 @@ public class EntiteUtilisateur extends TableEntite {
         //TABLE_UTILISATEURS = obtenirCloudTable();
     }
 
-    protected static EntiteUtilisateur obtenirEntite(String id) 
+    public static EntiteUtilisateur obtenirEntite (String id) 
         throws StorageException,
         URISyntaxException,
         InvalidKeyException
@@ -31,7 +29,7 @@ public class EntiteUtilisateur extends TableEntite {
     String prenom;
     String genre;
     String email;
-    String motDePasse;
+    //String motDePasse;
     Date dateInscription;
     byte[] jwtSalt;
     Date derniereConnexion;
@@ -58,7 +56,7 @@ public class EntiteUtilisateur extends TableEntite {
     public String getPrenom () { return prenom; }
     public String getGenre () { return genre; }
     public String getEmail () { return email; }
-    public String getMotDePasse () { return motDePasse; }
+    //public String getMotDePasse () { return motDePasse; }
     public Date getDateInscription () { return dateInscription; }
     public byte[] getJwtSalt () { return jwtSalt; }
     public Date getDerniereConnexion () { return derniereConnexion; }
@@ -75,7 +73,7 @@ public class EntiteUtilisateur extends TableEntite {
         // checker avec regex
         this.email = email;
     }
-    public void setMotDePasse (String motDePasse) { this.motDePasse = motDePasse; }
+    //public void setMotDePasse (String motDePasse) { this.motDePasse = motDePasse; }
     public void setDateInscription (Date dateInscription) { this.dateInscription = dateInscription; }
     public void setJwtSalt (byte[] salt) { jwtSalt = salt; }
     public void setDerniereConnexion (Date date) { derniereConnexion = date; }

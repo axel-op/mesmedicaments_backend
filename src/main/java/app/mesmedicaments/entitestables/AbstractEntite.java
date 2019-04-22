@@ -1,4 +1,4 @@
-package app.mesmedicaments;
+package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
@@ -9,7 +9,7 @@ import com.microsoft.azure.storage.table.CloudTable;
 import com.microsoft.azure.storage.table.TableOperation;
 import com.microsoft.azure.storage.table.TableServiceEntity;
 
-public abstract class TableEntite extends TableServiceEntity {
+public abstract class AbstractEntite extends TableServiceEntity {
 
 	
 	protected static CloudTable obtenirCloudTable (String table)
@@ -25,29 +25,29 @@ public abstract class TableEntite extends TableServiceEntity {
 	
 	private final CloudTable TABLE;
 
-	public TableEntite (String table, String partitionKey, String rowKey) 
+	public AbstractEntite (String table, String partitionKey, String rowKey) 
 		throws URISyntaxException, StorageException, InvalidKeyException
 	{ 
+		if (partitionKey != null) { 
+			partitionKey = supprimerCaracteresInterdits(partitionKey); 
+			partitionKey = partitionKey.replaceAll("  ", " ");
+			partitionKey = partitionKey.trim();
+		}
+		if (rowKey != null) { 
+			rowKey = supprimerCaracteresInterdits(rowKey); 
+			rowKey = rowKey.replaceAll("  ", " ");
+			rowKey = rowKey.trim();
+		}
 		this.partitionKey = partitionKey;
 		this.rowKey = rowKey;
 		TABLE = obtenirCloudTable(table); 
 	}
 
-	public TableEntite (String table)
+	public AbstractEntite (String table)
 		throws StorageException, URISyntaxException, InvalidKeyException 
 	{
 		this(table, null, null);
 	}
-
-	/**
-	 * NE PAS UTILISER
-	 * Je dois le mettre uniquement à cause de l'incompétence des "ingénieurs" de Microsoft
-	 */
-	/*
-	public Entite () {
-		TABLE = null;
-	}
-	*/
 
 	public void creerEntite () throws StorageException {
 		TableOperation operation = TableOperation.insertOrReplace(this);
@@ -57,6 +57,11 @@ public abstract class TableEntite extends TableServiceEntity {
 	public void mettreAJourEntite () throws StorageException {
 		TableOperation operation = TableOperation.insertOrMerge(this);
 		TABLE.execute(operation);
+	}
+
+	private String supprimerCaracteresInterdits (String s) {
+		s = s.replaceAll("\\\\|/|#|\\?", " ");
+		return s;
 	}
 
 }

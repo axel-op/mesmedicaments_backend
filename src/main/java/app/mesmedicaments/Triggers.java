@@ -54,18 +54,61 @@ public final class Triggers {
     }
 
     private Logger logger;
-    private HttpStatus codeHttp;
-    private JSONObject corpsReponse;
-    private JSONObject retour;
     //private JSONObject corpsRequete;
+
+    // mettre une doc
+    @FunctionName("dmp")
+    public HttpResponseMessage dmp (
+        @HttpTrigger(
+            name = "dmpTrigger",
+            authLevel = AuthorizationLevel.ANONYMOUS,
+            methods = {HttpMethod.GET})
+        final HttpRequestMessage<Optional<String>> request,
+        final ExecutionContext context
+    ) {
+        String accessToken;
+        String id;
+        HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
+        JSONObject corpsReponse = new JSONObject();
+        try {
+            accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
+            id = Authentification.getIdFromToken(accessToken);
+            // terminer
+        }
+        catch (JwtException e) {
+            codeHttp = HttpStatus.UNAUTHORIZED;
+        }
+        return request.createResponseBuilder(codeHttp)
+            .body(corpsReponse)
+            .build();
+    }
+
+    /*
+    @FunctionName("medicaments")
+    public HttpResponseMessage medicaments (
+        @HttpTrigger(
+            name = "medicamentsTrigger",
+            authLevel = AuthorizationLevel.ANONYMOUS,
+            methods = {HttpMethod.GET},
+            route = "medicaments/{codecis:int?}") // à tester
+        final HttpRequestMessage<Optional<String>> request,
+        @BindingName("codecis")
+        final ExecutionContext context
+    ) {
+        // FAIRE QUELQUE CHOSE
+        // Si codecis spécifié : fichier JSON sur le medicament
+        // Sinon : liste des codecis associés à leur noms
+        return null;
+    }
+    */
 
     @FunctionName("connexion")
     public HttpResponseMessage connexion (
         @HttpTrigger(
             name = "connexionTrigger",
-            dataType = "string",
             authLevel = AuthorizationLevel.FUNCTION,
             methods = {HttpMethod.POST},
+            dataType = "string",
             route = "connexion/{etape:int}")
         final HttpRequestMessage<Optional<String>> request,
         @BindingName("etape") int etape,
@@ -74,8 +117,9 @@ public final class Triggers {
         final String id;
         final String mdp;
         String jwt = null;
-        corpsReponse = new JSONObject();
-        retour = new JSONObject();
+        HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
+        JSONObject corpsReponse = new JSONObject();
+        JSONObject resultat = new JSONObject();
         logger = context.getLogger();
         Authentification auth;
         try {
@@ -84,7 +128,6 @@ public final class Triggers {
             JSONObject corpsRequete = new JSONObject(request.getBody().get());
             if (etape == 0) { // Renouvellement du token d'accès
                 jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
-                logger.info("token = " + jwt);
                 if (Authentification.checkRefreshToken(jwt)) { 
                     id = Authentification.getIdFromToken(jwt);
                     auth = new Authentification(logger, id);
@@ -97,29 +140,29 @@ public final class Triggers {
                 id = corpsRequete.getString("id");
                 mdp = corpsRequete.getString("mdp");
                 auth = new Authentification(logger, id);
-                retour = auth.connexionDMP(mdp);
-                if (!retour.isNull(CLE_ERREUR_AUTH)) {
+                resultat = auth.connexionDMP(mdp);
+                if (!resultat.isNull(CLE_ERREUR_AUTH)) {
                     codeHttp = HttpStatus.CONFLICT;
-                    corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
+                    corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
                 } else {
                     codeHttp = HttpStatus.OK;
-                    corpsReponse.put(CLE_ENVOI_CODE, retour.getString(CLE_ENVOI_CODE));
+                    corpsReponse.put(CLE_ENVOI_CODE, resultat.getString(CLE_ENVOI_CODE));
                 }
             }
             else if (etape == 2) { // Deuxième étape de la connexion
                 id = corpsRequete.getString("id");
                 auth = new Authentification(logger, id);
                 String code = String.valueOf(corpsRequete.getInt("code"));
-                retour = auth.doubleAuthentification(code);
-                if (!retour.isNull(CLE_ERREUR_AUTH)) {
+                resultat = auth.doubleAuthentification(code);
+                if (!resultat.isNull(CLE_ERREUR_AUTH)) {
                     codeHttp = HttpStatus.CONFLICT;
-                    corpsReponse.put(CLE_CAUSE, retour.get(CLE_ERREUR_AUTH));
+                    corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
                 } else {
                     codeHttp = HttpStatus.OK;
-                    corpsReponse.put(CLE_PRENOM, retour.get(CLE_PRENOM));
-                    corpsReponse.put(CLE_EMAIL, retour.get(CLE_EMAIL));
-                    corpsReponse.put(CLE_GENRE, retour.get(CLE_GENRE));
-                    corpsReponse.put(CLE_INSCRIPTION_REQUISE, retour.get(CLE_INSCRIPTION_REQUISE));
+                    corpsReponse.put(CLE_PRENOM, resultat.get(CLE_PRENOM));
+                    corpsReponse.put(CLE_EMAIL, resultat.get(CLE_EMAIL));
+                    corpsReponse.put(CLE_GENRE, resultat.get(CLE_GENRE));
+                    corpsReponse.put(CLE_INSCRIPTION_REQUISE, resultat.get(CLE_INSCRIPTION_REQUISE));
                     corpsReponse.put("accessToken", auth.createAccessToken());
                     corpsReponse.put("refreshToken", auth.createRefreshToken());
                 }
@@ -167,8 +210,9 @@ public final class Triggers {
         String prenom;
         String email;
         String genre;
-        corpsReponse = new JSONObject();
-        retour = new JSONObject();
+        HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
+        JSONObject corpsReponse = new JSONObject();
+        //JSONObject retour = new JSONObject();
         logger = context.getLogger();
         Authentification auth;
         try {
@@ -217,23 +261,29 @@ public final class Triggers {
         final ExecutionContext context
     ) {
 		long startTime = System.currentTimeMillis();
-		HttpStatus codeHttp = null;
+		HttpStatus codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		String corps = "";
         logger = context.getLogger();
         switch (etape) {
             case 1:
-                if (MiseAJourBDPM.handler(logger)) {
+                if (MiseAJourBDPM.majSubstances(logger)) {
                     codeHttp = HttpStatus.OK;
-                    corps = "Mise à jour BDPM terminée.";
+                    corps = "Mise à jour des substances terminée.";
                 }
                 break;
             case 2:
+                if (MiseAJourBDPM.majMedicaments(logger)) {
+                    codeHttp = HttpStatus.OK;
+                    corps = "Mise à jour des médicaments terminée.";
+                }
+                break;
+            case 3:
                 if (MiseAJourClassesSubstances.handler(logger)) {
                     codeHttp = HttpStatus.OK;
                     corps = "Mise à jour des classes de substances terminée.";
                 }
                 break;
-            case 3:
+            case 4:
                 if (MiseAJourInteractions.handler(logger)) {
                     codeHttp = HttpStatus.OK;
                     corps = "Mise à jour des interactions terminée.";
@@ -242,10 +292,6 @@ public final class Triggers {
             default:
                 codeHttp = HttpStatus.BAD_REQUEST;
                 corps = "Le paramètre maj de la requête n'est pas reconnu.";
-        }
-        if (codeHttp == null) { 
-            codeHttp = HttpStatus.INTERNAL_SERVER_ERROR; 
-            corps = "Un problème est survenu pendant la mise à jour. Voir les journaux.";
         }
 		return request.createResponseBuilder(codeHttp)
             .body(corps 

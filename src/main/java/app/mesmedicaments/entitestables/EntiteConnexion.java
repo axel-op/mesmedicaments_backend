@@ -1,4 +1,4 @@
-package app.mesmedicaments.connexion;
+package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
@@ -7,11 +7,10 @@ import java.util.HashMap;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.TableOperation;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
-import app.mesmedicaments.TableEntite;
-
-public class EntiteConnexion extends TableEntite {
+public class EntiteConnexion extends AbstractEntite {
 
 	//private static final CloudTable TABLE_UTILISATEURS;
 	private static final String CLE_PARTITION;
@@ -20,25 +19,30 @@ public class EntiteConnexion extends TableEntite {
 		CLE_PARTITION = "connexion"; // a modifier 
 	}
 
-	protected static EntiteConnexion obtenirEntite (String id) 
-		throws StorageException, URISyntaxException, InvalidKeyException
+	public static EntiteConnexion obtenirEntite (String id) 
+		throws URISyntaxException, InvalidKeyException
 	{
-		TableOperation operation = TableOperation.retrieve(
-			CLE_PARTITION, 
-			id, 
-			EntiteConnexion.class);
-		return obtenirCloudTable(System.getenv("tableazure_connexions"))
-			.execute(operation)
-			.getResultAsType();
+		try {
+			TableOperation operation = TableOperation.retrieve(
+				CLE_PARTITION, 
+				id, 
+				EntiteConnexion.class);
+			return obtenirCloudTable(System.getenv("tableazure_connexions"))
+				.execute(operation)
+				.getResultAsType();
+		}
+		catch (StorageException e ) {
+			return null;
+		}
 	}
 
 	String sid;
 	String tformdata;
 	String cookies;
 	//boolean inscriptionRequise;
-    String urlFichierRemboursements;
+	String urlFichierRemboursements;
+	String motDePasse;
 
-	// Le type HashMap n'est pas supporté et doit être String dès en entrant pour les cookies
 	public EntiteConnexion (String id) 
 		throws StorageException, InvalidKeyException, URISyntaxException
 	{
@@ -57,10 +61,20 @@ public class EntiteConnexion extends TableEntite {
 		super(System.getenv("tableazure_connexions"));
 	}
 
-	// Getters
+	/*** Getters ***/
+
 	public String getSid () { return sid; }
 	public String getTformdata () { return tformdata; }
+
+	/**
+	 * @return Cookies sous forme d'objet JSON transformé en texte
+	 */
 	public String getCookies () { return cookies; }
+
+	/**
+	 * Méthode alternative pour obtenir les cookies
+	 * @return Cookies sous forme d'objet Map
+	 */
 	public HashMap<String, String> obtenirCookiesMap () {
 		HashMap<String, String> map = new HashMap<>();
 		HashMap<String, Object> cookiesMap = new HashMap<>(new JSONObject(cookies).toMap());
@@ -69,18 +83,38 @@ public class EntiteConnexion extends TableEntite {
 		}
 		return map;
 	}
-	//public boolean getInscriptionRequise () { return inscriptionRequise; }
-    public String getUrlFichierRemboursements () { return urlFichierRemboursements; }
 
-	// Setters
+	//public boolean getInscriptionRequise () { return inscriptionRequise; }
+	public String getUrlFichierRemboursements () { return urlFichierRemboursements; }
+	public String getMotDePasse () { return motDePasse; }
+
+	/*** Setters ***/
+
 	public void setSid (String sid) { this.sid = sid; }
+
 	public void setTformdata (String tformdata) { this.tformdata = tformdata; }
-	public void setCookies (String cookies) { this.cookies = cookies; }
+
+	/**
+	 * @param cookies Doit pouvoir être désérialisé en JSON
+	 * @throws JSONException Si la chaîne de caractères ne représente pas un objet JSON
+	 */
+	public void setCookies (String cookies) throws JSONException { 
+		new JSONObject(cookies);
+		this.cookies = cookies; 
+	}
+
+	/**
+	 * Méthode alternative pour définir les cookies, directement depuis un objet Map.
+	 * L'objet Map est converti en objet JSON puis en texte.
+	 * @param cookies
+	 */
 	public void definirCookiesMap (HashMap<String,String> cookies) {
 		this.cookies = new JSONObject(cookies).toString();
 	}
+
 	//public void setInscriptionRequise (boolean inscriptionRequise) { this.inscriptionRequise = inscriptionRequise; }
-    public void setUrlFichierRemboursements (String url) { urlFichierRemboursements = url; }
+	public void setUrlFichierRemboursements (String url) { urlFichierRemboursements = url; }
+	public void setMotDePasse (String mdp) { motDePasse = mdp; }
 
 	// Affichage
 	public String toString () {

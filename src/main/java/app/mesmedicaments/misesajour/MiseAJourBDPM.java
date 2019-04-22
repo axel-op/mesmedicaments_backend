@@ -4,185 +4,153 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URISyntaxException;
 import java.net.URL;
-import java.sql.SQLException;
+import java.security.InvalidKeyException;
+import java.util.Map.Entry;
+import java.util.Comparator;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.logging.Logger;
 
-import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
-import com.microsoft.sqlserver.jdbc.SQLServerConnection;
-import com.microsoft.sqlserver.jdbc.SQLServerResultSet;
-import com.microsoft.sqlserver.jdbc.SQLServerStatement;
+import com.microsoft.azure.storage.StorageException;
 
-import app.mesmedicaments.BaseDeDonnees;
+import org.json.JSONArray;
+
 import app.mesmedicaments.Utils;
+import app.mesmedicaments.entitestables.AbstractEntiteProduit;
+import app.mesmedicaments.entitestables.EntiteMedicament;
+import app.mesmedicaments.entitestables.EntiteSubstance;
 
 /**
  * Met à jour la base de données à partir des informations récupérées sur la base publique des médicaments.
  */
 public final class MiseAJourBDPM {
 
-	private static final String TABLE_SUBSTANCES;
-	private static final String TABLE_MEDICAMENTS;
-	private static final String TABLE_NOMS_SUBSTANCES;
-	private static final String TABLE_NOMS_MEDICAMENTS;
 	private static final String URL_FICHIER_BDPM;
 	private static final String URL_FICHIER_COMPO;
-	private static final Integer TAILLE_BATCH; 
-	private static final String ID_MSI;
-
 	private static Logger logger;
-	private static SQLServerConnection conn;
-	
+
 	static {
-		TABLE_SUBSTANCES = System.getenv("table_substances");
-		TABLE_MEDICAMENTS = System.getenv("table_medicaments");
-		TABLE_NOMS_SUBSTANCES = System.getenv("table_nomssubstances");
-		TABLE_NOMS_MEDICAMENTS = System.getenv("table_nomsmedicaments");
 		URL_FICHIER_BDPM = System.getenv("url_cis_bdpm");
 		URL_FICHIER_COMPO = System.getenv("url_cis_compo_bdpm");
-		ID_MSI = System.getenv("msi_maj");
-		TAILLE_BATCH = BaseDeDonnees.TAILLE_BATCH;
 	}
 
 	private MiseAJourBDPM () {}
 
-	public static boolean handler (Logger logger) {
+    public static boolean majSubstances (Logger logger) {
 		MiseAJourBDPM.logger = logger;
-		logger.info("Début de la mise à jour BDPM");
-		conn = BaseDeDonnees.nouvelleConnexion(ID_MSI, logger);
-		if (conn == null) { return false; }
-		if (!majSubstances()) { return false; }
-		if (!majMedicaments()) { return false; }
-		return true; 
-	}
-
-    private static boolean majSubstances () {
-		String requete = "{call projetdmp.ajouterSubstance(?, ?, ?)}";
 		logger.info("Début de la mise à jour des substances");
-		try (
-			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(requete);
-		) {
-			String tailleAvant1 = "Taille de la table substances avant la mise à jour : " 
-				+ obtenirTailleTable(TABLE_SUBSTANCES);
-			String tailleAvant2 = "Taille de la table noms_substances avant la mise à jour : " 
-				+ obtenirTailleTable(TABLE_NOMS_SUBSTANCES);
-			long startTime = System.currentTimeMillis();
-			conn.setAutoCommit(false);
-			BufferedReader liste_substances = importerFichier(URL_FICHIER_COMPO);
-			if (liste_substances == null) { return false; }
+		BufferedReader listeSubstances = importerFichier(URL_FICHIER_COMPO);
+		if (listeSubstances == null) { return false; }
+		TreeMap<Long, TreeSet<String>> substances = new TreeMap<>();
+		try {
+			logger.info("Parsing en cours...");
 			String ligne;
-			int c = 0;
-			long dureeMoyenne = 0;
-			while ((ligne = liste_substances.readLine()) != null) {
+			long startTime = System.currentTimeMillis();
+			while ((ligne = listeSubstances.readLine()) != null) {
 				String[] elements = ligne.split("\t");
 				Long codecis = Long.parseLong(elements[0]);
-				Integer codesubstance = Integer.parseInt(elements[2]);
+				Long codesubstance = Long.parseLong(elements[2]);
 				String nom = elements[3].trim();
-				cs.setLong(1, codecis);
-				cs.setInt(2, codesubstance);
-				cs.setString(3, nom);
-				cs.addBatch();
-				c++;
-				if (c % TAILLE_BATCH == 0) {
-					logger.info("Execution batch "
-						+ "de " + TAILLE_BATCH + " requêtes (" 
-						+ String.valueOf(c / TAILLE_BATCH) + ")" );
-					long start = System.currentTimeMillis();
-					cs.executeBatch();
-					dureeMoyenne += System.currentTimeMillis() - start;
+				if (substances.get(codesubstance) == null) {
+					substances.put(codesubstance, new TreeSet<>());
 				}
+				substances.get(codesubstance).add(nom);
 			}
-			logger.info("Execution batch de " + String.valueOf(c % TAILLE_BATCH) + " requêtes");
-			cs.executeBatch();
-			conn.commit();
-			long endTime = System.currentTimeMillis();
-			logger.info(tailleAvant1);
-			logger.info(tailleAvant2);
-			logger.info("Taille de la table substances après la mise à jour : " 
-				+ obtenirTailleTable(TABLE_SUBSTANCES));
-			logger.info("Taille de la table noms_substances après la mise à jour : " 
-				+ obtenirTailleTable(TABLE_NOMS_SUBSTANCES));
-			logger.info("Fin de la mise à jour des substances en " 
-				+ String.valueOf(endTime - startTime) + " ms");
-			try {
-				logger.info("Durée moyenne de l'exécution d'un batch de "
-					+ TAILLE_BATCH + " requêtes : "
-					+ String.valueOf(dureeMoyenne / (c / TAILLE_BATCH)) 
-					+ " ms");
-			} catch (ArithmeticException e) {}
-		} 
-        catch (IOException | SQLException e) { 
+			double total = substances.size();
+			logger.info("Parsing terminé en " + tempsDepuis(startTime) + " ms. " 
+				+ ((int) total) + " substances trouvées."
+			);
+			logger.info("Création des entités en cours...");
+			TreeSet<EntiteSubstance> entites = new TreeSet<>(getComparatorEntites());
+			startTime = System.currentTimeMillis();
+			for (Entry<Long, TreeSet<String>> entree : substances.entrySet()) {
+				long codesubstance = entree.getKey();
+				EntiteSubstance entite = new EntiteSubstance(codesubstance);
+				entite.definirNomsJsonArray(new JSONArray(entree.getValue()));
+				entites.add(entite);
+			}
+			logger.info(entites.size() + " entités créées en " + tempsDepuis(startTime) + " ms. "
+			);
+			logger.info("Mise à jour de la base de données en cours...");
+			startTime = System.currentTimeMillis();
+			EntiteSubstance.mettreAJourEntitesBatch(entites);
+			logger.info("Base mise à jour en " + tempsDepuis(startTime) + " ms"
+			);
+		}
+		catch (IOException 
+			| StorageException 
+			| InvalidKeyException 
+			| URISyntaxException e
+		) {
 			Utils.logErreur(e, logger);
 			return false;
-        }
+		}
 		return true;
     }
 
-    private static boolean majMedicaments () {
-		String requete = "{call projetdmp.ajouterMedicament(?, ?, ?, ?, ?)}";
-		int max = 0;
+    public static boolean majMedicaments (Logger logger) {
+		MiseAJourBDPM.logger = logger;
 		logger.info("Début de la mise à jour des médicaments");
-		try (
-			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(requete);
-		) {
-			String tailleAvant1 = "Taille de la table medicaments avant la mise à jour : " 
-				+ obtenirTailleTable(TABLE_MEDICAMENTS);
-			String tailleAvant2 = "Taille de la table noms_medicaments avant la mise à jour : " 
-				+ obtenirTailleTable(TABLE_NOMS_MEDICAMENTS);
-			long startTime = System.currentTimeMillis();
-			conn.setAutoCommit(false);
-			BufferedReader liste_medicaments = importerFichier(URL_FICHIER_BDPM);
-			if (liste_medicaments == null) { return false; }
+		/**** A revoir 
+		String tailleAvant1 = "Taille de la table medicaments avant la mise à jour : " 
+			+ obtenirTailleTable(TABLE_MEDICAMENTS);
+		String tailleAvant2 = "Taille de la table noms_medicaments avant la mise à jour : " 
+			+ obtenirTailleTable(TABLE_NOMS_MEDICAMENTS); */
+		BufferedReader listeMedicaments = importerFichier(URL_FICHIER_BDPM);
+		if (listeMedicaments == null) { return false; }
+		TreeMap<Long, TreeSet<String>> nomsMed = new TreeMap<>();
+		TreeMap<Long, String[]> caracMed = new TreeMap<>();
+		try {
+			logger.info("Parsing en cours...");
 			String ligne;
-			int c = 0;
-			long dureeMoyenne = 0;
-			while ((ligne = liste_medicaments.readLine()) != null) {
+			long startTime = System.currentTimeMillis();
+			while ((ligne = listeMedicaments.readLine()) != null) {
 				String[] elements = ligne.split("\t");
-				Integer codecis = Integer.parseInt(elements[0]);
+				long codecis = Long.parseLong(elements[0]);
 				String nom = elements[1];
-				if (nom.length() > max) { max = nom.length(); }
 				String forme = elements[2];
 				String autorisation = elements[4];
 				String marque = elements[10];
-				cs.setInt(1, codecis);
-				cs.setString(2, nom);
-				cs.setString(3, forme);
-				cs.setString(4, autorisation);
-				cs.setString(5, marque);
-				cs.addBatch();
-				c++;
-				if (c % TAILLE_BATCH == 0) {
-					logger.info("Execution batch "
-						+ "de " + TAILLE_BATCH + " requêtes (" 
-						+ String.valueOf(c / TAILLE_BATCH) + ")" );
-					long start = System.currentTimeMillis();
-					cs.executeBatch();
-					dureeMoyenne += System.currentTimeMillis() - start;
+				if (nomsMed.get(codecis) == null) { 
+					nomsMed.put(codecis, new TreeSet<>()); 
 				}
+				nomsMed.get(codecis).add(nom);
+				caracMed.put(codecis, new String[]{forme, autorisation, marque});
 			}
-			logger.info("Execution batch de " + String.valueOf(c % TAILLE_BATCH) + " requêtes");
-			cs.executeBatch();
-			conn.commit();
-			long endTime = System.currentTimeMillis();
-			logger.info(tailleAvant1);
-			logger.info(tailleAvant2);
-			logger.info("Taille de la table medicaments après la mise à jour : " 
-				+ obtenirTailleTable(TABLE_MEDICAMENTS));
-			logger.info("Taille de la table noms_medicaments après la mise à jour : " 
-				+ obtenirTailleTable(TABLE_NOMS_MEDICAMENTS));
-			logger.info("Fin de la mise à jour des médicaments en " 
-				+ String.valueOf(endTime - startTime) + " ms");
-			try {
-				logger.info("Durée moyenne de l'exécution d'un batch de "
-					+ TAILLE_BATCH + " requêtes : "
-					+ String.valueOf(dureeMoyenne / (c / TAILLE_BATCH)) 
-					+ " ms");
-			} catch (ArithmeticException e) {}
+			double total = nomsMed.size();
+			logger.info("Parsing terminé en " + tempsDepuis(startTime) + " ms. " 
+				+ ((int) total) + " médicaments trouvés."
+			);
+			logger.info("Création des entités en cours...");
+			TreeSet<EntiteMedicament> entites = new TreeSet<>(getComparatorEntites());
+			startTime = System.currentTimeMillis();
+			for (Entry<Long, TreeSet<String>> entree : nomsMed.entrySet()) {
+				long codecis = entree.getKey();
+				EntiteMedicament entite = new EntiteMedicament(codecis);
+				entite.definirNomsJsonArray(new JSONArray(entree.getValue()));
+				entite.setForme(caracMed.get(codecis)[0]);
+				entite.setAutorisation(caracMed.get(codecis)[1]);
+				entite.setMarque(caracMed.get(codecis)[2]);
+				entites.add(entite);
+			}
+			logger.info(entites.size() + " entités créées en " + tempsDepuis(startTime) + " ms. "
+			);
+			logger.info("Mise à jour de la base de données en cours...");
+			startTime = System.currentTimeMillis();
+			EntiteMedicament.mettreAJourEntitesBatch(entites);
+			logger.info("Base mise à jour en " + tempsDepuis(startTime) + " ms. "
+			);
 		}
-		catch (IOException | SQLException e) { 
-            Utils.logErreur(e, logger);;
+		catch (StorageException 
+			| InvalidKeyException 
+			| URISyntaxException 
+			| IOException e
+		) {
+			Utils.logErreur(e, logger);
 			return false;
-        }
+		}
 		return true;
     }
 
@@ -203,23 +171,19 @@ public final class MiseAJourBDPM {
         }
 		return br;
 	}
-	
-	private static Integer obtenirTailleTable (String table) {
-		Integer taille = null;
-		String requete = "SELECT COUNT(*) FROM " + table;
-		try (
-			SQLServerStatement stmt = (SQLServerStatement) conn.createStatement();
-			SQLServerResultSet rs = (SQLServerResultSet) stmt.executeQuery(requete);
-		) {
-			rs.next();
-			taille = rs.getInt(1);
-		}
-		catch (SQLException e) {
-			logger.warning("Erreur lors de la requête tailleTable"
-				+ " pour la table " + table);
-			Utils.logErreur(e, logger);
-		}
-		return taille;
+
+	private static Comparator<AbstractEntiteProduit> getComparatorEntites () {
+		return new Comparator<AbstractEntiteProduit> () {
+			@Override
+			public int compare(AbstractEntiteProduit o1, AbstractEntiteProduit o2) {
+				return Integer.valueOf(o1.getRowKey())
+					.compareTo(Integer.valueOf(o2.getRowKey())
+				);
+			}
+		};
 	}
 
+	private static long tempsDepuis (long startTime) {
+		return System.currentTimeMillis() - startTime;
+	}
 }

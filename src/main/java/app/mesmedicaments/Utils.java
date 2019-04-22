@@ -44,6 +44,10 @@ public final class Utils {
 		}
 	}
 
+	public static long tempsDepuis (long startTime) {
+		return System.currentTimeMillis() - startTime;
+	}
+
 	/*public static int[] XOREncrypt (String str) {
 		int[] output = new int[str.length()];
 		for (int i = 0; i < output.length; i++) {

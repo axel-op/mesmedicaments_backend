@@ -3,46 +3,42 @@ package app.mesmedicaments.misesajour;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.net.URL;
-import java.sql.SQLException;
+import java.security.InvalidKeyException;
 import java.text.Normalizer;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.logging.Logger;
 
 import javax.net.ssl.HttpsURLConnection;
 
-import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
-import com.microsoft.sqlserver.jdbc.SQLServerConnection;
-import com.microsoft.sqlserver.jdbc.SQLServerResultSet;
-import com.microsoft.sqlserver.jdbc.SQLServerStatement;
+import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.table.CloudTable;
+import com.microsoft.azure.storage.table.TableBatchOperation;
+import com.microsoft.azure.storage.table.TableServiceEntity;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 
-import app.mesmedicaments.BaseDeDonnees;
 import app.mesmedicaments.Utils;
+import app.mesmedicaments.entitestables.AbstractEntite;
+import app.mesmedicaments.entitestables.EntiteSubstance;
 
 public final class MiseAJourClassesSubstances {
 
 	private static final String URL_CLASSES;
-	private static final Integer TAILLE_BATCH;
-	private static final String TABLE_NOMS_SUBSTANCES;
-	private static final String ID_MSI;
+	private static final String TABLE;
 
 	private static Logger logger;
-	private static SQLServerConnection conn;
-	private static HashMap<String, HashSet<Integer>> nomsSubstances = new HashMap<>();
-	private static HashMap<Integer, String> codesSubstances = new HashMap<>();
-	private static HashMap<Integer, Integer> majEnAttente = new HashMap<>();
-	private static HashMap<Integer, String> classes = new HashMap<>();
-	private static HashMap<String, HashSet<Integer>> cacheRecherche = new HashMap<>();
+	private static HashMap<String, HashSet<Long>> classes = new HashMap<>();
+	private static HashMap<String, HashSet<Long>> nomsSubstances = new HashMap<>();
+	private static HashMap<String, HashSet<Long>> cacheRecherche = new HashMap<>();
 
 	static {
 		URL_CLASSES = System.getenv("url_classes");
-		ID_MSI = System.getenv("msi_maj");
-		TAILLE_BATCH = BaseDeDonnees.TAILLE_BATCH;
-		TABLE_NOMS_SUBSTANCES = System.getenv("table_nomssubstances");
+		TABLE = System.getenv("tableazure_classes"); /// A METTRE
 	}
 		
 	private MiseAJourClassesSubstances () {}
@@ -50,10 +46,8 @@ public final class MiseAJourClassesSubstances {
 	public static boolean handler (Logger logger) {
 		MiseAJourClassesSubstances.logger = logger;
 		logger.info("Début de la mise à jour des classes de substances");
-		conn = BaseDeDonnees.nouvelleConnexion(ID_MSI, logger);
-		if (conn == null) { return false; }
-		importerSubstances();
-		if (nomsSubstances.isEmpty() || codesSubstances.isEmpty()) { return false; }
+		nomsSubstances = importerSubstances();
+		if (nomsSubstances.isEmpty()) { return false; }
 		if (!importerClasses()) { return false; }
 		if (!mettreAJourClasses()) { return false; }
 		return true;
@@ -71,7 +65,7 @@ public final class MiseAJourClassesSubstances {
 			stripper.setStartPage(2);
 			stripper.setParagraphStart("/t");
 			String classeencours = "";
-			HashSet<Integer> substancesencours = new HashSet<Integer>();
+			HashSet<Long> substancesencours = new HashSet<>();
 			String[] paragraphes = stripper.getText(document).split(stripper.getParagraphStart());
 			int c = 0;
 			long startTime = System.currentTimeMillis();
@@ -82,21 +76,15 @@ public final class MiseAJourClassesSubstances {
 				String ligne = br.readLine();
 				if (ligne != null && !(ligne.matches("(Page .*)|(Thésaurus .*)|(Index .*)|(ANSM .*)"))) {
 					if (!classeencours.equals("")) { 
-						for (Integer codesubstance : substancesencours) {
-							Integer idclasse = obtenirIdClasse(classeencours);
-							classes.put(idclasse, classeencours);
-							if (idclasse != null) { majEnAttente.put(codesubstance, idclasse); }
-							else {
-								logger.severe("Impossible de mettre à jour "
-									+ "la classe \"" + classeencours + "\", "
-									+ "car son id n'a pas été obtenu (id = null)."
-								);
-							}
-							
+						if (classes.get(classeencours) == null) {
+							classes.put(classeencours, new HashSet<>());
+						}
+						for (long codesubstance : substancesencours) {
+							classes.get(classeencours).add(codesubstance);
 						}
 						nbrClassesTrouvees += 1;
 					}
-					substancesencours = new HashSet<Integer>();
+					substancesencours = new HashSet<>();
 					classeencours = ligne.trim();
 				}
 				while ((ligne = br.readLine()) != null) {
@@ -108,7 +96,7 @@ public final class MiseAJourClassesSubstances {
 							substance = substance.replaceAll("\\brota\\b", "rotavirus");
 							substance = substance.trim();
 							if (substance.matches(".*[a-z].*")) {
-								for (Integer code : rechercherSubstances(substance)) { 
+								for (long code : rechercherSubstances(substance)) { 
 									substancesencours.add(code); 
 								} 
 							}
@@ -116,8 +104,7 @@ public final class MiseAJourClassesSubstances {
 					}
 				}
 			}
-			long endTime = System.currentTimeMillis();
-			logger.info("Parsing terminé en " + String.valueOf(endTime - startTime) + " ms");
+			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms");
 			document.close();
 		} catch (IOException e) { 
 			Utils.logErreur(e, logger);
@@ -127,76 +114,46 @@ public final class MiseAJourClassesSubstances {
 		return true;
 	}
 
-	private static Integer obtenirIdClasse (String classe) {
-		Integer id = null;
-		String requete = "{call projetdmp.obtenirIdClasse(?, ?)}";
-		try (
-			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(requete);
-		) {
-			cs.setString(1, classe);
-			cs.registerOutParameter(2, java.sql.Types.SMALLINT);
-			cs.execute();
-			id = cs.getInt(2);
-		} catch (SQLException e) {
-			Utils.logErreur(e, logger);
-		} finally {
-			if (id == null || id == 0) {
-				logger.warning("Impossible d'obtenir l'id de la classe " + classe
-					+ ". La procédure SQL a retourné " + id);
-			}
-		}
-		return id;
-	}
-
 	private static boolean mettreAJourClasses () {
-		String requete = "{call projetdmp.mettreAJourClasse(?, ?, ?)}";
-		int c = 0;
-		long dureeMoyenne = 0;
-		long startTime = System.currentTimeMillis();
-		try (
-			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(requete);
-		) {
-			for (Integer codesubstance : majEnAttente.keySet()) {
-				Integer idclasse = majEnAttente.get(codesubstance);
-				cs.setInt(1, codesubstance);
-				cs.setInt(2, idclasse);
-				cs.setInt(3, 0);
-				cs.addBatch();
-				c++;
-				if (c % TAILLE_BATCH == 0) {
-					logger.info("Execution batch de "
-						+ TAILLE_BATCH + " requêtes (" 
-						+ String.valueOf(c / TAILLE_BATCH) + ")" );
-					long start = System.currentTimeMillis();
-					cs.executeBatch();
-					dureeMoyenne += System.currentTimeMillis() - start;
+		logger.info("Mise à jour de la base de données en cours...");
+		try {
+			CloudTable cloudTable = AbstractEntite.obtenirCloudTable(TABLE);
+			long startTime = System.currentTimeMillis();
+			for (Entry<String, HashSet<Long>> entree : classes.entrySet()) {
+				TableBatchOperation batchOperation = new TableBatchOperation();
+				for (Long codesubstance : entree.getValue()) {
+					batchOperation.insertOrMerge(
+						new TableServiceEntity(
+							AbstractEntite.supprimerCaracteresInterdits(entree.getKey()), 
+							AbstractEntite.supprimerCaracteresInterdits(String.valueOf(codesubstance))
+						)
+					);
+					if (batchOperation.size() >= 100) {
+						cloudTable.execute(batchOperation);
+						batchOperation.clear();
+					}
+				}
+				if (!batchOperation.isEmpty()) {
+					cloudTable.execute(batchOperation);
 				}
 			}
-			logger.info("Execution batch de " + String.valueOf(c % TAILLE_BATCH) + " requêtes");
-			cs.executeBatch();
-			conn.commit();
-			long endTime = System.currentTimeMillis();
-			logger.info("Fin de la mise à jour des classes en " 
-				+ String.valueOf(endTime - startTime) 
-				+ " ms");
-			try {
-				logger.info("Durée moyenne de l'exécution d'un batch de "
-					+ TAILLE_BATCH + " requêtes : "
-					+ String.valueOf(dureeMoyenne / (c / TAILLE_BATCH)) 
-					+ " ms");
-			} catch (ArithmeticException e) {}
-		} catch (SQLException e) {
+			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms");
+		} 
+		catch (StorageException
+			| InvalidKeyException
+			| URISyntaxException e)
+		{
 			Utils.logErreur(e, logger);
 			return false;
 		}
 		return true;
 	}
 
-	private static HashSet<Integer> rechercherSubstances (String recherche) {
+	private static HashSet<Long> rechercherSubstances (String recherche) {
 		recherche = normaliser(recherche);
-		HashSet<Integer> resultats = cacheRecherche.get(recherche);
+		HashSet<Long> resultats = cacheRecherche.get(recherche);
 		if (resultats == null) {
-			resultats = new HashSet<Integer>();
+			resultats = new HashSet<>();
 			for (String nom : nomsSubstances.keySet()) {
 				if (normaliser(nom).matches("(?i:.*" + recherche + ".*)")) { 
 					resultats.addAll(nomsSubstances.get(nom)); 
@@ -217,30 +174,32 @@ public final class MiseAJourClassesSubstances {
 			return original;
 	}
 
-	private static void importerSubstances () {
-		String requete = "SELECT nom, codesubstance FROM " + TABLE_NOMS_SUBSTANCES;
-		try (
-			SQLServerStatement statement = (SQLServerStatement) conn.createStatement();
-			SQLServerResultSet resultset = (SQLServerResultSet) statement.executeQuery(requete);
-		) {
-			while (resultset.next()) {
-				String nom = resultset.getString(1);
-				Integer code = resultset.getInt(2);
-				if (nomsSubstances.containsKey(nom)) { nomsSubstances.get(nom).add(code); }
-				else {
-					HashSet<Integer> nouveauset = new HashSet<>();
-					nouveauset.add(code);
-					nomsSubstances.put(nom, nouveauset);
+	private static HashMap<String, HashSet<Long>> importerSubstances () {
+		HashMap<String, HashSet<Long>> resultats = new HashMap<>();
+		try {
+			for (EntiteSubstance entite : EntiteSubstance.obtenirToutesLesEntites()) {
+				for (String nom : (Iterable<String>) () -> 
+					entite.obtenirNomsJsonArray().toList()
+						.stream()
+						.map(object -> String.valueOf(object))
+						.iterator()
+				) {
+					if (!resultats.containsKey(nom)) {
+						resultats.put(nom, new HashSet<>());
+					}
+					long codeSubstance = Long.parseLong(entite.getRowKey());
+					resultats.get(nom).add(codeSubstance);
 				}
-				codesSubstances.put(code, nom);
 			}
-		} 
-		catch (SQLException e) {
-			logger.warning("Erreur lors de l'importation des substances");
-			Utils.logErreur(e, logger);
 		}
-		logger.info("Substances importées : "
-			+ Utils.NEWLINE + "taille du HashSet noms = " + nomsSubstances.size()
-			+ Utils.NEWLINE + "taille du HashSet codes = " + codesSubstances.size());
+		catch (StorageException
+			| URISyntaxException
+			| InvalidKeyException e) 
+		{
+			Utils.logErreur(e, logger);
+			return new HashMap<>();
+		}
+		logger.info(resultats.size() + " noms de substances importés");
+		return resultats;
 	}
 }

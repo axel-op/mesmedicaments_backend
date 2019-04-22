@@ -59,7 +59,7 @@ public final class MiseAJourBDPM {
 				substances.get(codesubstance).add(nom);
 			}
 			double total = substances.size();
-			logger.info("Parsing terminé en " + tempsDepuis(startTime) + " ms. " 
+			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 
 				+ ((int) total) + " substances trouvées."
 			);
 			logger.info("Création des entités en cours...");
@@ -71,12 +71,12 @@ public final class MiseAJourBDPM {
 				entite.definirNomsJsonArray(new JSONArray(entree.getValue()));
 				entites.add(entite);
 			}
-			logger.info(entites.size() + " entités créées en " + tempsDepuis(startTime) + " ms. "
+			logger.info(entites.size() + " entités créées en " + Utils.tempsDepuis(startTime) + " ms. "
 			);
 			logger.info("Mise à jour de la base de données en cours...");
 			startTime = System.currentTimeMillis();
 			EntiteSubstance.mettreAJourEntitesBatch(entites);
-			logger.info("Base mise à jour en " + tempsDepuis(startTime) + " ms"
+			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms"
 			);
 		}
 		catch (IOException 
@@ -120,7 +120,7 @@ public final class MiseAJourBDPM {
 				caracMed.put(codecis, new String[]{forme, autorisation, marque});
 			}
 			double total = nomsMed.size();
-			logger.info("Parsing terminé en " + tempsDepuis(startTime) + " ms. " 
+			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 
 				+ ((int) total) + " médicaments trouvés."
 			);
 			logger.info("Création des entités en cours...");
@@ -135,12 +135,12 @@ public final class MiseAJourBDPM {
 				entite.setMarque(caracMed.get(codecis)[2]);
 				entites.add(entite);
 			}
-			logger.info(entites.size() + " entités créées en " + tempsDepuis(startTime) + " ms. "
+			logger.info(entites.size() + " entités créées en " + Utils.tempsDepuis(startTime) + " ms. "
 			);
 			logger.info("Mise à jour de la base de données en cours...");
 			startTime = System.currentTimeMillis();
 			EntiteMedicament.mettreAJourEntitesBatch(entites);
-			logger.info("Base mise à jour en " + tempsDepuis(startTime) + " ms. "
+			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms. "
 			);
 		}
 		catch (StorageException 
@@ -181,9 +181,5 @@ public final class MiseAJourBDPM {
 				);
 			}
 		};
-	}
-
-	private static long tempsDepuis (long startTime) {
-		return System.currentTimeMillis() - startTime;
 	}
 }

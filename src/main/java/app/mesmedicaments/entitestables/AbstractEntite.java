@@ -12,7 +12,7 @@ import com.microsoft.azure.storage.table.TableServiceEntity;
 public abstract class AbstractEntite extends TableServiceEntity {
 
 	
-	protected static CloudTable obtenirCloudTable (String table)
+	public static CloudTable obtenirCloudTable (String table)
 		throws URISyntaxException,
 		StorageException,
 		InvalidKeyException
@@ -21,7 +21,12 @@ public abstract class AbstractEntite extends TableServiceEntity {
 			.parse(System.getenv("AzureWebJobsStorage"))
 			.createCloudTableClient()
 			.getTableReference(table);
-	} 
+	}
+
+	public static String supprimerCaracteresInterdits (String s) {
+		s = s.replaceAll("\\\\|/|#|\\?", " ");
+		return s;
+	}
 	
 	private final CloudTable TABLE;
 
@@ -58,10 +63,4 @@ public abstract class AbstractEntite extends TableServiceEntity {
 		TableOperation operation = TableOperation.insertOrMerge(this);
 		TABLE.execute(operation);
 	}
-
-	private String supprimerCaracteresInterdits (String s) {
-		s = s.replaceAll("\\\\|/|#|\\?", " ");
-		return s;
-	}
-
 }

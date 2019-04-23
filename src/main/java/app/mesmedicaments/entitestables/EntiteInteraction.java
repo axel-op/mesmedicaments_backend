@@ -11,7 +11,7 @@ import com.microsoft.azure.storage.table.TableOperation;
 
 public class EntiteInteraction extends AbstractEntite {
 
-    private static final String TABLE = System.getenv("tableazure_interactions"); /// A METTRE
+    private static final String TABLE = System.getenv("tableazure_interactions");
 
     public static EntiteInteraction obtenirEntite (long codeSubstance1, long codeSubstance2) 
         throws URISyntaxException, InvalidKeyException

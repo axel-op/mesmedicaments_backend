@@ -13,8 +13,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -47,7 +52,7 @@ public final class MiseAJourInteractions {
 	private static Float valeurInconnueDesc;
 	private static Float valeurInconnueCond;
 	private static String classeEnCours;
-	private static HashMap<String, HashSet<Long>> correspondancesSubstances;
+	private static HashMap<String, Set<Long>> correspondancesSubstances;
 	private static HashMap<String, HashSet<String>> classesSubstances;
 	private static HashMap<String, HashSet<String>> cacheRecherche;
 	private static boolean reussite;
@@ -311,8 +316,8 @@ public final class MiseAJourInteractions {
 		conduite = conduite.replaceFirst(" ?(- )+\n", "");
 		descriptif = corrigerApostrophes(descriptif);
 		conduite = corrigerApostrophes(conduite);
-		HashSet<Long> substances1 = obtenirCorrespondances(substance1);
-		HashSet<Long> substances2 = obtenirCorrespondances(substance2);
+		Set<Long> substances1 = obtenirCorrespondances(substance1);
+		Set<Long> substances2 = obtenirCorrespondances(substance2);
 		for (long code1 : substances1) {
 			for (long code2 : substances2) {
 				EntiteInteraction entite = new EntiteInteraction(code1, code2);
@@ -381,65 +386,61 @@ public final class MiseAJourInteractions {
 		logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms");
 	}
 	
-	private static HashSet<Long> obtenirCorrespondances (String recherche) {
+	private static Set<Long> obtenirCorrespondances (String recherche) {
 		if (recherche == null) { return new HashSet<>(); }
 		recherche = recherche.toLowerCase();
 		if (recherche.matches("(?i:autres .*)")) { recherche = recherche.replaceFirst("autres ", ""); }
 		if (classesSubstances.containsKey(recherche)) { 
-			HashSet<Long> aRetourner = new HashSet<>();
-			for (String s : classesSubstances.get(recherche)) { 
-                aRetourner.addAll(obtenirCorrespondances(s));
-            }
-			return aRetourner;
+			return classesSubstances.get(recherche).stream()
+				.flatMap(substance -> obtenirCorrespondances(substance).stream())
+				.collect(Collectors.toSet());
 		}
 		if (correspondancesSubstances.containsKey(recherche)) { 
             return correspondancesSubstances.get(recherche); 
 		}
-		HashSet<Long> codesSubstances = new HashSet<>();
-		for (String substance : rechercherMeilleuresSubstances(recherche)) {
-			codesSubstances.addAll(substances.get(substance));
-		}
+		Set<Long> codesSubstances = rechercherMeilleuresSubstances(recherche)
+			.stream()
+			.flatMap(substance -> Optional.ofNullable(substances.get(substance))
+				.orElse(new HashSet<>())
+				.stream())
+			.collect(Collectors.toSet());
 		correspondancesSubstances.put(recherche, codesSubstances);
 		return codesSubstances;
 	}
 	
-	private static HashSet<String> rechercherMeilleuresSubstances (String recherche) {
+	private static Set<String> rechercherMeilleuresSubstances (String recherche) {
 		HashMap<String, Double> classement = new HashMap<>();
 		if (recherche.matches(".+\\(.+\\)")) {
 			String debut = recherche.split("\\(")[0];
-			HashSet<String> resultats1 = rechercherMeilleuresSubstances(debut);
-			if (resultats1.isEmpty()) { return new HashSet<String>(); }
-			HashSet<String> resultats2 = new HashSet<>();
-			for (String r : rechercherMeilleuresSubstances(recherche.replaceFirst(debut, ""))) {
-				if (resultats1.contains(r)) { resultats2.add(r); }
-			}
-			return resultats2;
+			Set<String> resultats1 = rechercherMeilleuresSubstances(debut);
+			if (resultats1.isEmpty()) { return resultats1; }
+			return rechercherMeilleuresSubstances(recherche.replaceFirst(debut, ""))
+				.stream()
+				.filter(r -> resultats1.contains(r))
+				.collect(Collectors.toSet());
 		}
-		recherche = recherche.trim().replaceAll("[,\\(\\)]", "");
-		for (String expression : obtenirSousExpressions(recherche)) {
-				expression = normaliser(expression);
-				if (expression.matches("(?i:(sauf)|(hors))")) { break; }
-                if (expression.matches("(?i:"
-                    + "(fruit)" 
-                    + "|(acide)"
-                    + "|(alpha))"
-                )) { expression = ""; }
-				if (expression.matches("(?i:.*par voie.*)")) { expression = ""; }
-                if (!expression.toLowerCase().equals("fer") 
-                    && expression.matches("([^ ]{1,3} ?\\b)+"
-                )) { expression = ""; }
-				if (expression.matches("(?i:[^ ]*s)")) { expression = expression.substring(0, expression.length() - 1); }
-				if (!expression.equals("")) {
-					HashSet<String> resultats = rechercherSubstances(expression);
-					if (!resultats.isEmpty()) { 			
-						for (String resultat : resultats) { 
-							double score = (1.0 * expression.length()) / resultats.size();
-							Double scorePrecedent = classement.get(resultat); 
-							if (scorePrecedent == null) { scorePrecedent = 0.0; }
-							classement.put(resultat, score + scorePrecedent); 
-						}
-					}
-				}
+		String regexExclus = "(?i:"
+			+ "(fruit)" 
+			+ "|(acide)"
+			+ "|(alpha))"
+			+ "|(?i:.*par voie.*)";
+		for (String expression : (Iterable<String>) () -> 
+			obtenirSousExpressions(recherche.trim().replaceAll("[,\\(\\)]", "")).stream()
+				.map(exp -> normaliser(exp).toLowerCase())
+				.filter(exp -> !exp.matches(regexExclus))
+				.filter(exp -> exp.equals("fer") || !exp.matches("([^ ]{1,3} ?\\b)+"))
+				.iterator()
+		) {
+			if (expression.matches("(?i:(sauf)|(hors))")) { break; }
+			if (expression.matches("(?i:[^ ]*s)")) { 
+				expression = expression.substring(0, expression.length() - 1); 
+			}
+			Set<String> resultats = rechercherSubstances(expression);
+			for (String resultat : resultats) { 
+				double score = (1.0 * expression.length()) / resultats.size();
+				double scorePrecedent = Optional.ofNullable(classement.get(resultat)).orElse(0.0);
+				classement.put(resultat, score + scorePrecedent); 
+			}
 		}
 		return trouverMeilleurs(classement);
 	}
@@ -460,41 +461,31 @@ public final class MiseAJourInteractions {
 		return sousExpressions;
 	}
 	
-	private static HashSet<String> rechercherSubstances (String recherche) {
-		HashSet<String> resultats = cacheRecherche.get(recherche);
+	private static Set<String> rechercherSubstances (String recherche) {
+		Set<String> resultats = cacheRecherche.get(recherche);
 		if (resultats != null) { return resultats; }
 		resultats = new HashSet<String>();
-		for (int i = 0; i < 2; i++) {
-			for (String nom : substances.keySet()) {
-				String regex;
-				if (i == 0) { regex = "(?i:.*" + recherche + "\\b.*)"; }
-				else { regex = "(?i:.*" + recherche + ".*)"; }
-				if (normaliser(nom).matches(regex)) { resultats.add(nom); } 
-			}
-			if (!resultats.isEmpty()) { 
-				cacheRecherche.put(recherche, resultats);
-				return resultats; 
-			}
-		}
-		return resultats;
+		Supplier<Stream<String>> noms = () -> substances.keySet().stream().map(nom -> normaliser(nom));
+		resultats = noms.get()
+			.filter(nom -> nom.matches("(?i:.*" + recherche + "\\b.*)"))
+			.collect(Collectors.toSet());
+		if (!resultats.isEmpty()) { return resultats; }
+		return noms.get()
+			.filter(nom -> nom.matches("(?i:.*" + recherche + ".*)"))
+			.collect(Collectors.toSet());
 	}
 	
-	private static <T> HashSet<T> trouverMeilleurs (HashMap<T, Double> classement) {
+	private static <T> Set<T> trouverMeilleurs (HashMap<T, Double> classement) {
+		if (classement.isEmpty()) { return new HashSet<>(); }
 		if (classement.size() == 1) { 
-			return new HashSet<T>(classement.keySet()); 
+			return classement.keySet();
 		}
-		double scoremax = 0;
-		HashSet<T> trouves = new HashSet<>();
-		for (T membre : classement.keySet()) {
-			if (classement.get(membre) > scoremax) {
-				trouves = new HashSet<>();
-				scoremax = classement.get(membre);
-			}
-			if (classement.get(membre) == scoremax) { 
-				trouves.add(membre); 
-			}
-		}
-		return trouves;
+		final double scoremax = classement.values().stream()
+			.max((d1, d2) -> Double.compare(d1, d2))
+			.get();
+		return classement.keySet().stream()
+			.filter(cle -> classement.get(cle) == scoremax)
+			.collect(Collectors.toSet());
 	}
 	
     
@@ -568,36 +559,4 @@ public final class MiseAJourInteractions {
 		s = s.replaceAll("  ", " ");
 		return s;
 	}
-	
-	/*
-	private static void importerInteractions () {
-		String requete = "SELECT id, risque FROM " + TABLE_INTERACTIONS;
-		try (
-			SQLServerStatement statement = (SQLServerStatement) conn.createStatement();
-			SQLServerResultSet resultset = (SQLServerResultSet) statement.executeQuery(requete);
-		) {
-			while (resultset.next()) {
-				Long id = resultset.getLong(1);
-				Integer risque = resultset.getInt(2);
-				interactionsDejaEnvoyees.put(id, risque);
-			}
-		}
-		catch (SQLException e) {
-			logger.warning("Erreur lors de l'importation des interactions");
-			Utils.logErreur(e, logger);
-		}
-		logger.info(interactionsDejaEnvoyees.size() + " interactions importées");
-	}
-
-	private static Comparator<EntiteInteraction> getComparatorEntites () {
-		return new Comparator<EntiteInteraction> () {
-			@Override
-			public int compare(EntiteInteraction o1, EntiteInteraction o2) {
-				return Long.valueOf(o1.getPartitionKey())
-					.compareTo(Long.valueOf(o2.getPartitionKey())
-				);
-			}
-		};
-	}
-	*/
 }

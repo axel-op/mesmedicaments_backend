@@ -2,7 +2,7 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
-import java.util.Set;
+import java.util.Collection;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.CloudTable;
@@ -40,7 +40,7 @@ public abstract class AbstractEntiteProduit extends AbstractEntite {
             .where(filtrePK));
     }
 
-    public static <E extends AbstractEntiteProduit> void mettreAJourEntitesBatch (Set<E> entites) 
+    public static <E extends AbstractEntiteProduit> void mettreAJourEntitesBatch (Collection<E> entites) 
         throws StorageException, URISyntaxException, InvalidKeyException
     {
         CloudTable cloudTable = obtenirCloudTable(TABLE);

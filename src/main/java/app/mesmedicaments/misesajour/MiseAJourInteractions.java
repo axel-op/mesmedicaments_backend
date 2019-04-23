@@ -1,45 +1,42 @@
 package app.mesmedicaments.misesajour;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
-import java.sql.SQLException;
+import java.security.InvalidKeyException;
 import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.logging.Logger;
 
 import javax.net.ssl.HttpsURLConnection;
 
-import com.microsoft.sqlserver.jdbc.SQLServerCallableStatement;
-import com.microsoft.sqlserver.jdbc.SQLServerConnection;
-import com.microsoft.sqlserver.jdbc.SQLServerResultSet;
-import com.microsoft.sqlserver.jdbc.SQLServerStatement;
+import com.microsoft.azure.storage.StorageException;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
 
-import app.mesmedicaments.BaseDeDonnees;
 import app.mesmedicaments.Utils;
+import app.mesmedicaments.entitestables.EntiteInteraction;
 
 public final class MiseAJourInteractions {
 
     private static final Charset CHARSET_1252;
-    private static final Float TAILLE_NOM_SUBSTANCE;
-	private static final Float TAILLE_INTERACTION_SUBSTANCE;
-	private static final Float TAILLE_DESCRIPTION_PT;
-	private static final Integer TAILLE_BATCH;
-	private static final String TABLE_INTERACTIONS;
-	private static final String TABLE_NOMS_SUBSTANCES;
-	private static final String ID_MSI;
-	private static final String REQUETE;
+    private static final float TAILLE_NOM_SUBSTANCE;
+	private static final float TAILLE_INTERACTION_SUBSTANCE;
+	private static final float TAILLE_DESCRIPTION_PT;
+	private static final String URL_FICHIER_INTERACTIONS;
 
     private static Logger logger;
-	private static SQLServerConnection conn;
-    private static HashMap<String, HashSet<Integer>> substances;
+    private static HashMap<String, HashSet<Long>> substances;
     private static boolean ignorerLigne;
 	private static String ajoutSubstances;
 	private static HashSet<String> substancesEnCours;
@@ -50,32 +47,24 @@ public final class MiseAJourInteractions {
 	private static Float valeurInconnueDesc;
 	private static Float valeurInconnueCond;
 	private static String classeEnCours;
-	private static HashMap<String, HashSet<String>> correspondancesSubstances;
-	private static HashMap<String, HashSet<String>> classes;
+	private static HashMap<String, HashSet<Long>> correspondancesSubstances;
+	private static HashMap<String, HashSet<String>> classesSubstances;
 	private static HashMap<String, HashSet<String>> cacheRecherche;
-	private static HashMap<Long, Integer> interactionsDejaEnvoyees;
 	private static boolean reussite;
-	private static int compteurBatch;
-	private static long dureeMoyenne;
+	private static TreeMap<Long, HashSet<EntiteInteraction>> entitesInteractionsParPartition;
 
 	static {
+		URL_FICHIER_INTERACTIONS = System.getenv("url_interactions");
 		CHARSET_1252 = Charset.forName("cp1252");
 		TAILLE_NOM_SUBSTANCE = (float) 10;
 		TAILLE_INTERACTION_SUBSTANCE = (float) 8;
 		TAILLE_DESCRIPTION_PT = (float) 6;
-		TAILLE_BATCH = BaseDeDonnees.TAILLE_BATCH;
-		TABLE_INTERACTIONS = System.getenv("table_interactions");
-		TABLE_NOMS_SUBSTANCES = System.getenv("table_nomssubstances");
-		ID_MSI = System.getenv("msi_maj");
 		ignorerLigne = false;
 		correspondancesSubstances = new HashMap<>();
-		classes = new HashMap<>();
+		classesSubstances = new HashMap<>();
 		cacheRecherche = new HashMap<>();
-		interactionsDejaEnvoyees = new HashMap<>();
 		reussite = true;
-		compteurBatch = 0;
-		dureeMoyenne = 0;
-		REQUETE = "{call projetdmp.ajouterInteraction(?, ?, ?, ?, ?, ?)}";
+		entitesInteractionsParPartition = new TreeMap<>();
 	}
 
 	private MiseAJourInteractions () {}
@@ -83,51 +72,30 @@ public final class MiseAJourInteractions {
 	public static boolean handler (Logger logger) {
 		MiseAJourInteractions.logger = logger;
 		logger.info("Début de la mise à jour des interactions");
-		conn = BaseDeDonnees.nouvelleConnexion(ID_MSI, logger);
-		if (conn == null) { return false; }
-		importerInteractions();
-		importerSubstances();
+		//importerInteractions();
+		substances = MiseAJourClassesSubstances.importerSubstances(logger);
 		if (substances.isEmpty()) { return false; }
-		try { 
-			conn.setAutoCommit(false);
-		}
-		catch (SQLException e) {
-			Utils.logErreur(e, logger);
-			return false;
-		}
-		String tailleAvant = "Taille de la table " + TABLE_INTERACTIONS + " avant mise à jour : " 
-			+ obtenirTailleTable(TABLE_INTERACTIONS);
 		nouveauxChamps();
-		if (!mettreAJourInteractions()) { return false; }
-		try (
-			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(REQUETE);
-		) {
-			logger.info("Execution batch SQL avec " 
-				+ String.valueOf(compteurBatch % TAILLE_BATCH) + " requêtes");
-			cs.executeBatch();
-			conn.commit();
-            logger.info(tailleAvant);
-            logger.info("Taille de la table " + TABLE_INTERACTIONS + " après mise à jour : " 
-                + obtenirTailleTable(TABLE_INTERACTIONS));
-			try {
-				logger.info("Durée moyenne de l'exécution d'un batch de "
-					+ TAILLE_BATCH + " requêtes : "
-					+ String.valueOf(dureeMoyenne / (compteurBatch / TAILLE_BATCH)) 
-					+ " ms");
-			} catch (ArithmeticException e) {}
+		try {
+			long startTime = System.currentTimeMillis();
+			if (!mettreAJourInteractions()) { return false; }
+			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms");
+			exporterEntitesInteractions(entitesInteractionsParPartition);
 		}
-		catch (SQLException e) {
+		catch (StorageException
+			| URISyntaxException
+			| InvalidKeyException e)
+		{
 			Utils.logErreur(e, logger);
 			return false;
 		}
 		return true;
 	}
 
-    private static boolean mettreAJourInteractions () {
-		String url = System.getenv("url_interactions");
+    private static boolean mettreAJourInteractions () throws StorageException, URISyntaxException, InvalidKeyException {
 		try {
-			logger.info("Récupération du fichier des interactions (url = " + url + ")");
-            HttpsURLConnection connexion = (HttpsURLConnection) new URL(url)
+			logger.info("Récupération du fichier des interactions (url = " + URL_FICHIER_INTERACTIONS + ")");
+            HttpsURLConnection connexion = (HttpsURLConnection) new URL(URL_FICHIER_INTERACTIONS)
                 .openConnection();
 			connexion.setRequestMethod("GET");
 			PDDocument document = PDDocument.load(connexion.getInputStream());
@@ -139,10 +107,26 @@ public final class MiseAJourInteractions {
 					super.writeString(text, textPositions);
 				}
 			};
-			stripper.setStartPage(2);
-			stripper.getText(document);
+			int nombrePages = document.getNumberOfPages();
+			for (int page = 2; page <= nombrePages; page++) {
+				logger.info("Parsing de la page " + page + "/" + nombrePages + "..."
+				);
+				stripper.setStartPage(page);
+				stripper.setEndPage(page);
+				stripper.getText(document);
+			}
 			if (!reussite) { return false; }
-			if (!ajouterInteraction()) { return false; }
+			if (risqueEnCours != null) { 
+				for (String substance : substancesEnCours) {
+					ajouterInteraction(
+						interactionEnCours, 
+						substance, 
+						risqueEnCours, 
+						descriptifEnCours, 
+						conduiteATenirEnCours
+					); 
+				}
+			}
 			nouveauxChamps();
 			document.close();
 		} catch (IOException e) { 
@@ -152,7 +136,7 @@ public final class MiseAJourInteractions {
 		return true;
 	}
     
-    private static void analyseLigne (String texte, List<TextPosition> textPositions) {
+	private static void analyseLigne (String texte, List<TextPosition> textPositions) {
 		Float taille = textPositions.get(0).getFontSize();
 		Float tailleInPt = textPositions.get(0).getFontSizeInPt();
 		String risque1 = "((?i:((a|à) prendre en compte))|(.*APEC))";
@@ -160,114 +144,138 @@ public final class MiseAJourInteractions {
 		String risque3 = "((?i:(association d(e|é)conseill(e|é)e))|(.*ASDEC))";
 		String risque4 = "((?i:(contre(-| )indication))|(.*CI))";
 		String[] regexRisques = new String[]{risque1, risque2, risque3, risque4};
-		if (!ignorerLigne) {
-			String ligne = normaliser(texte);
-			if (ligne.matches("(?i:thesaurus .*)")) { ignorerLigne = true; }
-			else if (!ligne.matches("(?i:ansm .*)")) {
-				if (taille.equals(TAILLE_NOM_SUBSTANCE)) {
-					if (!ajouterInteraction()) { reussite = false; }
-					nouveauxChamps();
-					substancesEnCours.add(ligne.trim());
-				}
-				else if (taille.equals(TAILLE_INTERACTION_SUBSTANCE)) {
-					if (!ligne.matches("\\+")) {
-						if (!ajouterInteraction()) { reussite = false; }
-						HashSet<String> sec = substancesEnCours;
+		try {
+			if (!ignorerLigne) {
+				String ligne = normaliser(texte);
+				if (ligne.matches("(?i:thesaurus .*)")) { ignorerLigne = true; }
+				else if (!ligne.matches("(?i:ansm .*)")) {
+					if (taille.equals(TAILLE_NOM_SUBSTANCE)) {
+						if (risqueEnCours != null) { 
+							for (String substance : substancesEnCours) {
+								ajouterInteraction(
+									interactionEnCours, 
+									substance, 
+									risqueEnCours, 
+									descriptifEnCours, 
+									conduiteATenirEnCours
+								); 
+							}
+						}
 						nouveauxChamps();
-						substancesEnCours = sec;
-						interactionEnCours = ligne;
+						substancesEnCours.add(ligne.trim());
 					}
-				}
-				else if (tailleInPt.equals(TAILLE_DESCRIPTION_PT)) {
-					if (interactionEnCours != null) {
-						if (risqueEnCours == null) {
-							for (int i = regexRisques.length - 1; i >= 0; i--) {
-								String regex = regexRisques[i];
-								if (texte.matches(regex + ".*")) {
-									risqueEnCours = i + 1; 
-									if (texte.matches(regex)) { 
-                                        texte = ""; 
-                                    }
-									if (texte.matches(regex + "[a-zA-Z].*")) { 
-                                        texte = texte.replaceFirst(regex, ""); 
-                                    }
-									break;
+					else if (taille.equals(TAILLE_INTERACTION_SUBSTANCE)) {
+						if (!ligne.matches("\\+")) {
+							if (risqueEnCours != null) { 
+								for (String substance : substancesEnCours) {
+									ajouterInteraction(
+										interactionEnCours, 
+										substance, 
+										risqueEnCours, 
+										descriptifEnCours, 
+										conduiteATenirEnCours
+									); 
 								}
 							}
-						}
-						if (!texte.equals("")) { 
-							Float xposition = textPositions.get(0).getX();
-							float[][] matrice = textPositions.get(0).getTextMatrix().getValues();
-							Float colonneGauche = (float) 97.68;
-							//Float colonneDroite = (float) 317.3999;
-							if (xposition.compareTo(colonneGauche) <= 0) {
-								if (valeurInconnueDesc == null) { valeurInconnueDesc = matrice[2][1]; }
-								if (valeurInconnueCond != null && valeurInconnueDesc.compareTo(valeurInconnueCond) < 0) {
-									descriptifEnCours = conduiteATenirEnCours + descriptifEnCours;
-									conduiteATenirEnCours = "";
-								}
-								if (!descriptifEnCours.equals("") && texte.matches("[-A-Z].*")) { 
-                                    texte = "\n" + texte; 
-                                }
-								descriptifEnCours += texte + " "; 
-							} else { 
-								if (valeurInconnueCond == null) { valeurInconnueCond = matrice[2][1]; }
-								if (!conduiteATenirEnCours.equals("") && ligne.matches("[-A-Z].*")) { 
-                                    texte = "\n" + texte; 
-                                }
-								conduiteATenirEnCours += texte + " ";
-							}
-						}
-                    } else if (
-                            (texte.startsWith("(") && !texte.matches("\\( ?(V|v)oir aussi.*")) 
-                            || ajoutSubstances != null
-                        ) {
-						if (ligne.startsWith("(") && ajoutSubstances == null) { 
-							String classe = "";
-							for (String s : substancesEnCours) { classe += s; }
+							HashSet<String> sec = substancesEnCours;
 							nouveauxChamps();
-							classeEnCours = classe;
-							ligne = ligne.substring(1); 
-						}
-						int d = 0;
-						if (!ligne.endsWith(")")) { ajoutSubstances = ""; } 
-						else { 
-							ligne = ligne.substring(0, ligne.length() - 1);
-							if (ajoutSubstances != null) { 
-								String aAjouter = "";
-								if (ligne.split(",").length > 0) { aAjouter = ligne.split(",")[0]; }
-								substancesEnCours.add(ajoutSubstances + " " + aAjouter); 
-								d = 1;
-							}
-							ajoutSubstances = null; 
-						}
-						String[] substances = ligne.split(",");
-						for (int i = d; i < substances.length; i++) {
-							String substance = substances[i].trim();
-							if (!substance.matches(" *")) {
-								if (i == substances.length - 1 && ajoutSubstances != null) { 
-                                    ajoutSubstances = substance; 
-                                }
-								else { substancesEnCours.add(substance); }
-							}
+							substancesEnCours = sec;
+							interactionEnCours = ligne;
 						}
 					}
-				} else {
-					/* Ici ne doit se trouver aucune ligne du pdf */
-                    logger.warning(
-						"LIGNE IGNOREE (il ne devrait pas y en avoir) : "
-						+ Utils.NEWLINE + "\"" 
-                        + texte 
-                        + "\""
-                    );
-				}						
-			}
-		} else { ignorerLigne = false; }
+					else if (tailleInPt.equals(TAILLE_DESCRIPTION_PT)) {
+						if (interactionEnCours != null) {
+							if (risqueEnCours == null) {
+								for (int i = regexRisques.length - 1; i >= 0; i--) {
+									String regex = regexRisques[i];
+									if (texte.matches(regex + ".*")) {
+										risqueEnCours = i + 1; 
+										if (texte.matches(regex)) { 
+											texte = ""; 
+										}
+										if (texte.matches(regex + "[a-zA-Z].*")) { 
+											texte = texte.replaceFirst(regex, ""); 
+										}
+										break;
+									}
+								}
+							}
+							if (!texte.equals("")) { 
+								Float xposition = textPositions.get(0).getX();
+								float[][] matrice = textPositions.get(0).getTextMatrix().getValues();
+								float colonneGauche = (float) 97.68;
+								//float colonneDroite = (float) 317.3999;
+								if (xposition.compareTo(colonneGauche) <= 0) {
+									if (valeurInconnueDesc == null) { valeurInconnueDesc = matrice[2][1]; }
+									if (valeurInconnueCond != null && valeurInconnueDesc.compareTo(valeurInconnueCond) < 0) {
+										descriptifEnCours = conduiteATenirEnCours + descriptifEnCours;
+										conduiteATenirEnCours = "";
+									}
+									if (!descriptifEnCours.equals("") && texte.matches("[-A-Z].*")) { 
+										texte = "\n" + texte; 
+									}
+									descriptifEnCours += texte + " "; 
+								} else { 
+									if (valeurInconnueCond == null) { valeurInconnueCond = matrice[2][1]; }
+									if (!conduiteATenirEnCours.equals("") && ligne.matches("[-A-Z].*")) { 
+										texte = "\n" + texte; 
+									}
+									conduiteATenirEnCours += texte + " ";
+								}
+							}
+						} else if (
+								(texte.startsWith("(") && !texte.matches("\\( ?(V|v)oir aussi.*")) 
+								|| ajoutSubstances != null
+							) {
+							if (ligne.startsWith("(") && ajoutSubstances == null) { 
+								String classe = "";
+								for (String s : substancesEnCours) { classe += s; }
+								nouveauxChamps();
+								classeEnCours = classe;
+								ligne = ligne.substring(1); 
+							}
+							int d = 0;
+							if (!ligne.endsWith(")")) { ajoutSubstances = ""; } 
+							else { 
+								ligne = ligne.substring(0, ligne.length() - 1);
+								if (ajoutSubstances != null) { 
+									String aAjouter = "";
+									if (ligne.split(",").length > 0) { aAjouter = ligne.split(",")[0]; }
+									substancesEnCours.add(ajoutSubstances + " " + aAjouter); 
+									d = 1;
+								}
+								ajoutSubstances = null; 
+							}
+							String[] substances = ligne.split(",");
+							for (int i = d; i < substances.length; i++) {
+								String substance = substances[i].trim();
+								if (!substance.matches(" *")) {
+									if (i == substances.length - 1 && ajoutSubstances != null) { 
+										ajoutSubstances = substance; 
+									}
+									else { substancesEnCours.add(substance); }
+								}
+							}
+						}
+					} else {
+						/* Ici ne doit se trouver aucune ligne du pdf */
+						logger.warning(
+							"LIGNE IGNOREE (il ne devrait pas y en avoir) : "
+							+ Utils.NEWLINE + "\"" + texte + "\""
+						);
+					}						
+				}
+			} else { ignorerLigne = false; }
+		}
+		catch (StorageException | URISyntaxException | InvalidKeyException e) {
+			Utils.logErreur(e, logger);
+			reussite = false;
+		}
     }
 
     private static void nouveauxChamps () {
 		if (classeEnCours != null) { 
-            classes.put(
+            classesSubstances.put(
                 normaliser(classeEnCours).toLowerCase(), 
                 substancesEnCours
             ); 
@@ -283,122 +291,116 @@ public final class MiseAJourInteractions {
 		classeEnCours = null;
 	}
 	
-	private static boolean ajouterInteraction () {
+	private static void ajouterInteraction (String substance1, String substance2, int risque, String descriptif, String conduite) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
 		// Si le descriptif commence par "ainsi que", "et pendant", remplacer "ainsi que" par "Cette interaction se poursuit"
 		// Voir aussi ceux qui commencent avec "Dans l'indication..."
-		if (risqueEnCours != null) {
-			if (descriptifEnCours == null) { descriptifEnCours = ""; }
-			if (conduiteATenirEnCours == null) { conduiteATenirEnCours = ""; }
-			if (descriptifEnCours.matches(" *")) {
-				descriptifEnCours = conduiteATenirEnCours;
-				conduiteATenirEnCours = ""; 
-			}
-			conduiteATenirEnCours = conduiteATenirEnCours.replaceAll(
-                "((CI ?)"
-                + "|(ASDEC ?)"
-                + "|(PE )"
-                + "|(APEC ?))", 
-                "");
-			conduiteATenirEnCours = conduiteATenirEnCours.replaceFirst(" ?(- )+\n", "");
-			descriptifEnCours = corrigerApostrophes(descriptifEnCours);
-			conduiteATenirEnCours = corrigerApostrophes(conduiteATenirEnCours);
-			for (String substance : substancesEnCours) { 
-				if (!preparerInteraction(new String[] {
-					String.valueOf(risqueEnCours), 
-					substance, 
-					interactionEnCours, 
-					descriptifEnCours, 
-					conduiteATenirEnCours
-				})) {
-					return false;
+		if (descriptif == null) { descriptif = ""; }
+		if (conduite == null) { conduite = ""; }
+		if (descriptif.matches(" *")) {
+			descriptif = conduite;
+			conduite = ""; 
+		}
+		conduite = conduite.replaceAll(
+			"((CI ?)"
+			+ "|(ASDEC ?)"
+			+ "|(PE )"
+			+ "|(APEC ?))", 
+			"");
+		conduite = conduite.replaceFirst(" ?(- )+\n", "");
+		descriptif = corrigerApostrophes(descriptif);
+		conduite = corrigerApostrophes(conduite);
+		HashSet<Long> substances1 = obtenirCorrespondances(substance1);
+		HashSet<Long> substances2 = obtenirCorrespondances(substance2);
+		for (long code1 : substances1) {
+			for (long code2 : substances2) {
+				EntiteInteraction entite = new EntiteInteraction(code1, code2);
+				entite.setRisque(risque);
+				entite.setDescriptif(descriptif);
+				entite.setConduite(conduite);
+				long clePartition = Math.min(code1, code2);
+				if (!entitesInteractionsParPartition.containsKey(clePartition)) {
+					entitesInteractionsParPartition.put(clePartition, new HashSet<>());
 				}
+				entitesInteractionsParPartition.get(clePartition).add(entite);
 			}
 		}
-		return true;
 	}
 
-	private static boolean preparerInteraction (String[] interaction) {
-		String risque = interaction[0];
-		String descriptif = interaction[3];
-		String conduite = interaction[4];
-		HashSet<String> substances1 = obtenirCorrespondances(interaction[1]);
-		HashSet<String> substances2 = obtenirCorrespondances(interaction[2]);
-		boolean etat = true;
-		for (String s1 : substances1) {
-			for (String s2 : substances2) {
-				String id;
-				for (int code1 : substances.get(s1)) {
-					for (int code2 : substances.get(s2)) {
-						if (code1 < code2) { id = String.valueOf(code1) + String.valueOf(code2); }
-						else { id = String.valueOf(code2) + String.valueOf(code1); }
-						if (!exporterInteraction( new String[]{
-							id,
-							risque,
-							String.valueOf(code1),
-							String.valueOf(code2),
-							descriptif,
-							conduite
-						})) {
-							etat = false;
+	/**
+	 * Filtre la {@link Collection} d'{@link EntiteInteraction}s en ne retenant que celles avec le plus haut niveau de risque en cas de doublon
+	 * @see EntiteInteraction
+	 * @see EntiteInteraction#risque
+	 * @param entites La {@link Collection} d'entités à filtrer
+	 */
+	private static void supprimerDoublons (Collection<EntiteInteraction> entites) {
+		ArrayList<EntiteInteraction> listeEntites = new ArrayList<>(entites);
+		for (int i = 0; i < listeEntites.size(); i++) {
+			for (int j = i + 1; j < listeEntites.size(); j++) {
+				EntiteInteraction e1 = listeEntites.get(i);
+				EntiteInteraction e2 = listeEntites.get(j);
+				if (e1.getPartitionKey().equals(e2.getPartitionKey())
+					&& e1.getRowKey().equals(e2.getRowKey())) 
+				{
+					if (e1.getRisque() > e2.getRisque()) {
+						if (entites.contains(e2)) {
+							entites.remove(e2);
+						}
+					}
+					else { 
+						if (entites.contains(e1)) {
+							entites.remove(e1); 
 						}
 					}
 				}
 			}
 		}
-		return etat;
 	}
 	
-	private static boolean exporterInteraction (String[] interaction) {
-		try (
-			SQLServerCallableStatement cs = (SQLServerCallableStatement) conn.prepareCall(REQUETE);
-		) {
-			Long id = Long.parseLong(interaction[0]);
-			Integer risque = Integer.parseInt(interaction[1]);
-			if (interactionsDejaEnvoyees.get(id) == null
-				|| interactionsDejaEnvoyees.get(id) < risque) {
-				cs.setLong(1, id);
-				cs.setInt(2, Integer.parseInt(interaction[2]));
-				cs.setInt(3, Integer.parseInt(interaction[3]));
-				cs.setInt(4, risque);
-				cs.setString(5, interaction[4]);
-				cs.setString(6, interaction[5]);
-				cs.addBatch();
-				compteurBatch++;
-				if (compteurBatch % TAILLE_BATCH == 0) {
-					logger.info("Execution batch de "
-						+ TAILLE_BATCH + " requêtes (" 
-						+ String.valueOf(compteurBatch / TAILLE_BATCH) + ")" );
-					long start = System.currentTimeMillis();
-					cs.executeBatch();
-					dureeMoyenne += System.currentTimeMillis() - start;
-				}
-			}
-		} 
-		catch (SQLException e) {
-            Utils.logErreur(e, logger);;
-            return false;
-        }
-		return true;
+	/**
+	 * 
+	 * @param entitesRegroupees Les entités appartiennent à une même partition pour une même clé
+	 * @throws StorageException
+	 * @throws URISyntaxException
+	 * @throws InvalidKeyException
+	 * @throws IllegalArgumentException Si les entités n'appartiennent pas à la même partition pour une même clé 
+	 */
+	private static void exporterEntitesInteractions (Map<? extends Object, ? extends Collection<EntiteInteraction>> entitesRegroupees) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		logger.info("Suppression des doublons...");
+		long startTime = System.currentTimeMillis();
+		entitesRegroupees.values().stream().forEach(entites -> supprimerDoublons(entites));
+		logger.info("Doublons supprimés en " + Utils.tempsDepuis(startTime) + " ms");
+		logger.info("Mise à jour de la base de données en cours...");
+		startTime = System.currentTimeMillis();
+		for (Collection<EntiteInteraction> entites : entitesRegroupees.values()) {
+			EntiteInteraction.mettreAJourEntitesBatch(entites);
+		}
+		logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms");
 	}
 	
-	private static HashSet<String> obtenirCorrespondances (String substance) {
-		if (substance == null) { return new HashSet<>(); }
-		substance = substance.toLowerCase();
-		if (substance.matches("(?i:autres .*)")) { substance = substance.replaceFirst("autres ", ""); }
-		if (classes.containsKey(substance)) { 
-			HashSet<String> aRetourner = new HashSet<>();
-			for (String s : classes.get(substance)) { 
+	private static HashSet<Long> obtenirCorrespondances (String recherche) {
+		if (recherche == null) { return new HashSet<>(); }
+		recherche = recherche.toLowerCase();
+		if (recherche.matches("(?i:autres .*)")) { recherche = recherche.replaceFirst("autres ", ""); }
+		if (classesSubstances.containsKey(recherche)) { 
+			HashSet<Long> aRetourner = new HashSet<>();
+			for (String s : classesSubstances.get(recherche)) { 
                 aRetourner.addAll(obtenirCorrespondances(s));
             }
 			return aRetourner;
 		}
-		if (correspondancesSubstances.containsKey(substance)) { 
-            return correspondancesSubstances.get(substance); 
-        }
-		correspondancesSubstances.put(
-            substance, 
-            rechercherMeilleuresSubstances(substance));
-		return correspondancesSubstances.get(substance);
+		if (correspondancesSubstances.containsKey(recherche)) { 
+            return correspondancesSubstances.get(recherche); 
+		}
+		HashSet<Long> codesSubstances = new HashSet<>();
+		for (String substance : rechercherMeilleuresSubstances(recherche)) {
+			codesSubstances.addAll(substances.get(substance));
+		}
+		correspondancesSubstances.put(recherche, codesSubstances);
+		return codesSubstances;
 	}
 	
 	private static HashSet<String> rechercherMeilleuresSubstances (String recherche) {
@@ -431,7 +433,7 @@ public final class MiseAJourInteractions {
 					HashSet<String> resultats = rechercherSubstances(expression);
 					if (!resultats.isEmpty()) { 			
 						for (String resultat : resultats) { 
-							Double score = (1.0 * expression.length()) / resultats.size();
+							double score = (1.0 * expression.length()) / resultats.size();
 							Double scorePrecedent = classement.get(resultat); 
 							if (scorePrecedent == null) { scorePrecedent = 0.0; }
 							classement.put(resultat, score + scorePrecedent); 
@@ -477,18 +479,20 @@ public final class MiseAJourInteractions {
 		return resultats;
 	}
 	
-	private static HashSet<String> trouverMeilleurs (HashMap<String, Double> classement) {
+	private static <T> HashSet<T> trouverMeilleurs (HashMap<T, Double> classement) {
 		if (classement.size() == 1) { 
-			return new HashSet<String>(classement.keySet()); 
+			return new HashSet<T>(classement.keySet()); 
 		}
 		double scoremax = 0;
-		HashSet<String> trouves = new HashSet<>();
-		for (String membre : classement.keySet()) {
+		HashSet<T> trouves = new HashSet<>();
+		for (T membre : classement.keySet()) {
 			if (classement.get(membre) > scoremax) {
 				trouves = new HashSet<>();
 				scoremax = classement.get(membre);
 			}
-			if (classement.get(membre) == scoremax) { trouves.add(membre); }
+			if (classement.get(membre) == scoremax) { 
+				trouves.add(membre); 
+			}
 		}
 		return trouves;
 	}
@@ -565,6 +569,7 @@ public final class MiseAJourInteractions {
 		return s;
 	}
 	
+	/*
 	private static void importerInteractions () {
 		String requete = "SELECT id, risque FROM " + TABLE_INTERACTIONS;
 		try (
@@ -584,46 +589,15 @@ public final class MiseAJourInteractions {
 		logger.info(interactionsDejaEnvoyees.size() + " interactions importées");
 	}
 
-	private static void importerSubstances () {
-		String requete = "SELECT nom, codesubstance FROM " + TABLE_NOMS_SUBSTANCES;
-		try (
-			SQLServerStatement statement = (SQLServerStatement) conn.createStatement();
-			SQLServerResultSet resultset = (SQLServerResultSet) statement.executeQuery(requete);
-		) {
-			while (resultset.next()) {
-				String nom = resultset.getString(1);
-				Integer code = resultset.getInt(2);
-				if (substances.containsKey(nom)) { substances.get(nom).add(code); }
-				else {
-					HashSet<Integer> nouveauset = new HashSet<>();
-					nouveauset.add(code);
-					substances.put(nom, nouveauset);
-				}
+	private static Comparator<EntiteInteraction> getComparatorEntites () {
+		return new Comparator<EntiteInteraction> () {
+			@Override
+			public int compare(EntiteInteraction o1, EntiteInteraction o2) {
+				return Long.valueOf(o1.getPartitionKey())
+					.compareTo(Long.valueOf(o2.getPartitionKey())
+				);
 			}
-		} 
-		catch (SQLException e) {
-			logger.warning("Erreur lors de l'importation des substances");
-			Utils.logErreur(e, logger);
-		}
-		logger.info("Substances importées : "
-			+ Utils.NEWLINE + "taille du HashSet noms = " + substances.size());
+		};
 	}
-
-	private static Integer obtenirTailleTable (String table) {
-		Integer taille = null;
-		String requete = "SELECT COUNT(*) FROM " + table;
-		try (
-			SQLServerStatement stmt = (SQLServerStatement) conn.createStatement();
-			SQLServerResultSet rs = (SQLServerResultSet) stmt.executeQuery(requete);
-		) {
-			rs.next();
-			taille = rs.getInt(1);
-		}
-		catch (SQLException e) {
-			logger.warning("Erreur lors de la requête tailleTable"
-				+ " pour la table " + table);
-			Utils.logErreur(e, logger);
-		}
-		return taille;
-	}
+	*/
 }

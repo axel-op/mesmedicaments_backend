@@ -14,9 +14,11 @@ public class EntiteConnexion extends AbstractEntite {
 
 	//private static final CloudTable TABLE_UTILISATEURS;
 	private static final String CLE_PARTITION;
+	private static final String TABLE;
 
 	static { 
 		CLE_PARTITION = "connexion"; // a modifier 
+		TABLE = System.getenv("tableazure_connexions");
 	}
 
 	public static EntiteConnexion obtenirEntite (String id) 
@@ -27,7 +29,7 @@ public class EntiteConnexion extends AbstractEntite {
 				CLE_PARTITION, 
 				id, 
 				EntiteConnexion.class);
-			return obtenirCloudTable(System.getenv("tableazure_connexions"))
+			return obtenirCloudTable(TABLE)
 				.execute(operation)
 				.getResultAsType();
 		}
@@ -46,7 +48,7 @@ public class EntiteConnexion extends AbstractEntite {
 	public EntiteConnexion (String id) 
 		throws StorageException, InvalidKeyException, URISyntaxException
 	{
-		super(System.getenv("tableazure_connexions"), CLE_PARTITION, id);
+		super(TABLE, CLE_PARTITION, id);
 	}
 
 	/**
@@ -58,10 +60,10 @@ public class EntiteConnexion extends AbstractEntite {
 	public EntiteConnexion () 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		super(System.getenv("tableazure_connexions"));
+		super(TABLE);
 	}
 
-	/*** Getters ***/
+	/* Getters */
 
 	public String getSid () { return sid; }
 	public String getTformdata () { return tformdata; }
@@ -88,7 +90,7 @@ public class EntiteConnexion extends AbstractEntite {
 	public String getUrlFichierRemboursements () { return urlFichierRemboursements; }
 	public String getMotDePasse () { return motDePasse; }
 
-	/*** Setters ***/
+	/* Setters */
 
 	public void setSid (String sid) { this.sid = sid; }
 

@@ -46,17 +46,17 @@ public final class MiseAJourClassesSubstances {
 	public static boolean handler (Logger logger) {
 		MiseAJourClassesSubstances.logger = logger;
 		logger.info("Début de la mise à jour des classes de substances");
-		nomsSubstances = importerSubstances();
+		nomsSubstances = importerSubstances(logger);
 		if (nomsSubstances.isEmpty()) { return false; }
 		if (!importerClasses()) { return false; }
-		if (!mettreAJourClasses()) { return false; }
+		if (!exporterClasses()) { return false; }
 		return true;
 	}
 
 	private static boolean importerClasses () {
 		Integer nbrClassesTrouvees = 0;
 		try {
-			logger.info("Tentative de récupération du fichier des classes de substances (url = " + URL_CLASSES + ")");
+			logger.info("Récupération du fichier des classes de substances (url = " + URL_CLASSES + ")");
 			HttpsURLConnection connexion = (HttpsURLConnection) new URL(URL_CLASSES).openConnection();
 			connexion.setRequestMethod("GET");
 			PDDocument document = PDDocument.load(connexion.getInputStream());
@@ -114,18 +114,18 @@ public final class MiseAJourClassesSubstances {
 		return true;
 	}
 
-	private static boolean mettreAJourClasses () {
+	private static boolean exporterClasses () {
 		logger.info("Mise à jour de la base de données en cours...");
 		try {
 			CloudTable cloudTable = AbstractEntite.obtenirCloudTable(TABLE);
 			long startTime = System.currentTimeMillis();
 			for (Entry<String, HashSet<Long>> entree : classes.entrySet()) {
 				TableBatchOperation batchOperation = new TableBatchOperation();
-				for (Long codesubstance : entree.getValue()) {
+				for (Long codeSubstance : entree.getValue()) {
 					batchOperation.insertOrMerge(
 						new TableServiceEntity(
 							AbstractEntite.supprimerCaracteresInterdits(entree.getKey()), 
-							AbstractEntite.supprimerCaracteresInterdits(String.valueOf(codesubstance))
+							AbstractEntite.supprimerCaracteresInterdits(String.valueOf(codeSubstance))
 						)
 					);
 					if (batchOperation.size() >= 100) {
@@ -174,7 +174,7 @@ public final class MiseAJourClassesSubstances {
 			return original;
 	}
 
-	private static HashMap<String, HashSet<Long>> importerSubstances () {
+	protected static HashMap<String, HashSet<Long>> importerSubstances (Logger logger) {
 		HashMap<String, HashSet<Long>> resultats = new HashMap<>();
 		try {
 			for (EntiteSubstance entite : EntiteSubstance.obtenirToutesLesEntites()) {

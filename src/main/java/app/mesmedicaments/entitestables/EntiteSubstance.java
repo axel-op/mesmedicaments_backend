@@ -60,7 +60,7 @@ public class EntiteSubstance extends AbstractEntiteProduit {
 
 	public EntiteSubstance () throws StorageException, InvalidKeyException, URISyntaxException {}
 
-	/*** Getters ***/
+	/* Getters */
 
 	public String getNoms () { return noms; }
 
@@ -68,7 +68,7 @@ public class EntiteSubstance extends AbstractEntiteProduit {
         return new JSONArray(noms);
     }
 
-	/*** Setters ***/
+	/* Setters */
 
 	public void setNoms (String noms) { this.noms = noms; }
 

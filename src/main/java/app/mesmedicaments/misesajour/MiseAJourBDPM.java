@@ -176,8 +176,8 @@ public final class MiseAJourBDPM {
 		return new Comparator<AbstractEntiteProduit> () {
 			@Override
 			public int compare(AbstractEntiteProduit o1, AbstractEntiteProduit o2) {
-				return Integer.valueOf(o1.getRowKey())
-					.compareTo(Integer.valueOf(o2.getRowKey())
+				return Long.valueOf(o1.getRowKey())
+					.compareTo(Long.valueOf(o2.getRowKey())
 				);
 			}
 		};

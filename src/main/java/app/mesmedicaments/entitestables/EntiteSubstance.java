@@ -47,7 +47,7 @@ public class EntiteSubstance extends AbstractEntiteProduit {
 	public static Iterable<EntiteSubstance> obtenirToutesLesEntites ()
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		return AbstractEntiteProduit.obtenirEntites("substance", EntiteSubstance.class);
+		return AbstractEntiteProduit.obtenirToutesLesEntites("substance", EntiteSubstance.class);
 	}
 
 	String noms;

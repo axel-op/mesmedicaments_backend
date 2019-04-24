@@ -363,14 +363,15 @@ public final class Authentification {
 				.execute();
 			reponse = connexion.response();
 			Document page = reponse.parse();
-			entiteConnexion.setSid(obtenirSid(page));
-			entiteConnexion.setTformdata(obtenirTformdata(page));
 			entiteConnexion.definirCookiesMap(cookies);
 			entiteConnexion.setUrlFichierRemboursements(obtenirURLFichierRemboursements(cookies).orElse(null));
-			entiteConnexion.mettreAJourEntite();
 			if (!reponse.url().toString().matches(REGEX_ACCUEIL)) {
+				entiteConnexion.setSid(obtenirSid(page));
+				entiteConnexion.setTformdata(obtenirTformdata(page));
+				entiteConnexion.mettreAJourEntite();
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
 			}
+			entiteConnexion.mettreAJourEntite();
 			recupererInfosUtilisateur(cookies, retour);
 		}
 		catch (IOException 

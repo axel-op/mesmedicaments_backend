@@ -39,24 +39,24 @@ public final class MiseAJourInteractions {
 	private static final float TAILLE_INTERACTION_SUBSTANCE;
 	private static final float TAILLE_DESCRIPTION_PT;
 	private static final String URL_FICHIER_INTERACTIONS;
-
-    private static Logger logger;
-    private static HashMap<String, HashSet<Long>> substances;
-    private static boolean ignorerLigne;
-	private static String ajoutSubstances;
-	private static HashSet<String> substancesEnCours;
-	private static String interactionEnCours;
-	private static Integer risqueEnCours;
-	private static String descriptifEnCours;
-	private static String conduiteATenirEnCours;
-	private static Float valeurInconnueDesc;
-	private static Float valeurInconnueCond;
-	private static String classeEnCours;
+	private static Logger logger;
 	private static HashMap<String, Set<Long>> correspondancesSubstances;
 	private static HashMap<String, HashSet<String>> classesSubstances;
-	private static HashMap<String, HashSet<String>> cacheRecherche;
-	private static boolean reussite;
+    private static HashMap<String, HashSet<Long>> substances;
 	private static TreeMap<Long, HashSet<EntiteInteraction>> entitesInteractionsParPartition;
+	private static HashMap<String, HashSet<String>> cacheRecherche;
+
+    private boolean ignorerLigne;
+	private String ajoutSubstances;
+	private HashSet<String> substancesEnCours;
+	private String interactionEnCours;
+	private Integer risqueEnCours;
+	private String descriptifEnCours;
+	private String conduiteATenirEnCours;
+	private Float valeurInconnueDesc;
+	private Float valeurInconnueCond;
+	private String classeEnCours;
+	private boolean reussite;
 
 	static {
 		URL_FICHIER_INTERACTIONS = System.getenv("url_interactions");
@@ -64,26 +64,29 @@ public final class MiseAJourInteractions {
 		TAILLE_NOM_SUBSTANCE = (float) 10;
 		TAILLE_INTERACTION_SUBSTANCE = (float) 8;
 		TAILLE_DESCRIPTION_PT = (float) 6;
-		ignorerLigne = false;
 		correspondancesSubstances = new HashMap<>();
 		classesSubstances = new HashMap<>();
-		cacheRecherche = new HashMap<>();
-		reussite = true;
 		entitesInteractionsParPartition = new TreeMap<>();
+		cacheRecherche = new HashMap<>();
 	}
 
-	private MiseAJourInteractions () {}
+	private MiseAJourInteractions () {
+		ignorerLigne = false;
+		reussite = true;
+	}
 	
 	public static boolean handler (Logger logger) {
 		MiseAJourInteractions.logger = logger;
+		MiseAJourInteractions majInstance = new MiseAJourInteractions();
 		logger.info("Début de la mise à jour des interactions");
 		//importerInteractions();
-		substances = MiseAJourClassesSubstances.importerSubstances(logger);
-		if (substances.isEmpty()) { return false; }
-		nouveauxChamps();
+		if (substances.isEmpty()) { 
+			substances = MiseAJourClassesSubstances.importerSubstances(logger); 
+		}
+		majInstance.nouveauxChamps();
 		try {
 			long startTime = System.currentTimeMillis();
-			if (!mettreAJourInteractions()) { return false; }
+			if (!majInstance.mettreAJourInteractions()) { return false; }
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms");
 			exporterEntitesInteractions(entitesInteractionsParPartition);
 		}
@@ -97,7 +100,7 @@ public final class MiseAJourInteractions {
 		return true;
 	}
 
-    private static boolean mettreAJourInteractions () throws StorageException, URISyntaxException, InvalidKeyException {
+    private boolean mettreAJourInteractions () throws StorageException, URISyntaxException, InvalidKeyException {
 		try {
 			logger.info("Récupération du fichier des interactions (url = " + URL_FICHIER_INTERACTIONS + ")");
             HttpsURLConnection connexion = (HttpsURLConnection) new URL(URL_FICHIER_INTERACTIONS)
@@ -141,7 +144,7 @@ public final class MiseAJourInteractions {
 		return true;
 	}
     
-	private static void analyseLigne (String texte, List<TextPosition> textPositions) {
+	private void analyseLigne (String texte, List<TextPosition> textPositions) {
 		Float taille = textPositions.get(0).getFontSize();
 		Float tailleInPt = textPositions.get(0).getFontSizeInPt();
 		String risque1 = "((?i:((a|à) prendre en compte))|(.*APEC))";
@@ -278,7 +281,7 @@ public final class MiseAJourInteractions {
 		}
     }
 
-    private static void nouveauxChamps () {
+    private void nouveauxChamps () {
 		if (classeEnCours != null) { 
             classesSubstances.put(
                 normaliser(classeEnCours).toLowerCase(), 
@@ -376,7 +379,7 @@ public final class MiseAJourInteractions {
 	{
 		logger.info("Suppression des doublons...");
 		long startTime = System.currentTimeMillis();
-		entitesRegroupees.values().stream().forEach(entites -> supprimerDoublons(entites));
+		entitesRegroupees.values().stream().forEach(MiseAJourInteractions::supprimerDoublons);
 		logger.info("Doublons supprimés en " + Utils.tempsDepuis(startTime) + " ms");
 		logger.info("Mise à jour de la base de données en cours...");
 		startTime = System.currentTimeMillis();
@@ -401,7 +404,7 @@ public final class MiseAJourInteractions {
 		Set<Long> codesSubstances = rechercherMeilleuresSubstances(recherche)
 			.stream()
 			.flatMap(substance -> Optional.ofNullable(substances.get(substance))
-				.orElse(new HashSet<>())
+				.orElseGet(HashSet::new)
 				.stream())
 			.collect(Collectors.toSet());
 		correspondancesSubstances.put(recherche, codesSubstances);
@@ -416,7 +419,7 @@ public final class MiseAJourInteractions {
 			if (resultats1.isEmpty()) { return resultats1; }
 			return rechercherMeilleuresSubstances(recherche.replaceFirst(debut, ""))
 				.stream()
-				.filter(r -> resultats1.contains(r))
+				.filter(resultats1::contains)
 				.collect(Collectors.toSet());
 		}
 		String regexExclus = "(?i:"
@@ -426,7 +429,8 @@ public final class MiseAJourInteractions {
 			+ "|(?i:.*par voie.*)";
 		for (String expression : (Iterable<String>) () -> 
 			obtenirSousExpressions(recherche.trim().replaceAll("[,\\(\\)]", "")).stream()
-				.map(exp -> normaliser(exp).toLowerCase())
+				.map(MiseAJourInteractions::normaliser)
+				.map(String::toLowerCase)
 				.filter(exp -> !exp.matches(regexExclus))
 				.filter(exp -> exp.equals("fer") || !exp.matches("([^ ]{1,3} ?\\b)+"))
 				.iterator()
@@ -465,7 +469,8 @@ public final class MiseAJourInteractions {
 		Set<String> resultats = cacheRecherche.get(recherche);
 		if (resultats != null) { return resultats; }
 		resultats = new HashSet<String>();
-		Supplier<Stream<String>> noms = () -> substances.keySet().stream().map(nom -> normaliser(nom));
+		Supplier<Stream<String>> noms = () -> substances.keySet().stream()
+			.map(MiseAJourInteractions::normaliser);
 		resultats = noms.get()
 			.filter(nom -> nom.matches("(?i:.*" + recherche + "\\b.*)"))
 			.collect(Collectors.toSet());
@@ -481,7 +486,7 @@ public final class MiseAJourInteractions {
 			return classement.keySet();
 		}
 		final double scoremax = classement.values().stream()
-			.max((d1, d2) -> Double.compare(d1, d2))
+			.max(Double::compare)
 			.get();
 		return classement.keySet().stream()
 			.filter(cle -> classement.get(cle) == scoremax)

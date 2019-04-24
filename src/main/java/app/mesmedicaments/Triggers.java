@@ -1,5 +1,8 @@
 package app.mesmedicaments;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
@@ -16,6 +19,7 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -53,7 +57,7 @@ public final class Triggers {
         HEADER_AUTHORIZATION = "jwt";
     }
 
-    private Logger logger;
+    //private Logger logger;
     //private JSONObject corpsRequete;
 
     // mettre une doc
@@ -73,10 +77,19 @@ public final class Triggers {
         try {
             accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
             id = Authentification.getIdFromToken(accessToken);
-            // terminer
+            DMP dmp = new DMP(id, context.getLogger());
+            corpsReponse.put("medicamentsRecents", dmp.obtenirMedicamentsRecents());
+            codeHttp = HttpStatus.OK;
         }
         catch (JwtException e) {
             codeHttp = HttpStatus.UNAUTHORIZED;
+        }
+        catch (IOException
+            | StorageException
+            | URISyntaxException
+            | InvalidKeyException e)
+        {
+            codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
         }
         return request.createResponseBuilder(codeHttp)
             .body(corpsReponse)
@@ -107,7 +120,7 @@ public final class Triggers {
         @HttpTrigger(
             name = "connexionTrigger",
             authLevel = AuthorizationLevel.FUNCTION,
-            methods = {HttpMethod.POST},
+            methods = {HttpMethod.POST, HttpMethod.GET},
             dataType = "string",
             route = "connexion/{etape:int}")
         final HttpRequestMessage<Optional<String>> request,
@@ -117,15 +130,18 @@ public final class Triggers {
         final String id;
         final String mdp;
         String jwt = null;
+        JSONObject corpsRequete = null;
         HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
         JSONObject corpsReponse = new JSONObject();
         JSONObject resultat = new JSONObject();
-        logger = context.getLogger();
+        Logger logger = context.getLogger();
         Authentification auth;
         try {
             if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)) { 
                 throw new IllegalArgumentException(); }
-            JSONObject corpsRequete = new JSONObject(request.getBody().get());
+            if (request.getHttpMethod() == HttpMethod.POST) {
+                corpsRequete = new JSONObject(request.getBody().get());
+            }
             if (etape == 0) { // Renouvellement du token d'accès
                 jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
                 if (Authentification.checkRefreshToken(jwt)) { 
@@ -213,7 +229,7 @@ public final class Triggers {
         HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
         JSONObject corpsReponse = new JSONObject();
         //JSONObject retour = new JSONObject();
-        logger = context.getLogger();
+        Logger logger = context.getLogger();
         Authentification auth;
         try {
             // vérifier le jeton
@@ -263,7 +279,7 @@ public final class Triggers {
 		long startTime = System.currentTimeMillis();
 		HttpStatus codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		String corps = "";
-        logger = context.getLogger();
+        Logger logger = context.getLogger();
         switch (etape) {
             case 1:
                 if (MiseAJourBDPM.majSubstances(logger)) {

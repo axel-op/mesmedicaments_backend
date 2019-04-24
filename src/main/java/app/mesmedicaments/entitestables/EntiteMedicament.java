@@ -9,35 +9,6 @@ import org.json.JSONArray;
 
 public class EntiteMedicament extends AbstractEntiteProduit {
 
-    /*
-    //private static final String CLE_PARTITION = "medicament";
-    private static final String TABLE = System.getenv("tableazure_medicaments"); /// A METTRE
-
-    public static EntiteMedicament obtenirEntite (long codecis, String nom)
-        throws URISyntaxException, InvalidKeyException, StorageException
-    {
-        TableOperation operation = TableOperation.retrieve(
-            String.valueOf(codecis), 
-            nom, 
-            EntiteMedicament.class);
-        return obtenirCloudTable(TABLE) /// A METTRE
-                .execute(operation)
-                .getResultAsType();
-    }
-
-    public static Iterable<EntiteMedicament> obtenirEntites (long codecis)
-        throws URISyntaxException, InvalidKeyException, StorageException
-    {
-        String filtrePK = TableQuery.generateFilterCondition(
-            "PartitionKey", 
-            QueryComparisons.EQUAL, 
-            String.valueOf(codecis));
-        return obtenirCloudTable(TABLE)
-            .execute(new TableQuery<>(EntiteMedicament.class)
-            .where(filtrePK));
-    }
-    */
-
     public static EntiteMedicament obtenirEntite (long codeCIS)
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
@@ -47,7 +18,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
 	public static Iterable<EntiteMedicament> obtenirToutesLesEntites ()
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		return AbstractEntiteProduit.obtenirEntites("medicament", EntiteMedicament.class);
+		return AbstractEntiteProduit.obtenirToutesLesEntites("medicament", EntiteMedicament.class);
     }
     
     /**
@@ -66,7 +37,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
 
     public EntiteMedicament () throws StorageException, InvalidKeyException, URISyntaxException {}
 
-    /*** Getters ***/
+    /* Getters */
 
     public String getNoms () { return noms; }
     public String getForme () { return forme; }
@@ -77,7 +48,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
         return new JSONArray(noms);
     }
 
-    /*** Setters ***/
+    /* Setters */
 
     public void setNoms (String noms) { this.noms = noms; }
     public void setForme (String forme) { this.forme = forme; }

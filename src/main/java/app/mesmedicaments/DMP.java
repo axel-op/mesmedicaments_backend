@@ -7,20 +7,47 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeSet;
+import java.util.Map.Entry;
+import java.util.function.BiFunction;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import javax.net.ssl.HttpsURLConnection;
+
+import com.microsoft.azure.storage.StorageException;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.json.JSONObject;
 
 import app.mesmedicaments.entitestables.EntiteConnexion;
+import app.mesmedicaments.entitestables.EntiteMedicament;
 
 public class DMP {
+
+	private static Map<String, Set<Long>> nomsMedicamentsNormalises = Collections.emptyMap();
+	private static Map<String, Set<Long>> cacheRecherche = new HashMap<>();
+
+	private static Map<String, Set<Long>> importerNomsMedicamentsNormalises () 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		long startTime = System.currentTimeMillis();
+		Map<String, Set<Long>> nomsMed = new HashMap<>();
+		for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
+			entite.obtenirNomsJsonArray().forEach(
+				nom -> nomsMed
+					.computeIfAbsent(Utils.normaliser(nom.toString()), cle -> new TreeSet<>())
+					.add(Long.parseLong(entite.getRowKey()))
+			);
+		}
+		return nomsMed;
+	}
 
 	private final Logger LOGGER;
 	private final String ID;
@@ -30,7 +57,9 @@ public class DMP {
 		this.LOGGER = logger;
 	}
 
-	protected JSONObject obtenirMedicamentsRecents () throws IOException {
+	public JSONObject obtenirMedicamentsRecents () 
+		throws IOException, StorageException, URISyntaxException, InvalidKeyException
+	{
 		JSONObject medParDate = new JSONObject();
 		Optional<PDDocument> optional = obtenirFichierRemboursements();
 		if (optional.isPresent()) {
@@ -52,10 +81,13 @@ public class DMP {
 				if (balise) {
 					if (ligne.matches("[0-9]{2}/[0-9]{2}/[0-9]{4}.*")) {
 						String date = ligne.substring(0, 10);
-						medParDate.append(
-							date, 
-							trouverCorrespondanceMedicament(ligne.substring(10))
-						);
+						String recherche = ligne.substring(0, 10);
+						if (!recherche.matches(" *")) {
+							Optional<Long> resultat = trouverCorrespondanceMedicament(ligne.substring(10));
+							if (resultat.isPresent()) {
+								medParDate.append(date, resultat.get());
+							}
+						}
 					}
 				}
 				if (ligne.contains("Pharmacie / fournitures")) {
@@ -63,22 +95,28 @@ public class DMP {
 					balise = true;
 				}
 			}
-			br.close();
 			document.close();
+			br.close();
 			if (alerte) {} // faire quelque chose
 		}
 		else { LOGGER.info("Impossible de récupérer le fichier des remboursements"); }
 		return medParDate;
 	}
 
-	private Optional<Integer> trouverCorrespondanceMedicament (String recherche) {
-		HashMap<Integer, Double> classement = new HashMap<>();
+	private Optional<Long> trouverCorrespondanceMedicament (String recherche) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		HashMap<Long, Double> classement = new HashMap<>();
+		boolean devraitTrouver = true;
 		for (String mot : recherche.split(" ")) {
 			mot = mot.toLowerCase();
 			if (mot.equals("-")
 				|| mot.equals("verre")
 				|| mot.equals("monture"))
-			{ break; }
+			{
+				devraitTrouver = false;
+				break; 
+			}
 			if (mot.matches("[0-9,].*")) { mot = mot.split("[^0-9,]")[0]; }
 			if (mot.matches("[^0-9]+[0-9].*")) { mot = mot.split("[0-9]")[0]; }
 			if (mot.equals("mg")) { mot = ""; }
@@ -106,27 +144,31 @@ public class DMP {
 							break;
 			}
 			if (!mot.equals("")) {
-				TreeSet<Integer> resultats = rechercherMedicament(mot, true);
+				Set<Long> resultats = rechercherMedicament(mot, true);
 				if (resultats.isEmpty()) { resultats = rechercherMedicament(mot, false); }
-				if (classement.isEmpty()) { for (Integer resultat : resultats) { classement.put(resultat, 1.0); } }
+				if (classement.isEmpty()) { 
+					resultats.forEach(resultat -> classement.put(resultat, 1.0)); 
+				}
 				else { 
-					for (Integer resultat : resultats) { 
-						if (classement.containsKey(resultat)) { 
-							classement.put(resultat, classement.get(resultat) + 1.0); 
-						} 
-					} 
+					resultats.stream()
+						.filter(resultat -> classement.containsKey(resultat))
+						.forEach(resultat -> classement.put(resultat, classement.get(resultat) + 1.0));
 				}
 			}
 		}
-		double scoremax = 0;
-		Integer meilleur = null;
-		for (Integer membre : classement.keySet()) {
-			if (classement.get(membre) >= scoremax) {
-				scoremax = classement.get(membre);
-				meilleur = membre;
+		if (classement.isEmpty()) { 
+			if (devraitTrouver) {
+				LOGGER.info("Pas de médicament trouvé pour : " + recherche);
 			}
+			return Optional.empty(); 
 		}
-		return Optional.ofNullable(meilleur);
+		final double scoremax = classement.values().stream()
+			.max(Double::compare)
+			.get();
+		return classement.entrySet().stream()
+			.filter(entree -> entree.getValue() == scoremax)
+			.map(Entry::getKey)
+			.findFirst();
 	}
 
 	private Optional<PDDocument> obtenirFichierRemboursements () {
@@ -139,7 +181,8 @@ public class DMP {
 			for (String cookie : cookies.keySet()) { 
 				connPDF.addRequestProperty("Cookie", cookie + "=" + cookies.get(cookie) + "; "); 
 			}
-			return Optional.of(PDDocument.load(connPDF.getInputStream()));
+			PDDocument document = PDDocument.load(connPDF.getInputStream());
+			return Optional.of(document);
 		}
 		catch (IOException e) {
 			LOGGER.warning("Problème de connexion au fichier des remboursements");
@@ -152,33 +195,31 @@ public class DMP {
 		return Optional.empty();
 	}
 
-	///****** J'ai recopié la fonction telle quelle : à vérifier ******///
-	///****** Importer les noms des médicaments ******///
-	private static TreeSet<Integer> rechercherMedicament (String recherche, boolean precisematch) {
-		/*
-		TreeSet<Integer> trouves = new TreeSet<>();
-		//HashSet<String> noms_uniquement = new HashSet<String>(noms.keySet()); 
-		for (String mot : recherche.split(" ")) {
-			TreeSet<Integer> correspondances = new TreeSet<>();
-			for (String nom : noms.keySet()) {
-				boolean match = false;		
-				if (precisematch) { 
-					if (Texte.normaliser(nom).matches("(?i:.*\\b" + mot + "\\b.*)")) { 
-						match = true; 
-					} 
-				}
-				else { 
-					if (Texte.normaliser(nom).matches("(?i:.*\\b" + mot + ".*)")) { 
-						match = true; 
-					} 
-				}
-				////////// à modifier (ou pas)
-				if (match && nom != null) {	correspondances.addAll(noms.get(nom)); }
-			}
-			trouves.addAll(correspondances);
+	private static final BiFunction<String, Boolean, String> obtenirRegex = (mot, precisematch) -> {
+		if (precisematch) { return "(?i:.*\\b" + mot + "\\b.*)"; }
+		else { return "(?i:.*\\b" + mot + ".*)"; }
+	};
+
+	private static Set<Long> rechercherMedicament (String recherche, boolean precisematch) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		if (nomsMedicamentsNormalises.isEmpty()) { 
+			nomsMedicamentsNormalises = importerNomsMedicamentsNormalises(); 
 		}
-		return trouves;
-		*/
-		return null;
+		return cacheRecherche.computeIfAbsent(recherche, exp -> {
+			final String expNorm = Utils.normaliser(exp).toLowerCase();
+			return nomsMedicamentsNormalises.keySet().stream()
+				.filter(nom -> {
+					for (String mot : expNorm.split(" ")) {
+						if (nom
+							.toLowerCase()
+							.matches(obtenirRegex.apply(mot, precisematch))
+						) { return true; }
+					}
+					return false;
+				})
+				.flatMap(nom -> nomsMedicamentsNormalises.get(nom).stream())
+				.collect(Collectors.toSet());
+		});
 	}
 }

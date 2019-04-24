@@ -6,7 +6,7 @@
     "direction" : "in",
     "name" : "connexionTrigger",
     "route" : "connexion/{etape:int}",
-    "methods" : [ "POST" ],
+    "methods" : [ "POST", "GET" ],
     "dataType" : "string"
   }, {
     "type" : "http",

@@ -6,9 +6,9 @@ import java.io.StringReader;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.InvalidKeyException;
-import java.text.Normalizer;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
 
@@ -150,30 +150,20 @@ public final class MiseAJourClassesSubstances {
 	}
 
 	private static HashSet<Long> rechercherSubstances (String recherche) {
-		recherche = normaliser(recherche);
-		HashSet<Long> resultats = cacheRecherche.get(recherche);
-		if (resultats == null) {
-			resultats = new HashSet<>();
-			for (String nom : nomsSubstances.keySet()) {
-				if (normaliser(nom).matches("(?i:.*" + recherche + ".*)")) { 
-					resultats.addAll(nomsSubstances.get(nom)); 
-				}
-			}
-			cacheRecherche.put(recherche, resultats);
-			logger.fine(resultats.size() + " substances trouvées à la recherche : " + recherche);
-		}
+		final String rechercheNorm = Utils.normaliser(recherche).toLowerCase();
+		HashSet<Long> resultats = Optional
+			.ofNullable(cacheRecherche.get(recherche))
+			.orElseGet(HashSet::new);
+		nomsSubstances.keySet().stream()
+			.map(Utils::normaliser)
+			.map(String::toLowerCase)
+			.filter(nom -> nom.matches("(?i:.*" + rechercheNorm + ".*)"))
+			.forEach(nom -> resultats.addAll(nomsSubstances.get(nom)));
+		cacheRecherche.put(recherche, resultats);
+		logger.fine(resultats.size() + " substances trouvées à la recherche : " + recherche);
 		return resultats;
 	}
-		
-	private static String normaliser (String original) {
-		original = Normalizer.normalize(original, Normalizer.Form.NFD)
-			.replaceAll("[\\p{InCombiningDiacriticalMarks}]", "");
-		original = original.toLowerCase();
-			original = original.trim();
-			original = original.replaceAll("  ", " ");
-			return original;
-	}
-
+	
 	protected static HashMap<String, HashSet<Long>> importerSubstances (Logger logger) {
 		HashMap<String, HashSet<Long>> resultats = new HashMap<>();
 		try {
@@ -181,7 +171,7 @@ public final class MiseAJourClassesSubstances {
 				for (String nom : (Iterable<String>) () -> 
 					entite.obtenirNomsJsonArray().toList()
 						.stream()
-						.map(object -> String.valueOf(object))
+						.map(String::valueOf)
 						.iterator()
 				) {
 					if (!resultats.containsKey(nom)) {

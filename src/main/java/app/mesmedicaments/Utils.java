@@ -1,5 +1,8 @@
 package app.mesmedicaments;
 
+import java.text.Normalizer;
+import java.util.HashMap;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 //import org.json.JSONArray;
@@ -8,10 +11,12 @@ public final class Utils {
 
 	//private static final String XORKEY;
 	public static final String NEWLINE;
+	private static HashMap<String, String> cacheNormalisation;
 
 	static {
 		NEWLINE = System.getProperty("line.separator");
 		//XORKEY = System.getenv("cle_XOR");
+		cacheNormalisation = new HashMap<>();
 	}
 
 	private Utils () {}
@@ -46,6 +51,16 @@ public final class Utils {
 
 	public static long tempsDepuis (long startTime) {
 		return System.currentTimeMillis() - startTime;
+	}
+
+	private static final Function<String, String> normaliser = original ->
+		Normalizer.normalize(original, Normalizer.Form.NFD)
+			.replaceAll("[\\p{InCombiningDiacriticalMarks}]", "")
+			.trim()
+			.replaceAll("  ", " ");
+
+	public static String normaliser (String original) {
+		return cacheNormalisation.computeIfAbsent(original, cle -> normaliser.apply(cle));
 	}
 
 	/*public static int[] XOREncrypt (String str) {

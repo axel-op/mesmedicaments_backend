@@ -28,7 +28,7 @@ public abstract class AbstractEntiteProduit extends AbstractEntite {
     }
     
 
-    protected static <E extends AbstractEntiteProduit> Iterable<E> obtenirEntites (String typeProduit, Class<E> clazzType)
+    protected static <E extends AbstractEntiteProduit> Iterable<E> obtenirToutesLesEntites (String typeProduit, Class<E> clazzType)
         throws URISyntaxException, InvalidKeyException, StorageException
     {
         String filtrePK = TableQuery.generateFilterCondition(

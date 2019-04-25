@@ -8,8 +8,10 @@ import java.net.URL;
 import java.security.InvalidKeyException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -28,9 +30,9 @@ public final class MiseAJourClassesSubstances {
 	private static final String URL_CLASSES;
 
 	private static Logger logger;
-	private static HashMap<String, HashSet<Long>> classes = new HashMap<>();
-	private static HashMap<String, HashSet<Long>> nomsSubstances = new HashMap<>();
-	private static HashMap<String, HashSet<Long>> cacheRecherche = new HashMap<>();
+	private static Map<String, Set<Long>> classes = new HashMap<>();
+	private static Map<String, Set<Long>> nomsSubstances = new HashMap<>();
+	private static Map<String, Set<Long>> cacheRecherche = new HashMap<>();
 
 	static {
 		URL_CLASSES = System.getenv("url_classes");
@@ -112,7 +114,7 @@ public final class MiseAJourClassesSubstances {
 		logger.info("Mise à jour de la base de données en cours...");
 		try {
 			long startTime = System.currentTimeMillis();
-			for (Entry<String, HashSet<Long>> entree : classes.entrySet()) {
+			for (Entry<String, Set<Long>> entree : classes.entrySet()) {
 				ClassesSubstancesService.mettreAJourClasseBatch(
 					entree.getKey(),
 					entree.getValue()
@@ -130,9 +132,9 @@ public final class MiseAJourClassesSubstances {
 		return true;
 	}
 
-	private static HashSet<Long> rechercherSubstances (String recherche) {
+	private static Set<Long> rechercherSubstances (String recherche) {
 		final String rechercheNorm = Utils.normaliser(recherche).toLowerCase();
-		HashSet<Long> resultats = Optional
+		Set<Long> resultats = Optional
 			.ofNullable(cacheRecherche.get(recherche))
 			.orElseGet(HashSet::new);
 		nomsSubstances.keySet().stream()
@@ -145,8 +147,8 @@ public final class MiseAJourClassesSubstances {
 		return resultats;
 	}
 	
-	protected static HashMap<String, HashSet<Long>> importerSubstances (Logger logger) {
-		HashMap<String, HashSet<Long>> resultats = new HashMap<>();
+	protected static HashMap<String, Set<Long>> importerSubstances (Logger logger) {
+		HashMap<String, Set<Long>> resultats = new HashMap<>();
 		try {
 			for (EntiteSubstance entite : EntiteSubstance.obtenirToutesLesEntites()) {
 				for (String nom : (Iterable<String>) () -> 

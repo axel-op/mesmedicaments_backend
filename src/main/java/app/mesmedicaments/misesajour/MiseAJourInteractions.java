@@ -5,7 +5,6 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
-import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -17,6 +16,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -40,13 +40,12 @@ public final class MiseAJourInteractions {
 	private static final float TAILLE_INTERACTION_SUBSTANCE;
 	private static final float TAILLE_DESCRIPTION_PT;
 	private static final String URL_FICHIER_INTERACTIONS;
-	private static final AtomicBoolean EXECUTION_EN_COURS;
+	private static final AtomicBoolean executionEnCours;
+	private static final Map<String, Set<Long>> correspondancesSubstances;
+	private static final Map<String, Set<String>> classesSubstances;
+	private static final Map<Long, Set<EntiteInteraction>> entitesInteractionsParPartition;
 	private static Logger logger;
-	private static HashMap<String, Set<Long>> correspondancesSubstances;
-	private static HashMap<String, HashSet<String>> classesSubstances;
-    private static HashMap<String, HashSet<Long>> substances;
-	private static TreeMap<Long, HashSet<EntiteInteraction>> entitesInteractionsParPartition;
-	private static HashMap<String, HashSet<String>> cacheRecherche;
+    private static Map<String, Set<Long>> substances;
 
     private boolean ignorerLigne;
 	private String ajoutSubstances;
@@ -61,7 +60,7 @@ public final class MiseAJourInteractions {
 	private boolean reussite;
 
 	static {
-		EXECUTION_EN_COURS = new AtomicBoolean();
+		executionEnCours = new AtomicBoolean();
 		URL_FICHIER_INTERACTIONS = System.getenv("url_interactions");
 		CHARSET_1252 = Charset.forName("cp1252");
 		TAILLE_NOM_SUBSTANCE = (float) 10;
@@ -70,7 +69,6 @@ public final class MiseAJourInteractions {
 		correspondancesSubstances = new HashMap<>();
 		classesSubstances = new HashMap<>();
 		entitesInteractionsParPartition = new TreeMap<>();
-		cacheRecherche = new HashMap<>();
 	}
 
 	private MiseAJourInteractions () {
@@ -79,11 +77,10 @@ public final class MiseAJourInteractions {
 	}
 	
 	public static boolean handler (Logger logger) {
-		if (EXECUTION_EN_COURS.compareAndSet(false, true)) {
+		if (executionEnCours.compareAndSet(false, true)) {
 			MiseAJourInteractions.logger = logger;
 			MiseAJourInteractions majInstance = new MiseAJourInteractions();
 			logger.info("Début de la mise à jour des interactions");
-			//importerInteractions();
 			if (substances == null || substances.isEmpty()) { 
 				substances = MiseAJourClassesSubstances.importerSubstances(logger); 
 			}
@@ -104,6 +101,7 @@ public final class MiseAJourInteractions {
 			}
 			return true;
 		}
+		else { logger.info("Une exécution est déjà en cours"); }
 		return false;
 	}
 
@@ -158,7 +156,7 @@ public final class MiseAJourInteractions {
 		String[] regexRisques = new String[]{risque1, risque2, risque3, risque4};
 		try {
 			if (!ignorerLigne) {
-				String ligne = normaliser(texte);
+				String ligne = Texte.normaliser.apply(texte);
 				if (ligne.matches("(?i:thesaurus .*)")) { ignorerLigne = true; }
 				else if (!ligne.matches("(?i:ansm .*)")) {
 					if (taille.equals(TAILLE_NOM_SUBSTANCE)) {
@@ -288,7 +286,7 @@ public final class MiseAJourInteractions {
     private void nouveauxChamps () {
 		if (classeEnCours != null) { 
             classesSubstances.put(
-                normaliser(classeEnCours).toLowerCase(), 
+                Texte.normaliser.apply(classeEnCours).toLowerCase(), 
                 substancesEnCours
             ); 
         }
@@ -321,10 +319,10 @@ public final class MiseAJourInteractions {
 			+ "|(APEC ?))", 
 			"");
 		conduite = conduite.replaceFirst(" ?(- )+\n", "");
-		descriptif = corrigerApostrophes(descriptif);
-		conduite = corrigerApostrophes(conduite);
-		Set<Long> substances1 = obtenirCorrespondances(substance1);
-		Set<Long> substances2 = obtenirCorrespondances(substance2);
+		descriptif = Texte.corrigerApostrophes.apply(descriptif);
+		conduite = Texte.corrigerApostrophes.apply(conduite);
+		Set<Long> substances1 = Recherche.obtenirCorrespondances.apply(substance1);
+		Set<Long> substances2 = Recherche.obtenirCorrespondances.apply(substance2);
 		for (long code1 : substances1) {
 			for (long code2 : substances2) {
 				EntiteInteraction entite = new EntiteInteraction(code1, code2);
@@ -392,98 +390,112 @@ public final class MiseAJourInteractions {
 		}
 		logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms");
 	}
-	
-	private static Set<Long> obtenirCorrespondances (String recherche) {
-		if (recherche == null) { return new HashSet<>(); }
-		recherche = recherche.toLowerCase();
-		if (recherche.matches("(?i:autres .*)")) { recherche = recherche.replaceFirst("autres ", ""); }
-		if (classesSubstances.containsKey(recherche)) { 
-			return classesSubstances.get(recherche).stream()
-				.flatMap(substance -> obtenirCorrespondances(substance).stream())
-				.collect(Collectors.toSet());
+
+	private static class Recherche {
+
+		private static final Map<String, Set<Long>> cacheCorrespondances = new HashMap<>();
+		private static final Map<String, Set<String>> cacheMeilleuresSubstances = new HashMap<>();
+		private static final Map<String, Set<String>> cacheSousExpressions = new HashMap<>();
+		private static final Map<String, Set<String>> cacheRechercheSubstances = new HashMap<>();
+
+		protected static Function<String, Set<Long>> obtenirCorrespondances = recherche -> 
+			cacheCorrespondances.computeIfAbsent(recherche, exp -> {
+				if (exp == null) { return new HashSet<>(); }
+				exp = exp.toLowerCase();
+				if (exp.matches("(?i:autres .*)")) { exp = exp.replaceFirst("autres ", ""); }
+				if (classesSubstances.containsKey(exp)) { 
+					return classesSubstances.get(exp).stream()
+						.flatMap(substance -> 
+							Recherche.obtenirCorrespondances.apply(substance).stream())
+						.collect(Collectors.toSet());
+				}
+				if (correspondancesSubstances.containsKey(exp)) { 
+					return correspondancesSubstances.get(exp); 
+				}
+				Set<Long> codesSubstances = rechercherMeilleuresSubstances(exp)
+					.stream()
+					.flatMap(substance -> Optional.ofNullable(substances.get(substance))
+						.orElseGet(HashSet::new)
+						.stream())
+					.collect(Collectors.toSet());
+				correspondancesSubstances.put(exp, codesSubstances);
+				return codesSubstances;
+			})
+		;
+
+		private static Set<String> rechercherMeilleuresSubstances (String recherche) {
+			return cacheMeilleuresSubstances.computeIfAbsent(recherche, terme -> {
+				HashMap<String, Double> classement = new HashMap<>();
+				if (terme.matches(".+\\(.+\\)")) {
+					String debut = terme.split("\\(")[0];
+					Set<String> resultats1 = rechercherMeilleuresSubstances(debut);
+					if (resultats1.isEmpty()) { return resultats1; }
+					return rechercherMeilleuresSubstances(terme.replaceFirst(debut, ""))
+						.stream()
+						.filter(resultats1::contains)
+						.collect(Collectors.toSet());
+				}
+				String regexExclus = "(?i:"
+					+ "(fruit)" 
+					+ "|(acide)"
+					+ "|(alpha))"
+					+ "|(?i:.*par voie.*)";
+				for (String expression : (Iterable<String>) () -> 
+					obtenirSousExpressions(terme.trim().replaceAll("[,\\(\\)]", "")).stream()
+						.map(Texte.normaliser::apply)
+						.map(String::toLowerCase)
+						.filter(exp -> !exp.matches(regexExclus))
+						.filter(exp -> exp.equals("fer") || !exp.matches("([^ ]{1,3} ?\\b)+"))
+						.iterator()
+				) {
+					if (expression.matches("(?i:(sauf)|(hors))")) { break; }
+					if (expression.matches("(?i:[^ ]*s)")) { 
+						expression = expression.substring(0, expression.length() - 1); 
+					}
+					Set<String> resultats = rechercherSubstances(expression);
+					for (String resultat : resultats) { 
+						double score = (1.0 * expression.length()) / resultats.size();
+						double scorePrecedent = Optional.ofNullable(classement.get(resultat)).orElse(0.0);
+						classement.put(resultat, score + scorePrecedent); 
+					}
+				}
+				return trouverMeilleurs(classement);
+			});
 		}
-		if (correspondancesSubstances.containsKey(recherche)) { 
-            return correspondancesSubstances.get(recherche); 
+
+		private static Set<String> obtenirSousExpressions (String expression) {
+			return cacheSousExpressions.computeIfAbsent(expression, terme -> {
+				Set<String> sousExpressions = new HashSet<>();
+				String[] mots = terme.split(" ");
+				for (int k = mots.length; k >= 1; k--) {
+					for (int i = 0; i + k <= mots.length; i++) {
+						sousExpressions.add(
+							String.join(
+								" ", 
+								Arrays.copyOfRange(mots, i, i + k)
+							)
+						);
+					}
+				}
+				return sousExpressions;
+			});
 		}
-		Set<Long> codesSubstances = rechercherMeilleuresSubstances(recherche)
-			.stream()
-			.flatMap(substance -> Optional.ofNullable(substances.get(substance))
-				.orElseGet(HashSet::new)
-				.stream())
-			.collect(Collectors.toSet());
-		correspondancesSubstances.put(recherche, codesSubstances);
-		return codesSubstances;
+
+		private static Set<String> rechercherSubstances (String recherche) {
+			return cacheRechercheSubstances.computeIfAbsent(recherche, mot -> {
+				Supplier<Stream<String>> noms = () -> substances.keySet().stream()
+					.map(Texte.normaliser::apply);
+				return Optional.ofNullable(
+					noms.get()
+						.filter(nom -> nom.matches("(?i:.*" + mot + "\\b.*)"))
+						.collect(Collectors.toSet()))
+					.orElseGet(() -> noms.get()
+						.filter(nom -> nom.matches("(?i:.*" + mot + ".*)"))
+						.collect(Collectors.toSet()));
+			});
+		}
 	}
-	
-	private static Set<String> rechercherMeilleuresSubstances (String recherche) {
-		HashMap<String, Double> classement = new HashMap<>();
-		if (recherche.matches(".+\\(.+\\)")) {
-			String debut = recherche.split("\\(")[0];
-			Set<String> resultats1 = rechercherMeilleuresSubstances(debut);
-			if (resultats1.isEmpty()) { return resultats1; }
-			return rechercherMeilleuresSubstances(recherche.replaceFirst(debut, ""))
-				.stream()
-				.filter(resultats1::contains)
-				.collect(Collectors.toSet());
-		}
-		String regexExclus = "(?i:"
-			+ "(fruit)" 
-			+ "|(acide)"
-			+ "|(alpha))"
-			+ "|(?i:.*par voie.*)";
-		for (String expression : (Iterable<String>) () -> 
-			obtenirSousExpressions(recherche.trim().replaceAll("[,\\(\\)]", "")).stream()
-				.map(MiseAJourInteractions::normaliser)
-				.map(String::toLowerCase)
-				.filter(exp -> !exp.matches(regexExclus))
-				.filter(exp -> exp.equals("fer") || !exp.matches("([^ ]{1,3} ?\\b)+"))
-				.iterator()
-		) {
-			if (expression.matches("(?i:(sauf)|(hors))")) { break; }
-			if (expression.matches("(?i:[^ ]*s)")) { 
-				expression = expression.substring(0, expression.length() - 1); 
-			}
-			Set<String> resultats = rechercherSubstances(expression);
-			for (String resultat : resultats) { 
-				double score = (1.0 * expression.length()) / resultats.size();
-				double scorePrecedent = Optional.ofNullable(classement.get(resultat)).orElse(0.0);
-				classement.put(resultat, score + scorePrecedent); 
-			}
-		}
-		return trouverMeilleurs(classement);
-	}
-	
-	private static HashSet<String> obtenirSousExpressions (String expression) {
-		HashSet<String> sousExpressions = new HashSet<>();
-		String[] mots = expression.split(" ");
-		for (int k = mots.length; k >= 1; k--) {
-			for (int i = 0; i + k <= mots.length; i++) {
-				sousExpressions.add(
-                    String.join(
-                        " ", 
-                        Arrays.copyOfRange(mots, i, i + k)
-                    )
-                );
-			}
-		}
-		return sousExpressions;
-	}
-	
-	private static Set<String> rechercherSubstances (String recherche) {
-		Set<String> resultats = cacheRecherche.get(recherche);
-		if (resultats != null) { return resultats; }
-		resultats = new HashSet<String>();
-		Supplier<Stream<String>> noms = () -> substances.keySet().stream()
-			.map(MiseAJourInteractions::normaliser);
-		resultats = noms.get()
-			.filter(nom -> nom.matches("(?i:.*" + recherche + "\\b.*)"))
-			.collect(Collectors.toSet());
-		if (!resultats.isEmpty()) { return resultats; }
-		return noms.get()
-			.filter(nom -> nom.matches("(?i:.*" + recherche + ".*)"))
-			.collect(Collectors.toSet());
-	}
-	
+
 	private static <T> Set<T> trouverMeilleurs (HashMap<T, Double> classement) {
 		if (classement.isEmpty()) { return new HashSet<>(); }
 		if (classement.size() == 1) { 
@@ -496,76 +508,80 @@ public final class MiseAJourInteractions {
 			.filter(cle -> classement.get(cle) == scoremax)
 			.collect(Collectors.toSet());
 	}
-	
-    
-    private static String normaliser (String original) {
-        original = Normalizer.normalize(original, Normalizer.Form.NFD)
-            .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "");
-		byte[] ancien = original.getBytes(CHARSET_1252);
-		byte[] nouveau = new byte[ancien.length];
-		for (int i = 0; i < ancien.length; i++) {
-			switch (Integer.valueOf(ancien[i])) {
-				//a
-				case -32: 
-				case -30:
-					nouveau[i] = 97;
-					break;
-				//e
-				case -23:
-				case -24:
-				case -22:
-					nouveau[i] = 101; 
-					break;
-				//i
-				case -17:
-				case -18:
-					nouveau[i] = 105;
-					break;
-				//o
-				case -12:
-				case -10:
-					nouveau[i] = 111;
-					break;
-				//u
-				case -4:
-					nouveau[i] = 117;
-					break;
-				//œ
-				case -100:
-					nouveau = Arrays.copyOf(nouveau, nouveau.length + 1);
-					nouveau[i] = 111; 
-					nouveau[i+1] = 101 ;
-					i++;
-					break;
-				//apostrophe
-				case -110: 
-					nouveau[i] = 39; 
-					break;
-				default:
-					nouveau[i] = ancien[i];
-			}
-		}
-		String s = new String(nouveau, CHARSET_1252);
-		s = s.trim();
-		s = s.replaceAll("  ", " ");
-		return s;
-    }
-    
-    private static String corrigerApostrophes (String original) {
-		byte[] ancien = original.getBytes(CHARSET_1252);
-		byte[] nouveau = new byte[ancien.length];
-		for (int i = 0; i < ancien.length; i++) {
-			switch (Integer.valueOf(ancien[i])) {
-				case -110:
-					nouveau[i] = 39;
-					break;
-				default:
-					nouveau[i] = ancien[i];
-			}
-		}
-		String s = new String(nouveau, CHARSET_1252);
-		s = s.trim();
-		s = s.replaceAll("  ", " ");
-		return s;
+
+	private static class Texte {
+
+		private static final Map<String, String> cacheNormalisation = new HashMap<>();
+		private static final Map<String, String> cacheApostrophes = new HashMap<>();
+
+		protected static Function<String, String> normaliser = original ->
+			cacheNormalisation.computeIfAbsent(original, mot -> {
+				mot = Utils.normaliser(mot);
+				byte[] ancien = mot.getBytes(CHARSET_1252);
+				byte[] nouveau = new byte[ancien.length];
+				for (int i = 0; i < ancien.length; i++) {
+					switch (Integer.valueOf(ancien[i])) {
+						//a
+						case -32: 
+						case -30:
+							nouveau[i] = 97;
+							break;
+						//e
+						case -23:
+						case -24:
+						case -22:
+							nouveau[i] = 101; 
+							break;
+						//i
+						case -17:
+						case -18:
+							nouveau[i] = 105;
+							break;
+						//o
+						case -12:
+						case -10:
+							nouveau[i] = 111;
+							break;
+						//u
+						case -4:
+							nouveau[i] = 117;
+							break;
+						//œ
+						case -100:
+							nouveau = Arrays.copyOf(nouveau, nouveau.length + 1);
+							nouveau[i] = 111; 
+							nouveau[i+1] = 101 ;
+							i++;
+							break;
+						//apostrophe
+						case -110: 
+							nouveau[i] = 39; 
+							break;
+						default:
+							nouveau[i] = ancien[i];
+					}
+				}
+				return new String(nouveau, CHARSET_1252);
+			})
+		;
+
+		protected static Function<String, String> corrigerApostrophes = original ->
+			cacheApostrophes.computeIfAbsent(original, mot -> {
+				byte[] ancien = mot.getBytes(CHARSET_1252);
+				byte[] nouveau = new byte[ancien.length];
+				for (int i = 0; i < ancien.length; i++) {
+					switch (Integer.valueOf(ancien[i])) {
+						case -110:
+							nouveau[i] = 39;
+							break;
+						default:
+							nouveau[i] = ancien[i];
+					}
+				}
+				return new String(nouveau, CHARSET_1252)
+					.trim()
+					.replaceAll("  ", " ");
+			})
+		;
 	}
 }

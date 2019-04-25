@@ -25,6 +25,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.Authentification;
+import app.mesmedicaments.connexion.DMP;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
 import app.mesmedicaments.misesajour.MiseAJourInteractions;

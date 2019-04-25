@@ -2,6 +2,7 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.util.stream.Collectors;
 
 import com.microsoft.azure.storage.StorageException;
 
@@ -28,6 +29,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     String forme;
     String autorisation;
     String marque;
+    String substancesActives;
 
     public EntiteMedicament (long codeCIS) 
         throws StorageException, InvalidKeyException, URISyntaxException 
@@ -43,10 +45,9 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     public String getForme () { return forme; }
     public String getAutorisation () { return autorisation; }
     public String getMarque () { return marque; }
-
-    public JSONArray obtenirNomsJsonArray () {
-        return new JSONArray(noms);
-    }
+    public JSONArray obtenirNomsJArray () { return new JSONArray(noms); }
+    public String getSubstancesActives () { return substancesActives; }
+    public JSONArray obtenirSubstancesActivesJArray () { return new JSONArray(substancesActives); }
 
     /* Setters */
 
@@ -55,7 +56,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     public void setAutorisation (String autorisation) { this.autorisation = autorisation; }
     public void setMarque (String marque) { this.marque = marque; }
 
-    public void definirNomsJsonArray (JSONArray noms) {
+    public void definirNomsJArray (JSONArray noms) {
         this.noms = noms.toString();
     }
 
@@ -65,5 +66,16 @@ public class EntiteMedicament extends AbstractEntiteProduit {
         this.noms = noms.toString();
     }
 
+    public void setSubstancesActives (String substancesActives) { this.substancesActives = substancesActives; }
+
+    public void definirSubstancesActivesJArray (JSONArray substancesActives) {
+        substancesActives = new JSONArray(
+            substancesActives.toList().stream()
+                .mapToLong(objet -> (Long) objet)
+                .boxed()
+                .collect(Collectors.toSet())
+        );
+        this.substancesActives = substancesActives.toString();
+    }
 
 }

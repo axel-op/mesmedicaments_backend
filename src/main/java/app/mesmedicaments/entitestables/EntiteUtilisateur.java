@@ -7,6 +7,8 @@ import java.util.Date;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.TableOperation;
 
+import org.json.JSONObject;
+
 public class EntiteUtilisateur extends AbstractEntite {
 
     //private static final CloudTable TABLE_UTILISATEURS;
@@ -33,6 +35,7 @@ public class EntiteUtilisateur extends AbstractEntite {
     Date dateInscription;
     byte[] jwtSalt;
     Date derniereConnexion;
+    String medicamentsRecents;
 
     /**
      * NE PAS UTILISER
@@ -61,32 +64,43 @@ public class EntiteUtilisateur extends AbstractEntite {
     public byte[] getJwtSalt () { return jwtSalt; }
     public Date getDerniereConnexion () { return derniereConnexion; }
 
+    /**
+     * @return {@link JSONObject} converti en {@link String}
+     */
+    public String getMedicamentsRecents () { return medicamentsRecents; }
+
+    public JSONObject obtenirMedicamentsRecentsJObject () { return new JSONObject(medicamentsRecents); }
+
     // Setters
+
     public void setPrenom (String prenom) { this.prenom = prenom; }
+
     public void setGenre (String genre) {
         char g = genre.charAt(0);
         if (g == 'M' || g == 'm') { this.genre = "M"; }
         else if (g == 'F' || g == 'f') { this.genre = "F"; }
         else { throw new IllegalArgumentException(); }
     }
+
     public void setEmail (String email) {
         // checker avec regex
         this.email = email;
     }
+
     //public void setMotDePasse (String motDePasse) { this.motDePasse = motDePasse; }
     public void setDateInscription (Date dateInscription) { this.dateInscription = dateInscription; }
     public void setJwtSalt (byte[] salt) { jwtSalt = salt; }
     public void setDerniereConnexion (Date date) { derniereConnexion = date; }
 
-    // Affichage
-	public String toString () {
-		String s = "***EntiteUtilisateur***\nid = " + rowKey 
-			+ "\nprenom = " + prenom 
-			+ "\ngenre = " + genre 
-			+ "\nemail = " + email
-            + "\ndate inscription = " + dateInscription.toString()
-            + "\ntimestamp = " + getTimestamp().toString()
-			+ "\n******************";
-		return s;
+    /**
+     * Doit être sous forme de {@link JSONObject} converti en {@link String}
+     */
+    public void setMedicamentsRecents (String medicamentsRecents) {
+        this.medicamentsRecents = new JSONObject(medicamentsRecents).toString();
     }
+
+    public void definirMedicamentsRecentsJObject (JSONObject medicamentsRecents) {
+        this.medicamentsRecents = medicamentsRecents.toString();
+    }
+
 }

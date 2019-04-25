@@ -12,7 +12,7 @@ import com.microsoft.azure.storage.table.TableServiceEntity;
 public abstract class AbstractEntite extends TableServiceEntity {
 
 	
-	public static CloudTable obtenirCloudTable (String table)
+	protected static CloudTable obtenirCloudTable (String table)
 		throws URISyntaxException,
 		StorageException,
 		InvalidKeyException

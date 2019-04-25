@@ -8,28 +8,24 @@ import java.net.URL;
 import java.security.InvalidKeyException;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 import javax.net.ssl.HttpsURLConnection;
 
 import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.table.CloudTable;
-import com.microsoft.azure.storage.table.TableBatchOperation;
-import com.microsoft.azure.storage.table.TableServiceEntity;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 
 import app.mesmedicaments.Utils;
-import app.mesmedicaments.entitestables.AbstractEntite;
+import app.mesmedicaments.entitestables.ClassesSubstancesService;
 import app.mesmedicaments.entitestables.EntiteSubstance;
 
 public final class MiseAJourClassesSubstances {
 
 	private static final String URL_CLASSES;
-	private static final String TABLE;
 
 	private static Logger logger;
 	private static HashMap<String, HashSet<Long>> classes = new HashMap<>();
@@ -38,7 +34,6 @@ public final class MiseAJourClassesSubstances {
 
 	static {
 		URL_CLASSES = System.getenv("url_classes");
-		TABLE = System.getenv("tableazure_classes"); /// A METTRE
 	}
 		
 	private MiseAJourClassesSubstances () {}
@@ -65,7 +60,7 @@ public final class MiseAJourClassesSubstances {
 			stripper.setStartPage(2);
 			stripper.setParagraphStart("/t");
 			String classeencours = "";
-			HashSet<Long> substancesencours = new HashSet<>();
+			HashSet<Long> substancesEnCours = new HashSet<>();
 			String[] paragraphes = stripper.getText(document).split(stripper.getParagraphStart());
 			int c = 0;
 			long startTime = System.currentTimeMillis();
@@ -79,12 +74,12 @@ public final class MiseAJourClassesSubstances {
 						if (classes.get(classeencours) == null) {
 							classes.put(classeencours, new HashSet<>());
 						}
-						for (long codesubstance : substancesencours) {
+						for (long codesubstance : substancesEnCours) {
 							classes.get(classeencours).add(codesubstance);
 						}
 						nbrClassesTrouvees += 1;
 					}
-					substancesencours = new HashSet<>();
+					substancesEnCours = new HashSet<>();
 					classeencours = ligne.trim();
 				}
 				while ((ligne = br.readLine()) != null) {
@@ -96,9 +91,8 @@ public final class MiseAJourClassesSubstances {
 							substance = substance.replaceAll("\\brota\\b", "rotavirus");
 							substance = substance.trim();
 							if (substance.matches(".*[a-z].*")) {
-								for (long code : rechercherSubstances(substance)) { 
-									substancesencours.add(code); 
-								} 
+								rechercherSubstances(substance)
+									.forEach(substancesEnCours::add);
 							}
 						}
 					}
@@ -117,25 +111,12 @@ public final class MiseAJourClassesSubstances {
 	private static boolean exporterClasses () {
 		logger.info("Mise à jour de la base de données en cours...");
 		try {
-			CloudTable cloudTable = AbstractEntite.obtenirCloudTable(TABLE);
 			long startTime = System.currentTimeMillis();
 			for (Entry<String, HashSet<Long>> entree : classes.entrySet()) {
-				TableBatchOperation batchOperation = new TableBatchOperation();
-				for (Long codeSubstance : entree.getValue()) {
-					batchOperation.insertOrMerge(
-						new TableServiceEntity(
-							AbstractEntite.supprimerCaracteresInterdits(entree.getKey()), 
-							AbstractEntite.supprimerCaracteresInterdits(String.valueOf(codeSubstance))
-						)
-					);
-					if (batchOperation.size() >= 100) {
-						cloudTable.execute(batchOperation);
-						batchOperation.clear();
-					}
-				}
-				if (!batchOperation.isEmpty()) {
-					cloudTable.execute(batchOperation);
-				}
+				ClassesSubstancesService.mettreAJourClasseBatch(
+					entree.getKey(),
+					entree.getValue()
+				);				
 			}
 			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms");
 		} 
@@ -169,7 +150,7 @@ public final class MiseAJourClassesSubstances {
 		try {
 			for (EntiteSubstance entite : EntiteSubstance.obtenirToutesLesEntites()) {
 				for (String nom : (Iterable<String>) () -> 
-					entite.obtenirNomsJsonArray().toList()
+					entite.obtenirNomsJArray().toList()
 						.stream()
 						.map(String::valueOf)
 						.iterator()

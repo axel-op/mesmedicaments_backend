@@ -9,35 +9,6 @@ import org.json.JSONArray;
 
 public class EntiteSubstance extends AbstractEntiteProduit {
 
-	/*
-	private static final String TABLE = System.getenv("tableazure_substances"); /// A METTRE
-
-	public static EntiteSubstance obtenirEntite (long codesubstance, String nom)
-		throws URISyntaxException, InvalidKeyException, StorageException
-	{
-		TableOperation operation = TableOperation.retrieve(
-			String.valueOf(codesubstance), 
-			nom, 
-			EntiteSubstance.class);
-		return obtenirCloudTable(TABLE) /// A METTRE
-				.execute(operation)
-				.getResultAsType();
-	}
-	
-
-	public static Iterable<EntiteSubstance> obtenirEntites (long codesubstance)
-		throws URISyntaxException, InvalidKeyException, StorageException
-	{
-		String filtrePK = TableQuery.generateFilterCondition(
-			"PartitionKey", 
-			QueryComparisons.EQUAL, 
-			String.valueOf(codesubstance));
-		return obtenirCloudTable(TABLE)
-			.execute(new TableQuery<>(EntiteSubstance.class)
-			.where(filtrePK));
-	}
-	*/
-
 	public static EntiteSubstance obtenirEntite (long codeSubstance)
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
@@ -64,7 +35,7 @@ public class EntiteSubstance extends AbstractEntiteProduit {
 
 	public String getNoms () { return noms; }
 
-	public JSONArray obtenirNomsJsonArray () {
+	public JSONArray obtenirNomsJArray () {
         return new JSONArray(noms);
     }
 
@@ -72,7 +43,7 @@ public class EntiteSubstance extends AbstractEntiteProduit {
 
 	public void setNoms (String noms) { this.noms = noms; }
 
-	public void definirNomsJsonArray (JSONArray noms) {
+	public void definirNomsJArray (JSONArray noms) {
         this.noms = noms.toString();
     }
 

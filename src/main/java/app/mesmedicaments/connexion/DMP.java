@@ -1,4 +1,4 @@
-package app.mesmedicaments;
+package app.mesmedicaments.connexion;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -26,8 +26,10 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.json.JSONObject;
 
+import app.mesmedicaments.Utils;
 import app.mesmedicaments.entitestables.EntiteConnexion;
 import app.mesmedicaments.entitestables.EntiteMedicament;
+import app.mesmedicaments.entitestables.EntiteUtilisateur;
 
 public class DMP {
 
@@ -40,7 +42,7 @@ public class DMP {
 		long startTime = System.currentTimeMillis();
 		Map<String, Set<Long>> nomsMed = new HashMap<>();
 		for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
-			entite.obtenirNomsJsonArray().forEach(
+			entite.obtenirNomsJArray().forEach(
 				nom -> nomsMed
 					.computeIfAbsent(Utils.normaliser(nom.toString()), cle -> new TreeSet<>())
 					.add(Long.parseLong(entite.getRowKey()))
@@ -52,7 +54,7 @@ public class DMP {
 	private final Logger LOGGER;
 	private final String ID;
 
-	protected DMP (String id, Logger logger) {
+	public DMP (String id, Logger logger) {
 		this.ID = id;
 		this.LOGGER = logger;
 	}
@@ -100,6 +102,16 @@ public class DMP {
 			if (alerte) {} // faire quelque chose
 		}
 		else { LOGGER.info("Impossible de récupérer le fichier des remboursements"); }
+		try {
+			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(ID);
+			entiteU.definirMedicamentsRecentsJObject(medParDate);
+			entiteU.mettreAJourEntite();
+		}
+		catch (StorageException | URISyntaxException | InvalidKeyException e)
+		{
+			Utils.logErreur(e, LOGGER);
+			LOGGER.warning("Impossible de mettre à jour les médicaments récents pour l'utilisateur " + ID);
+		}
 		return medParDate;
 	}
 

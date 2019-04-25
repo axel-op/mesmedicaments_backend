@@ -8,7 +8,6 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.InvalidKeyException;
 import java.util.Map.Entry;
-import java.util.Comparator;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.logging.Logger;
@@ -18,7 +17,6 @@ import com.microsoft.azure.storage.StorageException;
 import org.json.JSONArray;
 
 import app.mesmedicaments.Utils;
-import app.mesmedicaments.entitestables.AbstractEntiteProduit;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteSubstance;
 
@@ -44,38 +42,44 @@ public final class MiseAJourBDPM {
 		BufferedReader listeSubstances = importerFichier(URL_FICHIER_COMPO);
 		if (listeSubstances == null) { return false; }
 		TreeMap<Long, TreeSet<String>> substances = new TreeMap<>();
+		TreeMap<Long, TreeSet<Long>> medSubstances = new TreeMap<>();
 		try {
 			logger.info("Parsing en cours...");
 			String ligne;
 			long startTime = System.currentTimeMillis();
 			while ((ligne = listeSubstances.readLine()) != null) {
 				String[] elements = ligne.split("\t");
-				Long codecis = Long.parseLong(elements[0]);
-				Long codesubstance = Long.parseLong(elements[2]);
+				long codecis = Long.parseLong(elements[0]);
+				long codesubstance = Long.parseLong(elements[2]);
 				String nom = elements[3].trim();
-				if (substances.get(codesubstance) == null) {
-					substances.put(codesubstance, new TreeSet<>());
-				}
-				substances.get(codesubstance).add(nom);
+				substances.computeIfAbsent(codesubstance, cle -> new TreeSet<>())
+					.add(nom);
+				medSubstances.computeIfAbsent(codecis, cle -> new TreeSet<>())
+					.add(codesubstance);
 			}
 			double total = substances.size();
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 
 				+ ((int) total) + " substances trouvées."
 			);
 			logger.info("Création des entités en cours...");
-			TreeSet<EntiteSubstance> entites = new TreeSet<>(getComparatorEntites());
+			TreeSet<EntiteSubstance> entitesSubstances = new TreeSet<>();
+			TreeSet<EntiteMedicament> entitesMedicaments = new TreeSet<>();
 			startTime = System.currentTimeMillis();
 			for (Entry<Long, TreeSet<String>> entree : substances.entrySet()) {
-				long codesubstance = entree.getKey();
-				EntiteSubstance entite = new EntiteSubstance(codesubstance);
-				entite.definirNomsJsonArray(new JSONArray(entree.getValue()));
-				entites.add(entite);
+				EntiteSubstance entite = new EntiteSubstance(entree.getKey());
+				entite.definirNomsJArray(new JSONArray(entree.getValue()));
+				entitesSubstances.add(entite);
 			}
-			logger.info(entites.size() + " entités créées en " + Utils.tempsDepuis(startTime) + " ms. "
-			);
+			for (Entry<Long, TreeSet<Long>> entree : medSubstances.entrySet()) {
+				EntiteMedicament entite = new EntiteMedicament(entree.getKey());
+				entite.definirSubstancesActivesJArray(new JSONArray(entree.getValue()));
+				entitesMedicaments.add(entite);
+			}
+			logger.info(entitesSubstances.size() + " entités créées en " + Utils.tempsDepuis(startTime) + " ms. ");
 			logger.info("Mise à jour de la base de données en cours...");
 			startTime = System.currentTimeMillis();
-			EntiteSubstance.mettreAJourEntitesBatch(entites);
+			EntiteSubstance.mettreAJourEntitesBatch(entitesSubstances);
+			EntiteMedicament.mettreAJourEntitesBatch(entitesMedicaments);
 			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms"
 			);
 		}
@@ -124,12 +128,12 @@ public final class MiseAJourBDPM {
 				+ ((int) total) + " médicaments trouvés."
 			);
 			logger.info("Création des entités en cours...");
-			TreeSet<EntiteMedicament> entites = new TreeSet<>(getComparatorEntites());
+			TreeSet<EntiteMedicament> entites = new TreeSet<>();
 			startTime = System.currentTimeMillis();
 			for (Entry<Long, TreeSet<String>> entree : nomsMed.entrySet()) {
 				long codecis = entree.getKey();
 				EntiteMedicament entite = new EntiteMedicament(codecis);
-				entite.definirNomsJsonArray(new JSONArray(entree.getValue()));
+				entite.definirNomsJArray(new JSONArray(entree.getValue()));
 				entite.setForme(caracMed.get(codecis)[0]);
 				entite.setAutorisation(caracMed.get(codecis)[1]);
 				entite.setMarque(caracMed.get(codecis)[2]);
@@ -170,16 +174,5 @@ public final class MiseAJourBDPM {
             return null;
         }
 		return br;
-	}
-
-	private static Comparator<AbstractEntiteProduit> getComparatorEntites () {
-		return new Comparator<AbstractEntiteProduit> () {
-			@Override
-			public int compare(AbstractEntiteProduit o1, AbstractEntiteProduit o2) {
-				return Long.valueOf(o1.getRowKey())
-					.compareTo(Long.valueOf(o2.getRowKey())
-				);
-			}
-		};
 	}
 }

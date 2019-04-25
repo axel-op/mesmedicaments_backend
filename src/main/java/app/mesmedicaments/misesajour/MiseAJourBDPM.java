@@ -75,7 +75,9 @@ public final class MiseAJourBDPM {
 				entite.definirSubstancesActivesJArray(new JSONArray(entree.getValue()));
 				entitesMedicaments.add(entite);
 			}
-			logger.info(entitesSubstances.size() + " entités créées en " + Utils.tempsDepuis(startTime) + " ms. ");
+			logger.info(entitesSubstances.size() + " entités Substance"
+				+ " et " + entitesMedicaments.size() + " entités Médicament"
+				+ " créées en " + Utils.tempsDepuis(startTime) + " ms. ");
 			logger.info("Mise à jour de la base de données en cours...");
 			startTime = System.currentTimeMillis();
 			EntiteSubstance.mettreAJourEntitesBatch(entitesSubstances);

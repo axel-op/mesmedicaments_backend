@@ -80,7 +80,7 @@ public final class MiseAJourInteractions {
 		MiseAJourInteractions majInstance = new MiseAJourInteractions();
 		logger.info("Début de la mise à jour des interactions");
 		//importerInteractions();
-		if (substances.isEmpty()) { 
+		if (substances == null || substances.isEmpty()) { 
 			substances = MiseAJourClassesSubstances.importerSubstances(logger); 
 		}
 		majInstance.nouveauxChamps();

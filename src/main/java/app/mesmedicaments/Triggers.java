@@ -76,13 +76,17 @@ public final class Triggers {
         HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
         JSONObject corpsReponse = new JSONObject();
         try {
+            if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)) { 
+                throw new IllegalArgumentException(); 
+            }
             accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
             id = Authentification.getIdFromToken(accessToken);
             DMP dmp = new DMP(id, context.getLogger());
             corpsReponse.put("medicamentsRecents", dmp.obtenirMedicamentsRecents());
             codeHttp = HttpStatus.OK;
         }
-        catch (JwtException e) {
+        catch (JwtException
+            | IllegalArgumentException e) {
             codeHttp = HttpStatus.UNAUTHORIZED;
         }
         catch (IOException

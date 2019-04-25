@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -39,6 +40,7 @@ public final class MiseAJourInteractions {
 	private static final float TAILLE_INTERACTION_SUBSTANCE;
 	private static final float TAILLE_DESCRIPTION_PT;
 	private static final String URL_FICHIER_INTERACTIONS;
+	private static final AtomicBoolean EXECUTION_EN_COURS;
 	private static Logger logger;
 	private static HashMap<String, Set<Long>> correspondancesSubstances;
 	private static HashMap<String, HashSet<String>> classesSubstances;
@@ -59,6 +61,7 @@ public final class MiseAJourInteractions {
 	private boolean reussite;
 
 	static {
+		EXECUTION_EN_COURS = new AtomicBoolean();
 		URL_FICHIER_INTERACTIONS = System.getenv("url_interactions");
 		CHARSET_1252 = Charset.forName("cp1252");
 		TAILLE_NOM_SUBSTANCE = (float) 10;
@@ -76,71 +79,72 @@ public final class MiseAJourInteractions {
 	}
 	
 	public static boolean handler (Logger logger) {
-		MiseAJourInteractions.logger = logger;
-		MiseAJourInteractions majInstance = new MiseAJourInteractions();
-		logger.info("Début de la mise à jour des interactions");
-		//importerInteractions();
-		if (substances == null || substances.isEmpty()) { 
-			substances = MiseAJourClassesSubstances.importerSubstances(logger); 
+		if (EXECUTION_EN_COURS.compareAndSet(false, true)) {
+			MiseAJourInteractions.logger = logger;
+			MiseAJourInteractions majInstance = new MiseAJourInteractions();
+			logger.info("Début de la mise à jour des interactions");
+			//importerInteractions();
+			if (substances == null || substances.isEmpty()) { 
+				substances = MiseAJourClassesSubstances.importerSubstances(logger); 
+			}
+			majInstance.nouveauxChamps();
+			try {
+				long startTime = System.currentTimeMillis();
+				if (!majInstance.mettreAJourInteractions()) { return false; }
+				logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms");
+				exporterEntitesInteractions(entitesInteractionsParPartition);
+			}
+			catch (StorageException
+				| URISyntaxException
+				| InvalidKeyException
+				| IOException e)
+			{
+				Utils.logErreur(e, logger);
+				return false;
+			}
+			return true;
 		}
-		majInstance.nouveauxChamps();
-		try {
-			long startTime = System.currentTimeMillis();
-			if (!majInstance.mettreAJourInteractions()) { return false; }
-			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms");
-			exporterEntitesInteractions(entitesInteractionsParPartition);
-		}
-		catch (StorageException
-			| URISyntaxException
-			| InvalidKeyException e)
-		{
-			Utils.logErreur(e, logger);
-			return false;
-		}
-		return true;
+		return false;
 	}
 
-    private boolean mettreAJourInteractions () throws StorageException, URISyntaxException, InvalidKeyException {
-		try {
-			logger.info("Récupération du fichier des interactions (url = " + URL_FICHIER_INTERACTIONS + ")");
-            HttpsURLConnection connexion = (HttpsURLConnection) new URL(URL_FICHIER_INTERACTIONS)
-                .openConnection();
-			connexion.setRequestMethod("GET");
-			PDDocument document = PDDocument.load(connexion.getInputStream());
-			logger.info("Fichier récupéré ; début du parsing");
-			PDFTextStripper stripper = new PDFTextStripper() {
-				@Override
-				protected void writeString (String text, List<TextPosition> textPositions) throws IOException {
-					if (reussite) { analyseLigne(text, textPositions); }
-					super.writeString(text, textPositions);
-				}
-			};
-			int nombrePages = document.getNumberOfPages();
-			for (int page = 2; page <= nombrePages; page++) {
-				logger.info("Parsing de la page " + page + "/" + nombrePages + "..."
-				);
-				stripper.setStartPage(page);
-				stripper.setEndPage(page);
-				stripper.getText(document);
+	private boolean mettreAJourInteractions () 
+		throws StorageException, URISyntaxException, InvalidKeyException, IOException 
+	{
+		logger.info("Récupération du fichier des interactions (url = " + URL_FICHIER_INTERACTIONS + ")");
+		HttpsURLConnection connexion = (HttpsURLConnection) new URL(URL_FICHIER_INTERACTIONS)
+			.openConnection();
+		connexion.setRequestMethod("GET");
+		PDDocument document = PDDocument.load(connexion.getInputStream());
+		logger.info("Fichier récupéré ; début du parsing");
+		PDFTextStripper stripper = new PDFTextStripper() {
+			@Override
+			protected void writeString (String text, List<TextPosition> textPositions) throws IOException {
+				if (reussite) { analyseLigne(text, textPositions); }
+				super.writeString(text, textPositions);
 			}
-			if (!reussite) { return false; }
-			if (risqueEnCours != null) { 
-				for (String substance : substancesEnCours) {
-					ajouterInteraction(
-						interactionEnCours, 
-						substance, 
-						risqueEnCours, 
-						descriptifEnCours, 
-						conduiteATenirEnCours
-					); 
-				}
-			}
-			nouveauxChamps();
-			document.close();
-		} catch (IOException e) { 
-            Utils.logErreur(e, logger);
-            return false;
+		};
+		int nombrePages = document.getNumberOfPages();
+		for (int page = 2; page <= nombrePages; page++) {
+			logger.info("Parsing de la page " + page + "/" + nombrePages + "..."
+			);
+			stripper.setStartPage(page);
+			stripper.setEndPage(page);
+			stripper.getText(document);
 		}
+		if (!reussite) { return false; }
+		if (risqueEnCours != null) { 
+			for (String substance : substancesEnCours) {
+				ajouterInteraction(
+					interactionEnCours, 
+					substance, 
+					risqueEnCours, 
+					descriptifEnCours, 
+					conduiteATenirEnCours
+				); 
+			}
+		}
+		nouveauxChamps();
+		document.close();
 		return true;
 	}
     

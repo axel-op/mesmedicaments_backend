@@ -189,8 +189,7 @@ public final class Authentification {
 			|| email.length() > 128
 			|| genre.length() != 1
 		) { throw new IllegalArgumentException(); }
-		EntiteUtilisateur entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
-		if (entiteUtilisateur == null) { throw new IllegalArgumentException(); }
+		EntiteUtilisateur entiteUtilisateur = new EntiteUtilisateur(id);
 		entiteUtilisateur.setPrenom(prenom);
 		entiteUtilisateur.setEmail(email);
 		entiteUtilisateur.setGenre(genre);
@@ -244,14 +243,6 @@ public final class Authentification {
 				logger.severe("Aucun choix d'envoi du second code disponible");
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_INTERNE);
 			}
-			/*// Vérification de l'existence de l'utilisateur
-			entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
-			//boolean inscriptionRequise = entiteUtilisateur == null;
-			if (entiteUtilisateur == null) {
-				entiteUtilisateur = new EntiteUtilisateur(id);
-				entiteUtilisateur.setMotDePasse(mdp);
-				entiteUtilisateur.creerEntite();
-			}*/
 			// Envoi du code
 			connexion
 				.data("sid", obtenirSid(pageReponse))

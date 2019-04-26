@@ -164,9 +164,9 @@ public final class Triggers {
 			if (request.getHttpMethod() == HttpMethod.POST) {
 				corpsRequete = new JSONObject(request.getBody().get());
 			}
-			deviceId = request.getHeaders().get(HEADER_DEVICEID);
 			if (etape == 0) { // Renouvellement du token d'accès
 				jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
+				deviceId = request.getHeaders().get(HEADER_DEVICEID);
 				if (Authentification.checkRefreshToken(jwt, deviceId)) { 
 					id = Authentification.getIdFromToken(jwt);
 					auth = new Authentification(logger, id);
@@ -203,8 +203,7 @@ public final class Triggers {
 						.put(CLE_EMAIL, resultat.get(CLE_EMAIL))
 						.put(CLE_GENRE, resultat.get(CLE_GENRE))
 						.put(CLE_INSCRIPTION_REQUISE, resultat.get(CLE_INSCRIPTION_REQUISE))
-						.put("accessToken", auth.createAccessToken())
-						.put("refreshToken", auth.createRefreshToken(deviceId));
+						.put("accessToken", auth.createAccessToken());
 				}
 			} else { throw new IllegalArgumentException(); }
 		}
@@ -251,6 +250,7 @@ public final class Triggers {
 		final String email;
 		final String genre;
 		final String jwt;
+		final String deviceId;
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		//JSONObject retour = new JSONObject();
@@ -262,6 +262,7 @@ public final class Triggers {
 				throw new IllegalArgumentException();
 			}
 			jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
+			deviceId = request.getHeaders().get(HEADER_DEVICEID);
 			JSONObject corpsRequete = new JSONObject(request.getBody().get());
 			//id = corpsRequete.getString("id");
 			id = Authentification.getIdFromToken(jwt);
@@ -270,6 +271,7 @@ public final class Triggers {
 			genre = corpsRequete.getString("genre");
 			auth = new Authentification(logger, id);
 			auth.inscription(prenom, email, genre);
+			corpsReponse.put("refreshToken", auth.createRefreshToken(deviceId));
 			codeHttp = HttpStatus.OK;
 		}
 		catch (NullPointerException 

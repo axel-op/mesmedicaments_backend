@@ -262,15 +262,19 @@ public final class Triggers {
 				throw new IllegalArgumentException();
 			}
 			jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
+			logger.info("jwt = " + jwt);
 			deviceId = request.getHeaders().get(HEADER_DEVICEID);
+			logger.info("deviceid = " + deviceId);
 			JSONObject corpsRequete = new JSONObject(request.getBody().get());
 			//id = corpsRequete.getString("id");
 			id = Authentification.getIdFromToken(jwt);
+			logger.info("id = " + id);
 			prenom = corpsRequete.getString("prenom");
 			email = corpsRequete.getString("email");
 			genre = corpsRequete.getString("genre");
 			auth = new Authentification(logger, id);
 			auth.inscription(prenom, email, genre);
+			logger.info("création du refreshToken");
 			corpsReponse.put("refreshToken", auth.createRefreshToken(deviceId));
 			codeHttp = HttpStatus.OK;
 		}

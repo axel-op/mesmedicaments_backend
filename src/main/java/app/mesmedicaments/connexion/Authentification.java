@@ -162,6 +162,7 @@ public final class Authentification {
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		if (deviceIdHeader == null || deviceIdHeader.equals("")) {
+			logger.info("deviceidheader null");
 			throw new IllegalArgumentException();
 		}
 		byte[] sel = new byte[16];
@@ -174,6 +175,7 @@ public final class Authentification {
 		claims.put("type", "refresh");
 		claims.put("sel", Base64.getEncoder().encodeToString(sel));
 		claims.put("deviceId", deviceIdHeader);
+		logger.info("mise à jour entité");
 		entite.mettreAJourEntite();
 		return Jwts.builder()
 			.signWith(JWT_SIGNING_ALG, JWT_SIGNING_KEY)
@@ -195,7 +197,8 @@ public final class Authentification {
 		entiteUtilisateur.setGenre(genre);
 		entiteUtilisateur.setDateInscription(
 			Date.from(Instant.now(Clock.system(TIMEZONE))));
-		entiteUtilisateur.mettreAJourEntite();
+		entiteUtilisateur.creerEntite();
+		logger.info("entite créée");
 	}
 
 	public JSONObject connexionDMP (String mdp) {

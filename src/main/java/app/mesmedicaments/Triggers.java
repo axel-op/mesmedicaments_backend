@@ -241,15 +241,16 @@ public final class Triggers {
 		@HttpTrigger(
 			name = "inscriptionTrigger",
 			dataType = "string",
-			authLevel = AuthorizationLevel.FUNCTION,
+			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.POST})
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
-		String id;
-		String prenom;
-		String email;
-		String genre;
+		final String id;
+		final String prenom;
+		final String email;
+		final String genre;
+		final String jwt;
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		//JSONObject retour = new JSONObject();
@@ -260,8 +261,10 @@ public final class Triggers {
 			if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)) {
 				throw new IllegalArgumentException();
 			}
+			jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
 			JSONObject corpsRequete = new JSONObject(request.getBody().get());
-			id = corpsRequete.getString("id");
+			//id = corpsRequete.getString("id");
+			id = Authentification.getIdFromToken(jwt);
 			prenom = corpsRequete.getString("prenom");
 			email = corpsRequete.getString("email");
 			genre = corpsRequete.getString("genre");
@@ -274,7 +277,8 @@ public final class Triggers {
 			codeHttp = HttpStatus.BAD_REQUEST;
 		}
 		catch (JSONException
-			| NoSuchElementException e) {
+			| NoSuchElementException
+			| JwtException e) {
 			codeHttp = HttpStatus.UNAUTHORIZED;
 		}
 		catch (Exception e) {

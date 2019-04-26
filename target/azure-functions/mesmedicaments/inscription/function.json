@@ -6,7 +6,8 @@
     "direction" : "in",
     "name" : "inscriptionTrigger",
     "methods" : [ "POST" ],
-    "dataType" : "string"
+    "dataType" : "string",
+    "authLevel" : "ANONYMOUS"
   }, {
     "type" : "http",
     "direction" : "out",

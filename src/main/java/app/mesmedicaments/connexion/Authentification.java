@@ -337,8 +337,7 @@ public final class Authentification {
 		Connection connexion;
 		Document pageInfos;
 		EntiteUtilisateur entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
-		Date inscription = entiteUtilisateur.getDateInscription();
-		if (inscription == null) {
+		if (entiteUtilisateur == null) {
 			retour.put(CLE_INSCRIPTION_REQUISE, true);
 			connexion = Jsoup.connect(URL_INFOS_DMP);
 			connexion.method(Connection.Method.GET)

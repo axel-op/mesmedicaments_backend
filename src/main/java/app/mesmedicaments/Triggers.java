@@ -57,7 +57,7 @@ public final class Triggers {
 		CLE_INSCRIPTION_REQUISE = Authentification.CLE_INSCRIPTION_REQUISE;
 		ERR_INTERNE = Authentification.ERR_INTERNE;
 		HEADER_AUTHORIZATION = "jwt";
-		HEADER_DEVICEID = "deviceId";
+		HEADER_DEVICEID = "deviceid";
 	}
 
 	//private Logger logger;
@@ -198,7 +198,8 @@ public final class Triggers {
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
 				} else {
 					codeHttp = HttpStatus.OK;
-					corpsReponse.put(CLE_PRENOM, resultat.get(CLE_PRENOM))
+					corpsReponse
+						.put(CLE_PRENOM, resultat.get(CLE_PRENOM))
 						.put(CLE_EMAIL, resultat.get(CLE_EMAIL))
 						.put(CLE_GENRE, resultat.get(CLE_GENRE))
 						.put(CLE_INSCRIPTION_REQUISE, resultat.get(CLE_INSCRIPTION_REQUISE))

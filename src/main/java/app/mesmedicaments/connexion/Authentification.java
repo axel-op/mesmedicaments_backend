@@ -311,13 +311,13 @@ public final class Authentification {
 			reponse = connexion.response();
 			Document page = reponse.parse();
 			entiteConnexion.definirCookiesMap(cookies);
-			entiteConnexion.setUrlFichierRemboursements(obtenirURLFichierRemboursements(cookies).orElse(null));
 			if (!reponse.url().toString().matches(REGEX_ACCUEIL)) {
 				entiteConnexion.setSid(obtenirSid(page));
 				entiteConnexion.setTformdata(obtenirTformdata(page));
 				entiteConnexion.mettreAJourEntite();
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
 			}
+			entiteConnexion.setUrlFichierRemboursements(obtenirURLFichierRemboursements(cookies).orElse(null));
 			entiteConnexion.mettreAJourEntite();
 			recupererInfosUtilisateur(cookies, retour);
 		}

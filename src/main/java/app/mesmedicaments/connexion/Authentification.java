@@ -371,18 +371,18 @@ public final class Authentification {
 		String attribut;
 		try {
 			attribut = doc.getElementsContainingOwnText("de remboursement").attr("href");
+			connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr" + attribut);
+			connexion.method(Connection.Method.GET)
+				.userAgent(USERAGENT)
+				.cookies(cookies)
+				.execute();
+			doc = connexion.response().parse();
+			return Optional.ofNullable(doc.getElementById("docView").attr("src"));
 		}
 		catch (NullPointerException e) {
 			// Notifier
-			return Optional.empty();
 		}
-		connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr" + attribut);
-		connexion.method(Connection.Method.GET)
-			.userAgent(USERAGENT)
-			.cookies(cookies)
-			.execute();
-		doc = connexion.response().parse();
-		return Optional.ofNullable(doc.getElementById("docView").attr("src"));
+		return Optional.empty();
 	}
 
 	private String obtenirSid (Document page) {

@@ -267,6 +267,7 @@ public final class Triggers {
 			logger.info("deviceid = " + deviceId);
 			JSONObject corpsRequete = new JSONObject(request.getBody().get());
 			//id = corpsRequete.getString("id");
+			logger.info("récupération de l'id");
 			id = Authentification.getIdFromToken(jwt);
 			logger.info("id = " + id);
 			prenom = corpsRequete.getString("prenom");
@@ -280,11 +281,13 @@ public final class Triggers {
 		}
 		catch (NullPointerException 
 			| IllegalArgumentException e) {
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
 		}
 		catch (JSONException
 			| NoSuchElementException
 			| JwtException e) {
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.UNAUTHORIZED;
 		}
 		catch (Exception e) {

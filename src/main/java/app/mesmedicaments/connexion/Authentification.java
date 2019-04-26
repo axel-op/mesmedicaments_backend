@@ -1,11 +1,7 @@
 package app.mesmedicaments.connexion;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.StringReader;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -20,15 +16,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Logger;
 
-import javax.net.ssl.HttpsURLConnection;
-
-import com.microsoft.azure.functions.ExecutionContext;
-import com.microsoft.azure.functions.annotation.FunctionName;
-import com.microsoft.azure.functions.annotation.TimerTrigger;
 import com.microsoft.azure.storage.StorageException;
 
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
 import org.json.JSONObject;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -104,56 +93,6 @@ public final class Authentification {
 		///////////////// définir un secret et le lier à KEYVAULT
 	}
 
-	public Authentification () {} ////uniquement pour le test
-	
-    @FunctionName("testMaintienConnexion")
-    public void testMaintien (
-        @TimerTrigger(
-            name = "timerTestMaintien",
-            schedule = "0 */25 * * * *"
-        )
-        final String timerInfo,
-        final ExecutionContext context
-	) throws IOException, 
-		StorageException,
-		URISyntaxException,
-		InvalidKeyException
-	{
-		Logger logger = context.getLogger();
-		try {
-			EntiteConnexion entite = EntiteConnexion.obtenirEntite(System.getenv("id_test_maintien"));
-			HashMap<String, String> cookies = entite.obtenirCookiesMap();
-			String urlFichier = entite.getUrlFichierRemboursements();
-			HttpsURLConnection connPDF = (HttpsURLConnection) new URL(urlFichier).openConnection();
-			connPDF.setRequestMethod("GET");
-			for (String c : cookies.keySet()) { connPDF.addRequestProperty("Cookie", c + "=" + cookies.get(c) + "; "); }
-			PDDocument pdf = PDDocument.load(connPDF.getInputStream());
-			PDFTextStripper stripper = new PDFTextStripper();
-			StringReader sr = new StringReader(new String(stripper.getText(pdf).getBytes(), Charset.forName("ISO-8859-1")));
-			BufferedReader br = new BufferedReader(sr);
-			String ligne;
-			boolean balise = false;
-			while ((ligne = br.readLine()) != null && !balise) {
-				if (ligne.matches(".*P.riode.*")) {
-					logger.info("Fichier récupéré : ligne période trouvée : ");
-					logger.info(ligne);
-					balise = true;
-				}
-			}
-			if (!balise) {
-				logger.info("Le test a échoué à partir de "
-					+ LocalDateTime.now(TIMEZONE).toString());
-			} else {
-				logger.info("Test OK à "
-				+ LocalDateTime.now(TIMEZONE));
-			}
-		}
-		catch (Exception e) {
-			Utils.logErreur(e, logger);
-			throw e;
-		}
-    }
-
 	public static String getIdFromToken (String jwt) 
 		throws SignatureException, 
 		ExpiredJwtException,
@@ -168,7 +107,7 @@ public final class Authentification {
 			.get("id");
 	}
 
-	public static boolean checkRefreshToken (String refreshJwt) 
+	public static boolean checkRefreshToken (String refreshJwt, String deviceIdHeader) 
 		throws StorageException,
 		URISyntaxException,
 		InvalidKeyException
@@ -179,12 +118,15 @@ public final class Authentification {
 			.getBody();
 		String id = (String) claims.get("id");
 		String type = (String) claims.get("type");
+		String deviceId = (String) claims.get("deviceId");
 		byte[] sel = Base64.getDecoder().decode((String) claims.get("sel"));
 		if (id.length() != 8 
-			|| !type.equals("refresh")) 
+			|| !type.equals("refresh")
+			|| !deviceId.equals(deviceIdHeader)) 
 		{ return false; }
 		EntiteUtilisateur entite = EntiteUtilisateur.obtenirEntite(id);
 		if (entite == null) { return false; }
+		if (!entite.getDeviceId().equals(deviceId)) { return false; }
 		Date derniereConnexion = entite.getDerniereConnexion();
 		if (derniereConnexion != null) {
 			LocalDateTime derniereConnexionLocale = LocalDateTime.ofInstant(
@@ -216,18 +158,23 @@ public final class Authentification {
             .compact();            
 	}
 
-	public String createRefreshToken () 
+	public String createRefreshToken (String deviceIdHeader) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
+		if (deviceIdHeader == null || deviceIdHeader.equals("")) {
+			throw new IllegalArgumentException();
+		}
 		byte[] sel = new byte[16];
 		new SecureRandom().nextBytes(sel);
 		EntiteUtilisateur entite = EntiteUtilisateur.obtenirEntite(id);
 		entite.setJwtSalt(sel);
-		entite.mettreAJourEntite();
+		entite.setDeviceId(deviceIdHeader);
 		Claims claims = Jwts.claims();
 		claims.put("id", id);
 		claims.put("type", "refresh");
 		claims.put("sel", Base64.getEncoder().encodeToString(sel));
+		claims.put("deviceId", deviceIdHeader);
+		entite.mettreAJourEntite();
 		return Jwts.builder()
 			.signWith(JWT_SIGNING_ALG, JWT_SIGNING_KEY)
 			.setClaims(claims)

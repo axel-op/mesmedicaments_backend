@@ -20,23 +20,26 @@ import java.util.stream.Collectors;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import com.google.common.collect.Sets;
 import com.microsoft.azure.storage.StorageException;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import app.mesmedicaments.Utils;
 import app.mesmedicaments.entitestables.EntiteConnexion;
+import app.mesmedicaments.entitestables.EntiteInteraction;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 
 public class DMP {
 
-	private static Map<String, Set<Long>> nomsMedicamentsNormalises = Collections.emptyMap();
+	private static Map<String, Set<Long>> nomsMedicamentsNormalisesMin = Collections.emptyMap();
 	private static Map<String, Set<Long>> cacheRecherche = new HashMap<>();
 
-	private static Map<String, Set<Long>> importerNomsMedicamentsNormalises () 
+	private static Map<String, Set<Long>> importerNomsMedicamentsNormalisesMin () 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		long startTime = System.currentTimeMillis();
@@ -44,7 +47,7 @@ public class DMP {
 		for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
 			entite.obtenirNomsJArray().forEach(
 				nom -> nomsMed
-					.computeIfAbsent(Utils.normaliser(nom.toString()), cle -> new TreeSet<>())
+					.computeIfAbsent(Utils.normaliser(nom.toString()).toLowerCase(), cle -> new TreeSet<>())
 					.add(Long.parseLong(entite.getRowKey()))
 			);
 		}
@@ -59,7 +62,55 @@ public class DMP {
 		this.LOGGER = logger;
 	}
 
-	public JSONObject obtenirMedicamentsRecents () 
+	public JSONObject obtenirInteractions () 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		JSONObject interactions = new JSONObject();
+		for (int risque = 1; risque <= 4; risque++) { 
+			interactions.put(String.valueOf(risque), new JSONArray());
+		}
+		Map<Long, Set<Long>> subMeds = new HashMap<>();
+		Set<Long> codesCIS = EntiteUtilisateur.obtenirEntite(ID)
+			.obtenirMedicamentsRecentsJObject()
+				.toMap().values().stream()
+					.map(String::valueOf)
+					.map(JSONArray::new)
+					.flatMap(jarray -> jarray.toList().stream())
+					.mapToLong(obj -> (long) ((int) obj))
+					.boxed()
+					.collect(Collectors.toSet());
+		for (long codeCIS : codesCIS) {
+			EntiteMedicament.obtenirEntite(codeCIS)
+				.obtenirSubstancesActivesJArray()
+					.forEach(codeSub -> subMeds
+						.computeIfAbsent((long) ((int) codeSub), cle -> new TreeSet<>())
+							.add(codeCIS));
+		}
+		Set<Set<Long>> pairesSubs = Sets.combinations(subMeds.keySet(), 2);
+		for (Set<Long> paire : pairesSubs) {
+			Long[] codes = paire.toArray(new Long[0]);
+			EntiteInteraction entite = EntiteInteraction.obtenirEntite(codes[0], codes[1]);
+			if (entite != null) {
+				for (long med1 : subMeds.get(codes[0])) {
+					for (long med2 : subMeds.get(codes[1])) {
+						if (med1 != med2) {
+							JSONObject interaction = new JSONObject();
+							interaction.put("médicament1", String.valueOf(med1));
+							interaction.put("médicament2", String.valueOf(med2));
+							interaction.put("descriptif", entite.getDescriptif());
+							interaction.put("conduite", entite.getConduite());
+							interactions.getJSONArray(String.valueOf(entite.getRisque()))
+								.put(interaction);
+						}
+					}
+				}
+			}
+		}
+		return interactions;
+	}
+
+	//Il y a un problème de vitesse d'exécution, je pense que cela vient de la recherche : à revoir
+	public JSONObject obtenirMedicaments () 
 		throws IOException, StorageException, URISyntaxException, InvalidKeyException
 	{
 		JSONObject medParDate = new JSONObject();
@@ -87,7 +138,9 @@ public class DMP {
 						if (!recherche.matches(" *")) {
 							Optional<Long> resultat = trouverCorrespondanceMedicament(ligne.substring(10));
 							if (resultat.isPresent()) {
-								medParDate.append(date, resultat.get());
+								if (!medParDate.has(date)) { medParDate.put(date, new JSONArray()); }
+								medParDate.getJSONArray(date).put(resultat.get());
+								//medParDate.append(date, resultat.get());
 							}
 						}
 					}
@@ -100,18 +153,18 @@ public class DMP {
 			document.close();
 			br.close();
 			if (alerte) {} // faire quelque chose
+			try {
+				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(ID);
+				entiteU.definirMedicamentsRecentsJObject(medParDate);
+				entiteU.mettreAJourEntite();
+			}
+			catch (StorageException | URISyntaxException | InvalidKeyException e)
+			{
+				Utils.logErreur(e, LOGGER);
+				LOGGER.warning("Impossible de mettre à jour les médicaments récents pour l'utilisateur " + ID);
+			}
 		}
 		else { LOGGER.info("Impossible de récupérer le fichier des remboursements"); }
-		try {
-			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(ID);
-			entiteU.definirMedicamentsRecentsJObject(medParDate);
-			entiteU.mettreAJourEntite();
-		}
-		catch (StorageException | URISyntaxException | InvalidKeyException e)
-		{
-			Utils.logErreur(e, LOGGER);
-			LOGGER.warning("Impossible de mettre à jour les médicaments récents pour l'utilisateur " + ID);
-		}
 		return medParDate;
 	}
 
@@ -215,14 +268,15 @@ public class DMP {
 	private static Set<Long> rechercherMedicament (String recherche, boolean precisematch) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		if (nomsMedicamentsNormalises.isEmpty()) { 
-			nomsMedicamentsNormalises = importerNomsMedicamentsNormalises(); 
+		if (nomsMedicamentsNormalisesMin.isEmpty()) { 
+			nomsMedicamentsNormalisesMin = importerNomsMedicamentsNormalisesMin(); 
 		}
 		return cacheRecherche.computeIfAbsent(recherche, exp -> {
 			final String expNorm = Utils.normaliser(exp).toLowerCase();
-			return nomsMedicamentsNormalises.keySet().stream()
+			final String[] mots = expNorm.split(" ");
+			return nomsMedicamentsNormalisesMin.keySet().stream()
 				.filter(nom -> {
-					for (String mot : expNorm.split(" ")) {
+					for (String mot : mots) {
 						if (nom
 							.toLowerCase()
 							.matches(obtenirRegex.apply(mot, precisematch))
@@ -230,7 +284,7 @@ public class DMP {
 					}
 					return false;
 				})
-				.flatMap(nom -> nomsMedicamentsNormalises.get(nom).stream())
+				.flatMap(nom -> nomsMedicamentsNormalisesMin.get(nom).stream())
 				.collect(Collectors.toSet());
 		});
 	}

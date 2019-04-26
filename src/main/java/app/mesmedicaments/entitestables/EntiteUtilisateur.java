@@ -33,6 +33,7 @@ public class EntiteUtilisateur extends AbstractEntite {
     String email;
     //String motDePasse;
     Date dateInscription;
+    String deviceId;
     byte[] jwtSalt;
     Date derniereConnexion;
     String medicamentsRecents;
@@ -56,11 +57,12 @@ public class EntiteUtilisateur extends AbstractEntite {
     }
 
     // Getters
+
     public String getPrenom () { return prenom; }
     public String getGenre () { return genre; }
     public String getEmail () { return email; }
-    //public String getMotDePasse () { return motDePasse; }
     public Date getDateInscription () { return dateInscription; }
+    public String getDeviceId () { return deviceId; }
     public byte[] getJwtSalt () { return jwtSalt; }
     public Date getDerniereConnexion () { return derniereConnexion; }
 
@@ -87,8 +89,8 @@ public class EntiteUtilisateur extends AbstractEntite {
         this.email = email;
     }
 
-    //public void setMotDePasse (String motDePasse) { this.motDePasse = motDePasse; }
     public void setDateInscription (Date dateInscription) { this.dateInscription = dateInscription; }
+    public void setDeviceId (String deviceId) { this.deviceId = deviceId; }
     public void setJwtSalt (byte[] salt) { jwtSalt = salt; }
     public void setDerniereConnexion (Date date) { derniereConnexion = date; }
 

@@ -91,14 +91,13 @@ public final class MiseAJourInteractions {
 				logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms");
 				exporterEntitesInteractions(entitesInteractionsParPartition);
 			}
-			catch (StorageException
-				| URISyntaxException
-				| InvalidKeyException
-				| IOException e)
+			catch (Exception e)
 			{
+				executionEnCours.set(false);
 				Utils.logErreur(e, logger);
 				return false;
 			}
+			executionEnCours.set(false);
 			return true;
 		}
 		else { logger.info("Une exécution est déjà en cours"); }

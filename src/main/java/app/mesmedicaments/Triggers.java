@@ -160,7 +160,8 @@ public final class Triggers {
 		Authentification auth;
 		try {
 			if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)) { 
-				throw new IllegalArgumentException(); }
+				throw new IllegalArgumentException("L'heure ne correspond pas"); 
+			}
 			if (request.getHttpMethod() == HttpMethod.POST) {
 				corpsRequete = new JSONObject(request.getBody().get());
 			}
@@ -213,7 +214,7 @@ public final class Triggers {
 			| IllegalArgumentException e) 
 		{
 			codeHttp = HttpStatus.BAD_REQUEST;
-			corpsReponse = new JSONObjectUneCle(CLE_CAUSE, "Mauvais format du corps de la requête");
+			corpsReponse = new JSONObjectUneCle(CLE_CAUSE, e.getMessage());
 		}
 		catch (ExpiredJwtException e) {
 			codeHttp = HttpStatus.UNAUTHORIZED;
@@ -262,32 +263,24 @@ public final class Triggers {
 				throw new IllegalArgumentException();
 			}
 			jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
-			logger.info("jwt = " + jwt);
 			deviceId = request.getHeaders().get(HEADER_DEVICEID);
-			logger.info("deviceid = " + deviceId);
 			JSONObject corpsRequete = new JSONObject(request.getBody().get());
-			//id = corpsRequete.getString("id");
-			logger.info("récupération de l'id");
 			id = Authentification.getIdFromToken(jwt);
-			logger.info("id = " + id);
 			prenom = corpsRequete.getString("prenom");
 			email = corpsRequete.getString("email");
 			genre = corpsRequete.getString("genre");
 			auth = new Authentification(logger, id);
 			auth.inscription(prenom, email, genre);
-			logger.info("création du refreshToken");
 			corpsReponse.put("refreshToken", auth.createRefreshToken(deviceId));
 			codeHttp = HttpStatus.OK;
 		}
 		catch (NullPointerException 
 			| IllegalArgumentException e) {
-			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
 		}
 		catch (JSONException
 			| NoSuchElementException
 			| JwtException e) {
-			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.UNAUTHORIZED;
 		}
 		catch (Exception e) {
@@ -361,7 +354,7 @@ public final class Triggers {
 	private boolean verifierHeure (String heure, long intervalle) {
 		LocalDateTime heureObtenue;
 		LocalDateTime maintenant = obtenirHeure();
-		if (heure != null && heure.length() >= 19 && heure.length() <= 26) {
+		if (heure != null && heure.length() <= 50) {
 			try {
 				heureObtenue = LocalDateTime.parse(heure);
 				if (heureObtenue.isAfter(maintenant.minusMinutes(intervalle))

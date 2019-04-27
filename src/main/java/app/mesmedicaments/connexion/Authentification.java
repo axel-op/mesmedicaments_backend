@@ -144,7 +144,7 @@ public final class Authentification {
 	private String id;
 	
 	public Authentification (Logger logger, String id) {
-		if (id.length() != 8) { throw new IllegalArgumentException(); }
+		if (id.length() != 8) { throw new IllegalArgumentException("Format de l'id incorrect"); }
 		this.logger = logger;
 		this.id = id;
 	}
@@ -162,7 +162,6 @@ public final class Authentification {
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		if (deviceIdHeader == null || deviceIdHeader.equals("")) {
-			logger.info("deviceidheader null");
 			throw new IllegalArgumentException();
 		}
 		byte[] sel = new byte[16];
@@ -175,7 +174,6 @@ public final class Authentification {
 		claims.put("type", "refresh");
 		claims.put("sel", Base64.getEncoder().encodeToString(sel));
 		claims.put("deviceId", deviceIdHeader);
-		logger.info("mise à jour entité");
 		entite.mettreAJourEntite();
 		return Jwts.builder()
 			.signWith(JWT_SIGNING_ALG, JWT_SIGNING_KEY)
@@ -198,11 +196,10 @@ public final class Authentification {
 		entiteUtilisateur.setDateInscription(
 			Date.from(Instant.now(Clock.system(TIMEZONE))));
 		entiteUtilisateur.creerEntite();
-		logger.info("entite créée");
 	}
 
 	public JSONObject connexionDMP (String mdp) {
-		if (mdp.length() > 128) { throw new IllegalArgumentException(); }
+		if (mdp.length() > 128) { throw new IllegalArgumentException("Format du mdp incorrect"); }
 		Document pageReponse;
 		Connection connexion;
 		HashMap<String, String> cookies;
@@ -259,7 +256,6 @@ public final class Authentification {
 			entiteConnexion.setSid(obtenirSid(pageReponse));
 			entiteConnexion.setTformdata(obtenirTformdata(pageReponse));
 			entiteConnexion.definirCookiesMap(cookies);
-			//entiteConnexion.setInscriptionRequise(inscriptionRequise);
 			entiteConnexion.setMotDePasse(mdp);
 			entiteConnexion.mettreAJourEntite();
 		} catch (IOException 

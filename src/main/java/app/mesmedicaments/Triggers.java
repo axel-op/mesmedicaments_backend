@@ -165,9 +165,9 @@ public final class Triggers {
 			if (request.getHttpMethod() == HttpMethod.POST) {
 				corpsRequete = new JSONObject(request.getBody().get());
 			}
+			deviceId = request.getHeaders().get(HEADER_DEVICEID);
 			if (etape == 0) { // Renouvellement du token d'accès
 				jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
-				deviceId = request.getHeaders().get(HEADER_DEVICEID);
 				if (Authentification.checkRefreshToken(jwt, deviceId)) { 
 					id = Authentification.getIdFromToken(jwt);
 					auth = new Authentification(logger, id);
@@ -198,13 +198,17 @@ public final class Triggers {
 					codeHttp = HttpStatus.CONFLICT;
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
 				} else {
+					boolean inscriptionRequise = resultat.getBoolean(CLE_INSCRIPTION_REQUISE);
 					codeHttp = HttpStatus.OK;
 					corpsReponse
 						.put(CLE_PRENOM, resultat.get(CLE_PRENOM))
 						.put(CLE_EMAIL, resultat.get(CLE_EMAIL))
 						.put(CLE_GENRE, resultat.get(CLE_GENRE))
-						.put(CLE_INSCRIPTION_REQUISE, resultat.get(CLE_INSCRIPTION_REQUISE))
+						.put(CLE_INSCRIPTION_REQUISE, inscriptionRequise)
 						.put("accessToken", auth.createAccessToken());
+					if (!inscriptionRequise) {
+						corpsReponse.put("refreshToken", auth.createRefreshToken(deviceId));
+					}
 				}
 			} else { throw new IllegalArgumentException(); }
 		}

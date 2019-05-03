@@ -26,6 +26,7 @@ import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.Authentification;
 import app.mesmedicaments.connexion.DMP;
+import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
 import app.mesmedicaments.misesajour.MiseAJourInteractions;
@@ -72,11 +73,11 @@ public final class Triggers {
 			methods = {HttpMethod.GET},
 			route = "dmp/{categorie:alpha?}")
 		final HttpRequestMessage<Optional<String>> request,
-		@BindingName("categorie") String categorie,
 		final ExecutionContext context
 	) {
 		String accessToken;
 		String id;
+		String categorie = request.getQueryParameters().get("categorie");
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
@@ -86,9 +87,10 @@ public final class Triggers {
 			accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
 			id = Authentification.getIdFromToken(accessToken);
 			DMP dmp = new DMP(id, context.getLogger());
+			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
 			if (categorie != null) {
 				if (categorie.equals("medicaments")) { 
-					corpsReponse.put("medicaments", dmp.obtenirMedicaments()); 
+					corpsReponse.put("medicaments", entiteU.obtenirMedicamentsRecentsJObject());
 				} 
 				else if (categorie.equals("interactions")) {
 					corpsReponse.put("interactions", dmp.obtenirInteractions()); 
@@ -96,7 +98,7 @@ public final class Triggers {
 				else { throw new IllegalArgumentException("Catégorie incorrecte"); }
 			}
 			else {
-				corpsReponse.put("medicaments", dmp.obtenirMedicaments());
+				corpsReponse.put("medicaments", entiteU.obtenirMedicamentsRecentsJObject());
 				corpsReponse.put("interactions", dmp.obtenirInteractions());
 			}
 			codeHttp = HttpStatus.OK;
@@ -105,8 +107,7 @@ public final class Triggers {
 			| IllegalArgumentException e) {
 			codeHttp = HttpStatus.UNAUTHORIZED;
 		}
-		catch (IOException
-			| StorageException
+		catch (StorageException
 			| URISyntaxException
 			| InvalidKeyException e)
 		{

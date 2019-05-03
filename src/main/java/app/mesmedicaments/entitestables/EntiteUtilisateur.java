@@ -37,6 +37,7 @@ public class EntiteUtilisateur extends AbstractEntite {
     byte[] jwtSalt;
     Date derniereConnexion;
     String medicamentsRecents;
+    //String medicamentsRecentsPerso
 
     /**
      * NE PAS UTILISER

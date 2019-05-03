@@ -335,8 +335,9 @@ public final class Authentification {
 				.cookies(cookies)
 				.execute();
 			pageInfos = connexion.response().parse();
-			retour.put(CLE_PRENOM, pageInfos.getElementById("firstNameValue")
-				.text());
+			retour.put(CLE_PRENOM, formaterPrenom(
+				pageInfos.getElementById("firstNameValue")
+					.text()));
 			retour.put(CLE_EMAIL, pageInfos.getElementById("email")
 				.val());
 			retour.put(CLE_GENRE, pageInfos.getElementById("genderValue")
@@ -384,5 +385,23 @@ public final class Authentification {
 		return page.getElementsByAttributeValue("name", "t:formdata")
 			.first()
 			.val();
+	}
+
+	/**
+	 * Garde une majuscule au début du prénom et après chaque tiret, le reste en minuscule
+	 */
+	private String formaterPrenom (String prenom) {
+		String prenomFormate = "";
+		boolean mettreEnMaj = true;
+		for (char c : prenom.toCharArray()) {
+			if (mettreEnMaj) { 
+				prenomFormate += String.valueOf(c).toUpperCase();
+				mettreEnMaj = false;
+			} else {
+				prenomFormate += String.valueOf(c).toLowerCase();
+			}
+			if (c == '-') { mettreEnMaj = true; }
+		}
+		return prenomFormate;
 	}
 }

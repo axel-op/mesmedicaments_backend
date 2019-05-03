@@ -54,6 +54,34 @@ public class DMP {
 		return nomsMed;
 	}
 
+	private static final BiFunction<String, Boolean, String> obtenirRegex = (mot, precisematch) -> {
+		if (precisematch) { return "(?i:.*\\b" + mot + "\\b.*)"; }
+		else { return "(?i:.*\\b" + mot + ".*)"; }
+	};
+
+	private static Set<Long> rechercherMedicament (String recherche, boolean precisematch) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		if (nomsMedicamentsNormalisesMin.isEmpty()) { 
+			nomsMedicamentsNormalisesMin = importerNomsMedicamentsNormalisesMin(); 
+		}
+		return cacheRecherche.computeIfAbsent(recherche, exp -> {
+			final String expNorm = Utils.normaliser(exp).toLowerCase();
+			final String[] mots = expNorm.split(" ");
+			return nomsMedicamentsNormalisesMin.keySet().stream()
+				.filter(nom -> {
+					for (String mot : mots) {
+						if (nom.matches(obtenirRegex.apply(mot, precisematch))) { 
+							return true; 
+						}
+					}
+					return false;
+				})
+				.flatMap(nom -> nomsMedicamentsNormalisesMin.get(nom).stream())
+				.collect(Collectors.toSet());
+		});
+	}
+
 	private final Logger LOGGER;
 	private final String ID;
 
@@ -109,7 +137,7 @@ public class DMP {
 		return interactions;
 	}
 
-	//Il y a un problème de vitesse d'exécution, je pense que cela vient de la recherche : à revoir
+	// TODO : cette méthode doit être exécutée de manière asynchrone (pas lors d'un trigger depuis l'appli) et son résultat enregistré dans la BDD
 	public JSONObject obtenirMedicaments () 
 		throws IOException, StorageException, URISyntaxException, InvalidKeyException
 	{
@@ -258,34 +286,5 @@ public class DMP {
 			Utils.logErreur(e, LOGGER);
 		}
 		return Optional.empty();
-	}
-
-	private static final BiFunction<String, Boolean, String> obtenirRegex = (mot, precisematch) -> {
-		if (precisematch) { return "(?i:.*\\b" + mot + "\\b.*)"; }
-		else { return "(?i:.*\\b" + mot + ".*)"; }
-	};
-
-	private static Set<Long> rechercherMedicament (String recherche, boolean precisematch) 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		if (nomsMedicamentsNormalisesMin.isEmpty()) { 
-			nomsMedicamentsNormalisesMin = importerNomsMedicamentsNormalisesMin(); 
-		}
-		return cacheRecherche.computeIfAbsent(recherche, exp -> {
-			final String expNorm = Utils.normaliser(exp).toLowerCase();
-			final String[] mots = expNorm.split(" ");
-			return nomsMedicamentsNormalisesMin.keySet().stream()
-				.filter(nom -> {
-					for (String mot : mots) {
-						if (nom
-							.toLowerCase()
-							.matches(obtenirRegex.apply(mot, precisematch))
-						) { return true; }
-					}
-					return false;
-				})
-				.flatMap(nom -> nomsMedicamentsNormalisesMin.get(nom).stream())
-				.collect(Collectors.toSet());
-		});
 	}
 }

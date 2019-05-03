@@ -301,7 +301,7 @@ public final class Authentification {
 			reponse = connexion.response();
 			Document page = reponse.parse();
 			entiteConnexion.definirCookiesMap(cookies);
-			if (!reponse.url().toString().matches(REGEX_ACCUEIL)) {
+			if (!reponse.url().toString().matches(REGEX_ACCUEIL)) { // TODO : logger le nombre d'échecs pour être averti au cas où la regex n'est plus valide
 				entiteConnexion.setSid(obtenirSid(page));
 				entiteConnexion.setTformdata(obtenirTformdata(page));
 				entiteConnexion.mettreAJourEntite();
@@ -400,7 +400,7 @@ public final class Authentification {
 			} else {
 				prenomFormate += String.valueOf(c).toLowerCase();
 			}
-			if (c == '-') { mettreEnMaj = true; }
+			if (c == '-' || c == ' ') { mettreEnMaj = true; }
 		}
 		return prenomFormate;
 	}

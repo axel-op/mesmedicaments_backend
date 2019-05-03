@@ -1,6 +1,5 @@
 package app.mesmedicaments;
 
-import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;

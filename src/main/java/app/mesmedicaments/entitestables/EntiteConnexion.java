@@ -2,7 +2,9 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.TableOperation;
@@ -13,20 +15,27 @@ import org.json.JSONObject;
 public class EntiteConnexion extends AbstractEntite {
 
 	//private static final CloudTable TABLE_UTILISATEURS;
-	private static final String CLE_PARTITION;
+	//private static final String CLE_PARTITION;
 	private static final String TABLE;
 
 	static { 
-		CLE_PARTITION = "connexion"; // a modifier 
+		//CLE_PARTITION = "connexion"; // a modifier 
 		TABLE = System.getenv("tableazure_connexions");
 	}
 
+	/**
+	 * Ne renvoie que les connexions non abouties
+	 * @param id
+	 * @return
+	 * @throws URISyntaxException
+	 * @throws InvalidKeyException
+	 */
 	public static EntiteConnexion obtenirEntite (String id) 
 		throws URISyntaxException, InvalidKeyException
 	{
 		try {
 			TableOperation operation = TableOperation.retrieve(
-				CLE_PARTITION, 
+				"non aboutie", 
 				id, 
 				EntiteConnexion.class);
 			return obtenirCloudTable(TABLE)
@@ -48,7 +57,7 @@ public class EntiteConnexion extends AbstractEntite {
 	public EntiteConnexion (String id) 
 		throws StorageException, InvalidKeyException, URISyntaxException
 	{
-		super(TABLE, CLE_PARTITION, id);
+		super(TABLE, "non aboutie", id);
 	}
 
 	/**
@@ -61,6 +70,15 @@ public class EntiteConnexion extends AbstractEntite {
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		super(TABLE);
+	}
+
+	@Override
+	public void mettreAJourEntite () throws StorageException {
+		if (!Optional.ofNullable(urlFichierRemboursements).orElse("").equals("")) {
+			int minute = LocalDateTime.now().getMinute();
+			this.partitionKey = String.valueOf(minute - (minute % 5));
+		}
+		super.mettreAJourEntite();
 	}
 
 	/* Getters */

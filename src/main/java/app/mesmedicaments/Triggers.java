@@ -1,5 +1,6 @@
 package app.mesmedicaments;
 
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
@@ -87,7 +88,9 @@ public final class Triggers {
 			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
 			if (categorie != null) {
 				if (categorie.equals("medicaments")) { 
-					corpsReponse.put("medicaments", entiteU.obtenirMedicamentsRecentsJObject());
+					// TODO : rétablir lorsque la mise à jour en arrière-plan sera implémentée
+					//corpsReponse.put("medicaments", entiteU.obtenirMedicamentsRecentsJObject());
+					corpsReponse.put("medicaments", dmp.obtenirMedicaments());
 				} 
 				else if (categorie.equals("interactions")) {
 					corpsReponse.put("interactions", dmp.obtenirInteractions()); 
@@ -105,7 +108,8 @@ public final class Triggers {
 			| IllegalArgumentException e) {
 			codeHttp = HttpStatus.UNAUTHORIZED;
 		}
-		catch (StorageException
+		catch (IOException
+			| StorageException
 			| URISyntaxException
 			| InvalidKeyException e)
 		{

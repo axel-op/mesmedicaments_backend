@@ -4,7 +4,6 @@ import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.TableOperation;
@@ -16,12 +15,8 @@ public class EntiteConnexion extends AbstractEntite {
 
 	//private static final CloudTable TABLE_UTILISATEURS;
 	//private static final String CLE_PARTITION;
-	private static final String TABLE;
-
-	static { 
-		//CLE_PARTITION = "connexion"; // a modifier 
-		TABLE = System.getenv("tableazure_connexions");
-	}
+	private static final String TABLE = System.getenv("tableazure_connexions");;
+	private static final String CLEPARTITION_NONABOUTIE = "non aboutie";
 
 	/**
 	 * Ne renvoie que les connexions non abouties
@@ -35,7 +30,7 @@ public class EntiteConnexion extends AbstractEntite {
 	{
 		try {
 			TableOperation operation = TableOperation.retrieve(
-				"non aboutie", 
+				CLEPARTITION_NONABOUTIE, 
 				id, 
 				EntiteConnexion.class);
 			return obtenirCloudTable(TABLE)
@@ -57,7 +52,7 @@ public class EntiteConnexion extends AbstractEntite {
 	public EntiteConnexion (String id) 
 		throws StorageException, InvalidKeyException, URISyntaxException
 	{
-		super(TABLE, "non aboutie", id);
+		super(TABLE, CLEPARTITION_NONABOUTIE, id);
 	}
 
 	/**
@@ -74,9 +69,11 @@ public class EntiteConnexion extends AbstractEntite {
 
 	@Override
 	public void mettreAJourEntite () throws StorageException {
-		if (!Optional.ofNullable(urlFichierRemboursements).orElse("").equals("")) {
+		if (this.partitionKey.equals(CLEPARTITION_NONABOUTIE)) {
 			int minute = LocalDateTime.now().getMinute();
-			this.partitionKey = String.valueOf(minute - (minute % 5));
+			String partition = String.valueOf(minute - (minute % 5));
+			if (partition.length() == 1) { partition = "0" + partition; }
+			this.partitionKey = partition;
 		}
 		super.mettreAJourEntite();
 	}

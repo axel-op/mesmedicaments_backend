@@ -1,10 +1,12 @@
 package app.mesmedicaments;
 
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.logging.Logger;
@@ -25,11 +27,11 @@ import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.Authentification;
 import app.mesmedicaments.connexion.DMP;
+import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
 import app.mesmedicaments.misesajour.MiseAJourInteractions;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 
 public final class Triggers {
@@ -74,17 +76,15 @@ public final class Triggers {
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
-		String accessToken;
-		String id;
-		String categorie = request.getQueryParameters().get("categorie");
+		String[] parametres = request.getUri().getPath().split("/");
+		String categorie = null;
+		if (parametres.length > 3) { categorie = parametres[3]; }
+		String accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
-			if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)) { 
-				throw new IllegalArgumentException(); 
-			}
-			accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
-			id = Authentification.getIdFromToken(accessToken);
+			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			String id = Authentification.getIdFromToken(accessToken);
 			DMP dmp = new DMP(id, context.getLogger());
 			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
 			if (categorie != null) {
@@ -97,8 +97,9 @@ public final class Triggers {
 				else { throw new IllegalArgumentException("Catégorie incorrecte"); }
 			}
 			else {
-				corpsReponse.put("medicaments", entiteU.obtenirMedicamentsRecentsJObject());
-				corpsReponse.put("interactions", dmp.obtenirInteractions());
+				corpsReponse
+					.put("medicaments", entiteU.obtenirMedicamentsRecentsJObject())
+					.put("interactions", dmp.obtenirInteractions());
 			}
 			codeHttp = HttpStatus.OK;
 		}
@@ -112,29 +113,71 @@ public final class Triggers {
 		{
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
-		return request.createResponseBuilder(codeHttp)
-			.body(corpsReponse.toString())
-			.build();
+		return construireReponse(codeHttp, corpsReponse, request);
 	}
 
-	/*
-	@FunctionName("medicaments")
-	public HttpResponseMessage medicaments (
+	@FunctionName("produits")
+	public HttpResponseMessage produits (
 		@HttpTrigger(
-			name = "medicamentsTrigger",
+			name = "produitsTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "medicaments/{codecis:int?}") // à tester
+			route = "produits/{categorie:alpha}/{codeproduit:int?}")
 		final HttpRequestMessage<Optional<String>> request,
-		@BindingName("codecis")
 		final ExecutionContext context
 	) {
-		// FAIRE QUELQUE CHOSE
 		// Si codecis spécifié : fichier JSON sur le medicament
 		// Sinon : liste des codecis associés à leur noms
-		return null;
+		String[] parametres = request.getUri().getPath().split("/");
+		String categorie = parametres[3];
+		String codeProduit = null;
+		if (parametres.length > 4) { codeProduit = parametres[4]; }
+		String accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
+		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
+		JSONObject corpsReponse = new JSONObject();
+		try {
+			if (categorie == null) { throw new IllegalArgumentException(); }
+			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			//Authentification.getIdFromToken(accessToken);
+			if (categorie.equals("medicaments")) {
+				if (codeProduit != null) {
+					EntiteMedicament entite = EntiteMedicament.obtenirEntite(
+						Long.parseLong(codeProduit));
+					JSONObject infosMed = new JSONObject();
+					infosMed
+						.put("noms", entite.getNoms())
+						.put("forme", entite.getForme())
+						.put("marque", entite.getMarque())
+						.put("autorisation", entite.getAutorisation())
+						.put("substances", entite.getSubstancesActives());
+					corpsReponse.put(entite.getRowKey(), infosMed);
+					codeHttp = HttpStatus.OK;
+				} 
+				else {
+					JSONObject tousLesMeds = new JSONObject();
+					int compteur = 0;
+					for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
+						tousLesMeds.put(entite.getRowKey(), entite.getNoms());
+						compteur++;
+					}
+					corpsReponse.put("medicaments", tousLesMeds);
+					corpsReponse.put("total", compteur);
+					codeHttp = HttpStatus.OK;
+				}
+			}
+		}
+		catch (JwtException e) {
+			codeHttp = HttpStatus.UNAUTHORIZED;
+		}
+		catch (IllegalArgumentException e ) {
+			codeHttp = HttpStatus.BAD_REQUEST;
+		}
+		catch (StorageException | URISyntaxException | InvalidKeyException e) {
+			Utils.logErreur(e, context.getLogger());
+			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
+		}
+		return construireReponse(codeHttp, corpsReponse, request);
 	}
-	*/
 
 	@FunctionName("connexion")
 	public HttpResponseMessage connexion (
@@ -148,10 +191,6 @@ public final class Triggers {
 		@BindingName("etape") int etape,
 		final ExecutionContext context
 	) {
-		final String id;
-		final String mdp;
-		final String deviceId;
-		String jwt = null;
 		JSONObject corpsRequete = null;
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
@@ -159,17 +198,15 @@ public final class Triggers {
 		Logger logger = context.getLogger();
 		Authentification auth;
 		try {
-			if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)) { 
-				throw new IllegalArgumentException("L'heure ne correspond pas"); 
-			}
+			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			if (request.getHttpMethod() == HttpMethod.POST) {
 				corpsRequete = new JSONObject(request.getBody().get());
 			}
-			deviceId = request.getHeaders().get(HEADER_DEVICEID);
+			final String deviceId = request.getHeaders().get(HEADER_DEVICEID);
 			if (etape == 0) { // Renouvellement du token d'accès
-				jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
+				final String jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
 				if (Authentification.checkRefreshToken(jwt, deviceId)) { 
-					id = Authentification.getIdFromToken(jwt);
+					final String id = Authentification.getIdFromToken(jwt);
 					auth = new Authentification(logger, id);
 					corpsReponse.put("accessToken", auth.createAccessToken()); 
 					codeHttp = HttpStatus.OK;
@@ -177,8 +214,8 @@ public final class Triggers {
 				else { throw new JwtException("Le token de rafraîchissement n'est pas valide"); }
 			}
 			else if (etape == 1) { // Première étape de la connexion
-				id = corpsRequete.getString("id");
-				mdp = corpsRequete.getString("mdp");
+				final String id = corpsRequete.getString("id");
+				final String mdp = corpsRequete.getString("mdp");
 				auth = new Authentification(logger, id);
 				resultat = auth.connexionDMP(mdp);
 				if (!resultat.isNull(CLE_ERREUR_AUTH)) {
@@ -190,7 +227,7 @@ public final class Triggers {
 				}
 			}
 			else if (etape == 2) { // Deuxième étape de la connexion
-				id = corpsRequete.getString("id");
+				final String id = corpsRequete.getString("id");
 				auth = new Authentification(logger, id);
 				String code = String.valueOf(corpsRequete.getInt("code"));
 				resultat = auth.doubleAuthentification(code);
@@ -220,10 +257,6 @@ public final class Triggers {
 			codeHttp = HttpStatus.BAD_REQUEST;
 			corpsReponse = new JSONObjectUneCle(CLE_CAUSE, e.getMessage());
 		}
-		catch (ExpiredJwtException e) {
-			codeHttp = HttpStatus.UNAUTHORIZED;
-			corpsReponse = new JSONObjectUneCle(CLE_CAUSE, "Jeton expiré");
-		}
 		catch (JwtException e) 
 		{
 			Utils.logErreur(e, logger);
@@ -234,10 +267,7 @@ public final class Triggers {
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 			corpsReponse = new JSONObjectUneCle(CLE_CAUSE, ERR_INTERNE);
 		}
-		corpsReponse.put(CLE_HEURE, obtenirHeure().toString());
-		return request.createResponseBuilder(codeHttp)
-			.body(corpsReponse.toString())
-			.build();
+		return construireReponse(codeHttp, corpsReponse, request);
 	}
 
 	@FunctionName("inscription")
@@ -250,29 +280,19 @@ public final class Triggers {
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
-		final String id;
-		final String prenom;
-		final String email;
-		final String genre;
-		final String jwt;
-		final String deviceId;
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
-		//JSONObject retour = new JSONObject();
 		Logger logger = context.getLogger();
 		Authentification auth;
 		try {
-			// vérifier le jeton
-			if (!verifierHeure(request.getHeaders().get(CLE_HEURE), 2)) {
-				throw new IllegalArgumentException();
-			}
-			jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
-			deviceId = request.getHeaders().get(HEADER_DEVICEID);
+			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			JSONObject corpsRequete = new JSONObject(request.getBody().get());
-			id = Authentification.getIdFromToken(jwt);
-			prenom = corpsRequete.getString("prenom");
-			email = corpsRequete.getString("email");
-			genre = corpsRequete.getString("genre");
+			final String jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
+			final String deviceId = request.getHeaders().get(HEADER_DEVICEID);
+			final String id = Authentification.getIdFromToken(jwt);
+			final String prenom = corpsRequete.getString("prenom");
+			final String email = corpsRequete.getString("email");
+			final String genre = corpsRequete.getString("genre");
 			auth = new Authentification(logger, id);
 			auth.inscription(prenom, email, genre);
 			corpsReponse.put("refreshToken", auth.createRefreshToken(deviceId));
@@ -292,10 +312,7 @@ public final class Triggers {
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 			corpsReponse = new JSONObjectUneCle(CLE_CAUSE, ERR_INTERNE);
 		}
-		corpsReponse.put(CLE_HEURE, obtenirHeure().toString());
-		return request.createResponseBuilder(codeHttp)
-			.body(corpsReponse.toString())
-			.build();
+		return construireReponse(codeHttp, corpsReponse, request);
 	}
 
 	@FunctionName("mettreAJourBases")
@@ -351,11 +368,18 @@ public final class Triggers {
 			.build();
 	}
 
+	private HttpResponseMessage construireReponse (HttpStatus codeHttp, JSONObject corpsReponse, HttpRequestMessage<Optional<String>> request) {
+		corpsReponse.put("heure", obtenirHeure().toString());
+		return request.createResponseBuilder(codeHttp)
+			.body(corpsReponse.toString())
+			.build();
+	}
+
 	private LocalDateTime obtenirHeure () {
 		return LocalDateTime.now(ZoneId.of("ECT", ZoneId.SHORT_IDS));
 	}
 
-	private boolean verifierHeure (String heure, long intervalle) {
+	private void verifierHeure (String heure, long intervalle) throws IllegalArgumentException {
 		LocalDateTime heureObtenue;
 		LocalDateTime maintenant = obtenirHeure();
 		if (heure != null && heure.length() <= 50) {
@@ -363,10 +387,10 @@ public final class Triggers {
 				heureObtenue = LocalDateTime.parse(heure);
 				if (heureObtenue.isAfter(maintenant.minusMinutes(intervalle))
 					&& heureObtenue.isBefore(maintenant.plusMinutes(2))
-				) { return true; }
+				) { return; }
 			}
 			catch (DateTimeParseException e) {}
 		}
-		return false;
+		throw new IllegalArgumentException("Heure incorrecte");
 	}
 }

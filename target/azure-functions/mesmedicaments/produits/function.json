@@ -1,0 +1,16 @@
+{
+  "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
+  "entryPoint" : "app.mesmedicaments.Triggers.produits",
+  "bindings" : [ {
+    "type" : "httpTrigger",
+    "direction" : "in",
+    "name" : "produitsTrigger",
+    "route" : "produits/{categorie:alpha}/{codeproduit:int?}",
+    "methods" : [ "GET" ],
+    "authLevel" : "ANONYMOUS"
+  }, {
+    "type" : "http",
+    "direction" : "out",
+    "name" : "$return"
+  } ]
+}

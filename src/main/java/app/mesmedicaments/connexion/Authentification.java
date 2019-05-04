@@ -307,7 +307,9 @@ public final class Authentification {
 				entiteConnexion.mettreAJourEntite();
 				return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
 			}
-			entiteConnexion.setUrlFichierRemboursements(obtenirURLFichierRemboursements(cookies).orElse(null));
+			entiteConnexion.setUrlFichierRemboursements(
+				obtenirURLFichierRemboursements(cookies).orElse(null)
+			);
 			entiteConnexion.mettreAJourEntite();
 			recupererInfosUtilisateur(cookies, retour);
 		}

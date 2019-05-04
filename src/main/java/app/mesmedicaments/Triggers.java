@@ -1,12 +1,10 @@
 package app.mesmedicaments;
 
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.logging.Logger;
@@ -138,7 +136,7 @@ public final class Triggers {
 		try {
 			if (categorie == null) { throw new IllegalArgumentException(); }
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			//Authentification.getIdFromToken(accessToken);
+			Authentification.getIdFromToken(accessToken);
 			if (categorie.equals("medicaments")) {
 				if (codeProduit != null) {
 					EntiteMedicament entite = EntiteMedicament.obtenirEntite(

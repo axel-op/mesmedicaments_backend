@@ -257,7 +257,7 @@ public final class Authentification {
 			entiteConnexion.setTformdata(obtenirTformdata(pageReponse));
 			entiteConnexion.definirCookiesMap(cookies);
 			entiteConnexion.setMotDePasse(mdp);
-			entiteConnexion.mettreAJourEntite();
+			entiteConnexion.creerEntite();
 		} catch (IOException 
 			| InvalidKeyException
 			| URISyntaxException

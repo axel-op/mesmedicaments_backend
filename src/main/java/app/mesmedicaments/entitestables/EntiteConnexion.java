@@ -4,6 +4,7 @@ import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.TableOperation;
@@ -69,7 +70,9 @@ public class EntiteConnexion extends AbstractEntite {
 
 	@Override
 	public void mettreAJourEntite () throws StorageException {
-		if (this.partitionKey.equals(CLEPARTITION_NONABOUTIE)) {
+		if (this.partitionKey.equals(CLEPARTITION_NONABOUTIE)
+			&& !Optional.ofNullable(urlFichierRemboursements).orElse("").equals(""))
+		{
 			int minute = LocalDateTime.now().getMinute();
 			String partition = String.valueOf(minute - (minute % 5));
 			if (partition.length() == 1) { partition = "0" + partition; }

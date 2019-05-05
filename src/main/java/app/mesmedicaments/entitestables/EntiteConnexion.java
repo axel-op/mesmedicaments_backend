@@ -34,19 +34,12 @@ public class EntiteConnexion extends AbstractEntite {
 				.where(filtrePK));
 	} 
 
-	/**
-	 * Ne renvoie que les connexions non abouties
-	 * @param id
-	 * @return
-	 * @throws URISyntaxException
-	 * @throws InvalidKeyException
-	 */
-	public static EntiteConnexion obtenirEntite (String id) 
+	private static EntiteConnexion obtenirEntite (String partition, String id)
 		throws URISyntaxException, InvalidKeyException
 	{
 		try {
 			TableOperation operation = TableOperation.retrieve(
-				CLEPARTITION_NONABOUTIE, 
+				partition, 
 				id, 
 				EntiteConnexion.class);
 			return obtenirCloudTable(TABLE)
@@ -56,6 +49,32 @@ public class EntiteConnexion extends AbstractEntite {
 		catch (StorageException e) {
 			return null;
 		}
+	}
+
+	public static Optional<EntiteConnexion> obtenirEntiteAboutie (String id) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		EntiteConnexion entite = null;
+		for (int i = 0; i < 60; i += 5) {
+			String partition = String.valueOf(i);
+			if (partition.length() == 1) { partition = "0" + partition; }
+			entite = obtenirEntite(partition, id);
+			if (entite != null) { return Optional.of(entite); }
+		}
+		return Optional.empty();
+	}
+
+	/**
+	 * Ne renvoie que les connexions non abouties
+	 * @param id
+	 * @return
+	 * @throws URISyntaxException
+	 * @throws InvalidKeyException
+	 */
+	public static EntiteConnexion obtenirEntiteNonAboutie (String id) 
+		throws URISyntaxException, InvalidKeyException
+	{
+		return obtenirEntite(CLEPARTITION_NONABOUTIE, id);
 	}
 
 	String sid;

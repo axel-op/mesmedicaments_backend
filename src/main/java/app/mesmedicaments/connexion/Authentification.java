@@ -279,7 +279,7 @@ public final class Authentification {
 		JSONObject retour = new JSONObject();
 		LocalDateTime maintenant = LocalDateTime.now(TIMEZONE);
 		try {
-			entiteConnexion = EntiteConnexion.obtenirEntite(id);
+			entiteConnexion = EntiteConnexion.obtenirEntiteNonAboutie(id);
 			if (entiteConnexion == null) {
 				logger.info("Appel API connexion étape 2 mais pas d'élément de l'étape 1 trouvé");
 				throw new IllegalArgumentException("Pas d'élément de l'étape 1 trouvé"); 

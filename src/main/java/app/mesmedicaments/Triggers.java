@@ -19,6 +19,7 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import com.microsoft.azure.functions.annotation.QueueTrigger;
 import com.microsoft.azure.functions.annotation.TimerTrigger;
 import com.microsoft.azure.storage.StorageException;
 
@@ -27,6 +28,7 @@ import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.Authentification;
 import app.mesmedicaments.connexion.DMP;
+import app.mesmedicaments.entitestables.EntiteConnexion;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
@@ -62,6 +64,28 @@ public final class Triggers {
 		HEADER_DEVICEID = "deviceid";
 	}
 
+	// TODO : ajouter un trigger de type Queue lorsque les utilisateurs se connectent pour effectuer une mise à jour de leurs médicaments
+	@FunctionName("nouvelleConnexion")
+	public void nouvelleConnexion (
+		@QueueTrigger(
+			name = "nouvelleConnexionTrigger",
+			queueName = "nouvelles-connexions",
+			connection = "AzureWebJobsStorage")
+		final String message, 
+		final ExecutionContext context
+	) {
+		Logger logger = context.getLogger();
+		try {
+			Optional<EntiteConnexion> entiteC = EntiteConnexion.obtenirEntiteAboutie(message);
+			if (entiteC.isPresent()) {
+				DMP.majConnexion(entiteC.get(), logger);
+			}
+		}
+		catch (StorageException | URISyntaxException | InvalidKeyException e) {
+			Utils.logErreur(e, logger);
+		}
+	}
+
 	@FunctionName("maintienConnexion")
 	public void maintienConnexion (
 		@TimerTrigger(
@@ -71,6 +95,7 @@ public final class Triggers {
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
+		logger.info("Timer info = " + timerInfo);
 		int minuteArrondie = LocalDateTime.now().getMinute();
 		int decalage = minuteArrondie % 5;
 		if (decalage < 3) { minuteArrondie -= decalage; }
@@ -81,7 +106,7 @@ public final class Triggers {
 			String partition = String.valueOf(i);
 			if (partition.length() == 1) { partition = "0" + partition; }
 			logger.info("Debug : partition = " + partition);
-			try { DMP.majUtilisateurs(partition, logger); }
+			try { DMP.majConnexions(partition, logger); }
 			catch (StorageException | URISyntaxException | InvalidKeyException e) {
 				logger.warning("Echec de la MAJ pour la partition " + partition);
 				Utils.logErreur(e, logger);
@@ -113,8 +138,6 @@ public final class Triggers {
 			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
 			if (categorie != null) {
 				if (categorie.equals("medicaments")) { 
-					// TODO : rétablir lorsque la mise à jour en arrière-plan sera implémentée
-					//corpsReponse.put("medicaments", entiteU.obtenirMedicamentsRecentsJObject());
 					corpsReponse.put("medicaments", entiteU.obtenirMedicamentsJObject());
 					codeHttp = HttpStatus.OK;
 				} 

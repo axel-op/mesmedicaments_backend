@@ -75,7 +75,10 @@ public class EntiteUtilisateur extends AbstractEntite {
     /**
      * L'objet JSON associe une date (non formatée) à une liste de médicaments
      */
-    public JSONObject obtenirMedicamentsJObject () { return new JSONObject(medicaments); }
+    public JSONObject obtenirMedicamentsJObject () { 
+        if (medicaments == null) { return new JSONObject(); }
+        return new JSONObject(medicaments); 
+    }
 
     // Setters
 

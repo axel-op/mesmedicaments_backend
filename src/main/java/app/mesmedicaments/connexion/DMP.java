@@ -39,39 +39,48 @@ public class DMP {
 	private static Map<String, Set<Long>> nomsMedicamentsNormalisesMin = Collections.emptyMap();
 	private static Map<String, Set<Long>> cacheRecherche = new HashMap<>();
 
+	public static void majConnexion (EntiteConnexion entiteC, Logger logger) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		String urlFichier = entiteC.getUrlFichierRemboursements();
+		Map<String, String> cookies = entiteC.obtenirCookiesMap();
+		String id = entiteC.getRowKey();
+		DMP dmp = new DMP(id, logger);
+		Optional<PDDocument> fichier = dmp.obtenirFichierRemboursements(urlFichier, cookies);
+		if (fichier.isPresent()) {
+			try {
+				JSONObject medicaments = dmp.obtenirMedicaments(fichier.get());
+				//JSONObject interactions = dmp.obtenirInteractions(medicaments);
+				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
+				entiteU.definirMedicamentsJObject(medicaments);
+				//entiteU.def
+				entiteU.mettreAJourEntite();
+				entiteC.setTentatives(0);
+			}
+			catch (IOException | StorageException | URISyntaxException | InvalidKeyException e) {
+				entiteC.setTentatives(entiteC.getTentatives() + 1);
+				if (entiteC.getTentatives() >= 5) {
+					entiteC.marquerCommeEchouee();
+				}
+				else {
+					int nouvellePartition = Integer.parseInt(entiteC.getPartitionKey()) + 10;
+					entiteC.setPartitionKey(String.valueOf(nouvellePartition));
+				}
+			}
+			finally { entiteC.mettreAJourEntite(); }
+		}
+		else { 
+			/* TODO : grave erreur, notifier */ 
+			entiteC.marquerCommeEchouee();
+		}
+	}
+ 
 	//doc
-	public static void majUtilisateurs (String partition, Logger logger) 
+	public static void majConnexions (String partition, Logger logger) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		for (EntiteConnexion entiteC : EntiteConnexion.obtenirEntitesPartition(partition)) {
-			String urlFichier = entiteC.getUrlFichierRemboursements();
-			Map<String, String> cookies = entiteC.obtenirCookiesMap();
-			String id = entiteC.getRowKey();
-			DMP dmp = new DMP(id, logger);
-			Optional<PDDocument> fichier = dmp.obtenirFichierRemboursements(urlFichier, cookies);
-			if (fichier.isPresent()) {
-				try {
-					JSONObject medicaments = dmp.obtenirMedicaments(fichier.get());
-					//JSONObject interactions = dmp.obtenirInteractions(medicaments);
-					EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
-					entiteU.definirMedicamentsJObject(medicaments);
-					//entiteU.def
-					entiteU.mettreAJourEntite();
-					entiteC.setTentatives(0);
-				}
-				catch (IOException | StorageException | URISyntaxException | InvalidKeyException e) {
-					entiteC.setTentatives(entiteC.getTentatives() + 1);
-					if (entiteC.getTentatives() >= 5) {
-						entiteC.marquerCommeEchouee();
-					}
-					else {
-						int nouvellePartition = Integer.parseInt(partition) + 10;
-						entiteC.setPartitionKey(String.valueOf(nouvellePartition));
-					}
-				}
-				finally { entiteC.mettreAJourEntite(); }
-			}
-			else { /* TODO : grave erreur, notifier */ }
+			majConnexion(entiteC, logger);
 		}
 	}
 

@@ -144,6 +144,7 @@ public final class Triggers {
 				if (codeProduit != null) {
 					EntiteMedicament entite = EntiteMedicament.obtenirEntite(
 						Long.parseLong(codeProduit));
+					if (entite == null) { throw new IllegalArgumentException("Ce médicament n'existe pas"); }
 					JSONObject infosMed = new JSONObject();
 					infosMed
 						.put("noms", entite.getNoms())
@@ -170,8 +171,9 @@ public final class Triggers {
 		catch (JwtException e) {
 			codeHttp = HttpStatus.UNAUTHORIZED;
 		}
-		catch (IllegalArgumentException e ) {
+		catch (IllegalArgumentException e) {
 			codeHttp = HttpStatus.BAD_REQUEST;
+			corpsReponse.put(CLE_CAUSE, e.getMessage());
 		}
 		catch (StorageException | URISyntaxException | InvalidKeyException e) {
 			Utils.logErreur(e, context.getLogger());

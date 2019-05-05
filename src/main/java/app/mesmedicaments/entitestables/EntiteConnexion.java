@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.table.CloudTable;
 import com.microsoft.azure.storage.table.TableOperation;
 
 import org.json.JSONException;
@@ -16,7 +17,7 @@ public class EntiteConnexion extends AbstractEntite {
 
 	//private static final CloudTable TABLE_UTILISATEURS;
 	//private static final String CLE_PARTITION;
-	private static final String TABLE = System.getenv("tableazure_connexions");;
+	private static final String TABLE = System.getenv("tableazure_connexions");
 	private static final String CLEPARTITION_NONABOUTIE = "non aboutie";
 
 	/**
@@ -38,7 +39,7 @@ public class EntiteConnexion extends AbstractEntite {
 				.execute(operation)
 				.getResultAsType();
 		}
-		catch (StorageException e ) {
+		catch (StorageException e) {
 			return null;
 		}
 	}
@@ -68,6 +69,30 @@ public class EntiteConnexion extends AbstractEntite {
 		super(TABLE);
 	}
 
+	/**
+	 * Supprime toutes les occurrences ABOUTIES ayant le même id sur une partition différente de la table connexions
+	 * @throws StorageException
+	 * @throws URISyntaxException
+	 * @throws InvalidKeyException
+	 */
+	private void supprimerAutresOccurrences () 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		CloudTable cloudTable = obtenirCloudTable(TABLE);
+		for (int i = 0; i < 60; i += 5) {
+			String partition = String.valueOf(i);
+			if (partition.length() == 1) { partition = "0" + partition; }
+			if (!partition.equals(getPartitionKey())) {
+				TableOperation operation = TableOperation.retrieve(partition, getRowKey(), EntiteConnexion.class);
+				EntiteConnexion entite = cloudTable.execute(operation).getResultAsType();
+				if (entite != null) {
+					operation = TableOperation.delete(entite);
+					cloudTable.execute(operation);
+				}
+			}
+		}
+	}
+
 	@Override
 	public void mettreAJourEntite () throws StorageException {
 		if (this.partitionKey.equals(CLEPARTITION_NONABOUTIE)
@@ -78,6 +103,8 @@ public class EntiteConnexion extends AbstractEntite {
 			if (partition.length() == 1) { partition = "0" + partition; }
 			this.partitionKey = partition;
 		}
+		try { supprimerAutresOccurrences(); }
+		catch (URISyntaxException | InvalidKeyException e) {}
 		super.mettreAJourEntite();
 	}
 

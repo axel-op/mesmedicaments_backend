@@ -138,9 +138,8 @@ public final class Triggers {
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
-			if (categorie == null) { throw new IllegalArgumentException(); }
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			Authentification.getIdFromToken(accessToken);
+			if (categorie == null) { throw new IllegalArgumentException(); }
 			if (categorie.equals("medicaments")) {
 				if (codeProduit != null) {
 					EntiteMedicament entite = EntiteMedicament.obtenirEntite(

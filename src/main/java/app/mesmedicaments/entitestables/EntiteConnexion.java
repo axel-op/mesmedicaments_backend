@@ -9,6 +9,8 @@ import java.util.Optional;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.CloudTable;
 import com.microsoft.azure.storage.table.TableOperation;
+import com.microsoft.azure.storage.table.TableQuery;
+import com.microsoft.azure.storage.table.TableQuery.QueryComparisons;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -19,6 +21,18 @@ public class EntiteConnexion extends AbstractEntite {
 	//private static final String CLE_PARTITION;
 	private static final String TABLE = System.getenv("tableazure_connexions");
 	private static final String CLEPARTITION_NONABOUTIE = "non aboutie";
+
+	public static Iterable<EntiteConnexion> obtenirEntitesPartition (String partition) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		String filtrePK = TableQuery.generateFilterCondition(
+			"PartitionKey", 
+			QueryComparisons.EQUAL, 
+			partition);
+		return obtenirCloudTable(TABLE)
+			.execute(new TableQuery<>(EntiteConnexion.class)
+				.where(filtrePK));
+	} 
 
 	/**
 	 * Ne renvoie que les connexions non abouties
@@ -50,6 +64,7 @@ public class EntiteConnexion extends AbstractEntite {
 	//boolean inscriptionRequise;
 	String urlFichierRemboursements;
 	String motDePasse;
+	Integer tentatives;
 
 	public EntiteConnexion (String id) 
 		throws StorageException, InvalidKeyException, URISyntaxException
@@ -95,6 +110,7 @@ public class EntiteConnexion extends AbstractEntite {
 
 	@Override
 	public void mettreAJourEntite () throws StorageException {
+		if (tentatives == null) { tentatives = 0; }
 		if (this.partitionKey.equals(CLEPARTITION_NONABOUTIE)
 			&& !Optional.ofNullable(urlFichierRemboursements).orElse("").equals(""))
 		{
@@ -135,6 +151,10 @@ public class EntiteConnexion extends AbstractEntite {
 	public String getUrlFichierRemboursements () { return urlFichierRemboursements; }
 	public String getMotDePasse () { return motDePasse; }
 
+	public Integer getTentatives () { 
+		return Optional.ofNullable(tentatives).orElse(0);
+	}
+
 	/* Setters */
 
 	public void setSid (String sid) { this.sid = sid; }
@@ -162,6 +182,7 @@ public class EntiteConnexion extends AbstractEntite {
 	//public void setInscriptionRequise (boolean inscriptionRequise) { this.inscriptionRequise = inscriptionRequise; }
 	public void setUrlFichierRemboursements (String url) { urlFichierRemboursements = url; }
 	public void setMotDePasse (String mdp) { motDePasse = mdp; }
+	public void setTentatives (int tentatives) { this.tentatives = tentatives; }
 
 	// Affichage
 	public String toString () {

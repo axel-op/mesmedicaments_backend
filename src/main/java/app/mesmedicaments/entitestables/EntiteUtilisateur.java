@@ -36,7 +36,7 @@ public class EntiteUtilisateur extends AbstractEntite {
     String deviceId;
     byte[] jwtSalt;
     Date derniereConnexion;
-    String medicamentsRecents;
+    String medicaments;
     //String medicamentsRecentsPerso
 
     /**
@@ -70,12 +70,12 @@ public class EntiteUtilisateur extends AbstractEntite {
     /**
      * @return {@link JSONObject} converti en {@link String}
      */
-    public String getMedicamentsRecents () { return medicamentsRecents; }
+    public String getMedicaments () { return medicaments; }
 
     /**
      * L'objet JSON associe une date (non formatée) à une liste de médicaments
      */
-    public JSONObject obtenirMedicamentsRecentsJObject () { return new JSONObject(medicamentsRecents); }
+    public JSONObject obtenirMedicamentsJObject () { return new JSONObject(medicaments); }
 
     // Setters
 
@@ -101,12 +101,12 @@ public class EntiteUtilisateur extends AbstractEntite {
     /**
      * Doit être sous forme de {@link JSONObject} converti en {@link String}
      */
-    public void setMedicamentsRecents (String medicamentsRecents) {
-        this.medicamentsRecents = new JSONObject(medicamentsRecents).toString();
+    public void setMedicaments (String medicamentsRecents) {
+        this.medicaments = new JSONObject(medicamentsRecents).toString();
     }
 
-    public void definirMedicamentsRecentsJObject (JSONObject medicamentsRecents) {
-        this.medicamentsRecents = medicamentsRecents.toString();
+    public void definirMedicamentsJObject (JSONObject medicamentsRecents) {
+        this.medicaments = medicamentsRecents.toString();
     }
 
 }

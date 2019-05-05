@@ -39,6 +39,42 @@ public class DMP {
 	private static Map<String, Set<Long>> nomsMedicamentsNormalisesMin = Collections.emptyMap();
 	private static Map<String, Set<Long>> cacheRecherche = new HashMap<>();
 
+	//doc
+	public static void majUtilisateurs (String partition, Logger logger) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		for (EntiteConnexion entiteC : EntiteConnexion.obtenirEntitesPartition(partition)) {
+			String urlFichier = entiteC.getUrlFichierRemboursements();
+			Map<String, String> cookies = entiteC.obtenirCookiesMap();
+			String id = entiteC.getRowKey();
+			DMP dmp = new DMP(id, logger);
+			Optional<PDDocument> fichier = dmp.obtenirFichierRemboursements(urlFichier, cookies);
+			if (fichier.isPresent()) {
+				try {
+					JSONObject medicaments = dmp.obtenirMedicaments(fichier.get());
+					//JSONObject interactions = dmp.obtenirInteractions(medicaments);
+					EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
+					entiteU.definirMedicamentsJObject(medicaments);
+					//entiteU.def
+					entiteU.mettreAJourEntite();
+					entiteC.setTentatives(0);
+				}
+				catch (IOException | StorageException | URISyntaxException | InvalidKeyException e) {
+					entiteC.setTentatives(entiteC.getTentatives() + 1);
+					if (entiteC.getTentatives() >= 5) {
+						entiteC.setPartitionKey("échouée");
+					}
+					else {
+						int nouvellePartition = Integer.parseInt(partition) + 10;
+						entiteC.setPartitionKey(String.valueOf(nouvellePartition));
+					}
+				}
+				finally { entiteC.mettreAJourEntite(); }
+			}
+			else { /* TODO : grave erreur, notifier */ }
+		}
+	}
+
 	private static Map<String, Set<Long>> importerNomsMedicamentsNormalisesMin () 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
@@ -90,7 +126,7 @@ public class DMP {
 		this.LOGGER = logger;
 	}
 
-	public JSONObject obtenirInteractions () 
+	public JSONObject obtenirInteractions (JSONObject medicaments) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		JSONObject interactions = new JSONObject();
@@ -98,15 +134,16 @@ public class DMP {
 			interactions.put(String.valueOf(risque), new JSONArray());
 		}
 		Map<Long, Set<Long>> subMeds = new HashMap<>();
-		Set<Long> codesCIS = EntiteUtilisateur.obtenirEntite(ID)
-			.obtenirMedicamentsRecentsJObject()
-				.toMap().values().stream()
-					.map(String::valueOf)
-					.map(JSONArray::new)
-					.flatMap(jarray -> jarray.toList().stream())
-					.mapToLong(obj -> (long) ((int) obj))
-					.boxed()
-					.collect(Collectors.toSet());
+		/*Set<Long> codesCIS = EntiteUtilisateur.obtenirEntite(ID)
+			.obtenirMedicamentsRecentsJObject()*/
+		Set<Long> codesCIS = medicaments
+			.toMap().values().stream()
+				.map(String::valueOf)
+				.map(JSONArray::new)
+				.flatMap(jarray -> jarray.toList().stream())
+				.mapToLong(obj -> (long) ((int) obj))
+				.boxed()
+				.collect(Collectors.toSet());
 		for (long codeCIS : codesCIS) {
 			EntiteMedicament.obtenirEntite(codeCIS)
 				.obtenirSubstancesActivesJArray()
@@ -138,61 +175,56 @@ public class DMP {
 	}
 
 	// TODO : cette méthode doit être exécutée de manière asynchrone (pas lors d'un trigger depuis l'appli) et son résultat enregistré dans la BDD
-	public JSONObject obtenirMedicaments () 
+	public JSONObject obtenirMedicaments (PDDocument fichierRemboursements) 
 		throws IOException, StorageException, URISyntaxException, InvalidKeyException
 	{
 		JSONObject medParDate = new JSONObject();
-		Optional<PDDocument> optional = obtenirFichierRemboursements();
-		if (optional.isPresent()) {
-			PDDocument document = optional.get();
-			PDFTextStripper stripper = new PDFTextStripper();
-			BufferedReader br = new BufferedReader(
-				new StringReader(
-					new String(
-						stripper.getText(document).getBytes(),
-						Charset.forName("ISO-8859-1")
-					)
+		PDFTextStripper stripper = new PDFTextStripper();
+		BufferedReader br = new BufferedReader(
+			new StringReader(
+				new String(
+					stripper.getText(fichierRemboursements).getBytes(),
+					Charset.forName("ISO-8859-1")
 				)
-			);
-			String ligne;
-			boolean balise = false;
-			boolean alerte = true; // Si pas de section Pharmacie trouvée
-			while ((ligne = br.readLine()) != null) {
-				if (ligne.contains("Hospitalisation")) { balise = false; }
-				if (balise) {
-					if (ligne.matches("[0-9]{2}/[0-9]{2}/[0-9]{4}.*")) {
-						String date = ligne.substring(0, 10);
-						String recherche = ligne.substring(0, 10);
-						if (!recherche.matches(" *")) {
-							Optional<Long> resultat = trouverCorrespondanceMedicament(ligne.substring(10));
-							if (resultat.isPresent()) {
-								if (!medParDate.has(date)) { medParDate.put(date, new JSONArray()); }
-								medParDate.getJSONArray(date).put(resultat.get());
-								//medParDate.append(date, resultat.get());
-							}
+			)
+		);
+		String ligne;
+		boolean balise = false;
+		boolean alerte = true; // Si pas de section Pharmacie trouvée
+		while ((ligne = br.readLine()) != null) {
+			if (ligne.contains("Hospitalisation")) { balise = false; }
+			if (balise) {
+				if (ligne.matches("[0-9]{2}/[0-9]{2}/[0-9]{4}.*")) {
+					String date = ligne.substring(0, 10);
+					String recherche = ligne.substring(0, 10);
+					if (!recherche.matches(" *")) {
+						Optional<Long> resultat = trouverCorrespondanceMedicament(ligne.substring(10));
+						if (resultat.isPresent()) {
+							if (!medParDate.has(date)) { medParDate.put(date, new JSONArray()); }
+							medParDate.getJSONArray(date).put(resultat.get());
+							//medParDate.append(date, resultat.get());
 						}
 					}
 				}
-				if (ligne.contains("Pharmacie / fournitures")) {
-					alerte = false;
-					balise = true;
-				}
 			}
-			document.close();
-			br.close();
-			if (alerte) {} // faire quelque chose
-			try {
-				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(ID);
-				entiteU.definirMedicamentsRecentsJObject(medParDate);
-				entiteU.mettreAJourEntite();
-			}
-			catch (StorageException | URISyntaxException | InvalidKeyException e)
-			{
-				Utils.logErreur(e, LOGGER);
-				LOGGER.warning("Impossible de mettre à jour les médicaments récents pour l'utilisateur " + ID);
+			if (ligne.contains("Pharmacie / fournitures")) {
+				alerte = false;
+				balise = true;
 			}
 		}
-		else { LOGGER.info("Impossible de récupérer le fichier des remboursements"); }
+		fichierRemboursements.close();
+		br.close();
+		if (alerte) {} // faire quelque chose
+		/*try {
+			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(ID);
+			entiteU.definirMedicamentsRecentsJObject(medParDate);
+			entiteU.mettreAJourEntite();
+		}
+		catch (StorageException | URISyntaxException | InvalidKeyException e)
+		{
+			Utils.logErreur(e, LOGGER);
+			LOGGER.warning("Impossible de mettre à jour les médicaments récents pour l'utilisateur " + ID);
+		}*/
 		return medParDate;
 	}
 
@@ -264,11 +296,11 @@ public class DMP {
 			.findFirst();
 	}
 
-	private Optional<PDDocument> obtenirFichierRemboursements () {
+	private Optional<PDDocument> obtenirFichierRemboursements (String urlFichier, Map<String, String> cookies) {
 		try {
-			EntiteConnexion entite = EntiteConnexion.obtenirEntite(ID);
-			HashMap<String, String> cookies = entite.obtenirCookiesMap();
-			String urlFichier = entite.getUrlFichierRemboursements();
+			//EntiteConnexion entite = EntiteConnexion.obtenirEntite(ID);
+			//HashMap<String, String> cookies = entite.obtenirCookiesMap();
+			//String urlFichier = entite.getUrlFichierRemboursements();
 			HttpsURLConnection connPDF = (HttpsURLConnection) new URL(urlFichier).openConnection();
 			connPDF.setRequestMethod("GET");
 			for (String cookie : cookies.keySet()) { 
@@ -279,10 +311,6 @@ public class DMP {
 		}
 		catch (IOException e) {
 			LOGGER.warning("Problème de connexion au fichier des remboursements");
-			Utils.logErreur(e, LOGGER);
-		}
-		catch (URISyntaxException | InvalidKeyException e) {
-			LOGGER.warning("Impossible de récupérer l'entité Connexion");
 			Utils.logErreur(e, LOGGER);
 		}
 		return Optional.empty();

@@ -19,6 +19,7 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import com.microsoft.azure.functions.annotation.TimerTrigger;
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONException;
@@ -61,8 +62,32 @@ public final class Triggers {
 		HEADER_DEVICEID = "deviceid";
 	}
 
-	//private Logger logger;
-	//private JSONObject corpsRequete;
+	@FunctionName("maintienConnexion")
+	public void maintienConnexion (
+		@TimerTrigger(
+			name = "maintienConnexionTrigger",
+			schedule = "0 */5 * * * *")
+		final String timerInfo,
+		final ExecutionContext context
+	) {
+		Logger logger = context.getLogger();
+		int minuteArrondie = LocalDateTime.now().getMinute();
+		int decalage = minuteArrondie % 5;
+		if (decalage < 3) { minuteArrondie -= decalage; }
+		else { minuteArrondie += 5 - decalage; }
+		logger.info("Debug : minuteArrondie = " + minuteArrondie);
+		// routine à effectuer en partant de minuteArrondie % 20 et de 20 en 20
+		for (int i = minuteArrondie % 20; i < 60; i += 20) {
+			String partition = String.valueOf(i);
+			if (partition.length() == 1) { partition = "0" + partition; }
+			logger.info("Debug : partition = " + partition);
+			try { DMP.majUtilisateurs(partition, logger); }
+			catch (StorageException | URISyntaxException | InvalidKeyException e) {
+				logger.warning("Echec de la MAJ pour la partition " + partition);
+				Utils.logErreur(e, logger);
+			}
+		}
+	}
 
 	// mettre une doc
 	@FunctionName("dmp")
@@ -90,26 +115,27 @@ public final class Triggers {
 				if (categorie.equals("medicaments")) { 
 					// TODO : rétablir lorsque la mise à jour en arrière-plan sera implémentée
 					//corpsReponse.put("medicaments", entiteU.obtenirMedicamentsRecentsJObject());
-					corpsReponse.put("medicaments", dmp.obtenirMedicaments());
+					corpsReponse.put("medicaments", entiteU.obtenirMedicamentsJObject());
+					codeHttp = HttpStatus.OK;
 				} 
 				else if (categorie.equals("interactions")) {
-					corpsReponse.put("interactions", dmp.obtenirInteractions()); 
+					//corpsReponse.put("interactions", dmp.obtenirInteractions()); 
+					codeHttp = HttpStatus.NOT_IMPLEMENTED;
 				}
 				else { throw new IllegalArgumentException("Catégorie incorrecte"); }
 			}
 			else {
-				corpsReponse
-					.put("medicaments", entiteU.obtenirMedicamentsRecentsJObject())
-					.put("interactions", dmp.obtenirInteractions());
+				/*corpsReponse
+					.put("medicaments", entiteU.obtenirMedicamentsJObject())
+					.put("interactions", dmp.obtenirInteractions());*/
+				codeHttp = HttpStatus.NOT_IMPLEMENTED;
 			}
-			codeHttp = HttpStatus.OK;
 		}
 		catch (JwtException
 			| IllegalArgumentException e) {
 			codeHttp = HttpStatus.UNAUTHORIZED;
 		}
-		catch (IOException
-			| StorageException
+		catch (StorageException
 			| URISyntaxException
 			| InvalidKeyException e)
 		{

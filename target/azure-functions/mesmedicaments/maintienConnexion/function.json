@@ -1,0 +1,10 @@
+{
+  "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
+  "entryPoint" : "app.mesmedicaments.Triggers.maintienConnexion",
+  "bindings" : [ {
+    "type" : "timerTrigger",
+    "direction" : "in",
+    "name" : "maintienConnexionTrigger",
+    "schedule" : "0 */5 * * * *"
+  } ]
+}

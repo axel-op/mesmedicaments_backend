@@ -75,6 +75,8 @@ public final class Triggers {
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
+		logger.info("Debug : message = " + message);
+		if (message.length() != 8) { throw new IllegalArgumentException(); }
 		try {
 			Optional<EntiteConnexion> entiteC = EntiteConnexion.obtenirEntiteAboutie(message);
 			if (entiteC.isPresent()) {

@@ -84,6 +84,14 @@ public class EntiteConnexion extends AbstractEntite {
 		super(TABLE);
 	}
 
+	public void marquerCommeEchouee ()
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		setPartitionKey("échouée");
+		supprimerAutresOccurrences();
+		mettreAJourEntite();
+	}
+
 	/**
 	 * Supprime toutes les occurrences ABOUTIES ayant le même id sur une partition différente de la table connexions
 	 * @throws StorageException

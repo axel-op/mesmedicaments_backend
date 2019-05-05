@@ -62,7 +62,7 @@ public class DMP {
 				catch (IOException | StorageException | URISyntaxException | InvalidKeyException e) {
 					entiteC.setTentatives(entiteC.getTentatives() + 1);
 					if (entiteC.getTentatives() >= 5) {
-						entiteC.setPartitionKey("échouée");
+						entiteC.marquerCommeEchouee();
 					}
 					else {
 						int nouvellePartition = Integer.parseInt(partition) + 10;

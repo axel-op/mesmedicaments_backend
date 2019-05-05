@@ -31,5 +31,4 @@ hs_err_pid*
 
 # Azure Functions
 local.settings.json
-bin/
 obj/

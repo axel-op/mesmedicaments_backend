@@ -2,6 +2,7 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
 
@@ -9,7 +10,7 @@ import org.json.JSONArray;
 
 public class EntiteSubstance extends AbstractEntiteProduit {
 
-	public static EntiteSubstance obtenirEntite (long codeSubstance)
+	public static Optional<EntiteSubstance> obtenirEntite (long codeSubstance)
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		return AbstractEntiteProduit.obtenirEntite("substance", codeSubstance, EntiteSubstance.class);

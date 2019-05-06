@@ -33,6 +33,7 @@ import app.mesmedicaments.connexion.DMP;
 import app.mesmedicaments.entitestables.EntiteConnexion;
 import app.mesmedicaments.entitestables.EntiteInteraction;
 import app.mesmedicaments.entitestables.EntiteMedicament;
+import app.mesmedicaments.entitestables.EntiteSubstance;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import io.jsonwebtoken.JwtException;
 
@@ -142,8 +143,8 @@ public final class PublicTriggers {
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
-			EntiteMedicament entiteMed1 = EntiteMedicament.obtenirEntite(codeCis1);
-			EntiteMedicament entiteMed2 = EntiteMedicament.obtenirEntite(codeCis2);
+			EntiteMedicament entiteMed1 = EntiteMedicament.obtenirEntite(codeCis1).get();
+			EntiteMedicament entiteMed2 = EntiteMedicament.obtenirEntite(codeCis2).get();
 			Function<JSONArray, Set<Integer>> jArrayToSet = jArray -> jArray
 				.toList()
 				.stream()
@@ -170,6 +171,9 @@ public final class PublicTriggers {
 			corpsReponse.put("interactions", interactions);
 			codeHttp = HttpStatus.OK;
 		}
+		catch (NoSuchElementException e) {
+			codeHttp = HttpStatus.NOT_FOUND;
+		}
 		catch (StorageException | URISyntaxException | InvalidKeyException e) {
 			Utils.logErreur(e, context.getLogger());
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -187,8 +191,6 @@ public final class PublicTriggers {
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
-		// Si codecis spécifié : fichier JSON sur le medicament
-		// Sinon : liste de tous les codecis associés à leurs noms
 		String[] parametres = request.getUri().getPath().split("/");
 		String categorie = parametres[3];
 		String codeProduit = null;
@@ -198,14 +200,24 @@ public final class PublicTriggers {
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			if (categorie == null) { throw new IllegalArgumentException(); }
-			if (categorie.equals("substances")) { /* TODO (ne pas permettre le renvoi de toutes les substances) */ }
+			if (categorie.equals("substances")) {
+				if (codeProduit == null) { codeHttp = HttpStatus.FORBIDDEN; }
+				else {
+					EntiteSubstance entite = EntiteSubstance
+						.obtenirEntite(Long.parseLong(codeProduit))
+						.get();
+					JSONObject infosSub = new JSONObject()
+						.put("noms", entite.obtenirNomsJArray());
+					corpsReponse.put(entite.getRowKey(), infosSub);
+					codeHttp = HttpStatus.OK;
+				}
+			}
 			if (categorie.equals("medicaments")) {
 				if (codeProduit != null) {
-					EntiteMedicament entite = EntiteMedicament.obtenirEntite(
-						Long.parseLong(codeProduit));
-					if (entite == null) { throw new IllegalArgumentException("Ce médicament n'existe pas"); }
-					JSONObject infosMed = new JSONObject();
-					infosMed
+					EntiteMedicament entite = EntiteMedicament
+						.obtenirEntite(Long.parseLong(codeProduit))
+						.get();
+					JSONObject infosMed = new JSONObject()
 						.put("noms", entite.getNoms())
 						.put("forme", entite.getForme())
 						.put("marque", entite.getMarque())
@@ -229,6 +241,9 @@ public final class PublicTriggers {
 		}
 		catch (JwtException e) {
 			codeHttp = HttpStatus.UNAUTHORIZED;
+		}
+		catch (NoSuchElementException e) {
+			codeHttp = HttpStatus.NOT_FOUND;
 		}
 		catch (IllegalArgumentException e) {
 			codeHttp = HttpStatus.BAD_REQUEST;

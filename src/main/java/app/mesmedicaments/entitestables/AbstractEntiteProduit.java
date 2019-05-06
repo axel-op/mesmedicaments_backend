@@ -2,6 +2,7 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.CloudTable;
@@ -14,16 +15,18 @@ public abstract class AbstractEntiteProduit extends AbstractEntite implements Co
 
 	private static final String TABLE = System.getenv("tableazure_produits"); 
 
-	protected static <E extends AbstractEntiteProduit> E obtenirEntite (String typeProduit, long codeProduit, Class<E> clazzType)
+	protected static <E extends AbstractEntiteProduit> Optional<E> obtenirEntite (String typeProduit, long codeProduit, Class<E> clazzType)
 		throws URISyntaxException, InvalidKeyException, StorageException
 	{
 		TableOperation operation = TableOperation.retrieve(
 			typeProduit,
 			String.valueOf(codeProduit), 
 			clazzType);
-		return obtenirCloudTable(TABLE)
-				.execute(operation)
-				.getResultAsType();
+		return Optional.ofNullable(
+			obtenirCloudTable(TABLE)
+			.execute(operation)
+			.getResultAsType()
+		);
 	}
 	
 

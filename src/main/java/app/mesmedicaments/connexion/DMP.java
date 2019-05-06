@@ -96,7 +96,10 @@ public class DMP {
 			try {
 				JSONObject medicaments = obtenirMedicaments(fichier.get());
 				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
-				entiteU.definirMedicamentsJObject(medicaments);
+				// TODO : vérifier jusqu'à quand la connexion tient et aviser
+				if (!medicaments.isEmpty() || entiteU.getMedicaments() == null) {
+					entiteU.definirMedicamentsJObject(medicaments);
+				}
 				entiteU.mettreAJourEntite();
 				entiteC.setTentatives(0);
 			}
@@ -110,7 +113,7 @@ public class DMP {
 					entiteC.setPartitionKey(String.valueOf(nouvellePartition));
 				}
 			}
-			finally { entiteC.mettreAJourEntite(); }
+			entiteC.mettreAJourEntite();
 		}
 		else { 
 			/* TODO : grave erreur, notifier */ 

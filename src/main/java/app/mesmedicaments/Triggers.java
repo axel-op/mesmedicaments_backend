@@ -147,6 +147,7 @@ public final class Triggers {
 			| URISyntaxException
 			| InvalidKeyException e)
 		{
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
 		return construireReponse(codeHttp, corpsReponse, request);

@@ -1,6 +1,6 @@
 {
   "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
-  "entryPoint" : "app.mesmedicaments.Triggers.mettreAJourBases",
+  "entryPoint" : "app.mesmedicaments.PrivateTriggers.mettreAJourBases",
   "bindings" : [ {
     "type" : "httpTrigger",
     "direction" : "in",

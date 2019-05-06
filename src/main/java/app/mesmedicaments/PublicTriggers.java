@@ -1,5 +1,6 @@
 package app.mesmedicaments;
 
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
@@ -21,7 +22,6 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
-import com.microsoft.azure.functions.annotation.TimerTrigger;
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
@@ -34,12 +34,9 @@ import app.mesmedicaments.entitestables.EntiteConnexion;
 import app.mesmedicaments.entitestables.EntiteInteraction;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
-import app.mesmedicaments.misesajour.MiseAJourBDPM;
-import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
-import app.mesmedicaments.misesajour.MiseAJourInteractions;
 import io.jsonwebtoken.JwtException;
 
-public final class Triggers {
+public final class PublicTriggers {
 
 	private static final String CLE_CAUSE;
 	private static final String CLE_HEURE;
@@ -67,37 +64,6 @@ public final class Triggers {
 		HEADER_DEVICEID = "deviceid";
 	}
 
-	@FunctionName("maintienConnexion")
-	public void maintienConnexion (
-		@TimerTrigger(
-			name = "maintienConnexionTrigger",
-			schedule = "0 */5 * * * *")
-		final String timerInfo,
-		final ExecutionContext context
-	) {
-		Logger logger = context.getLogger();
-		logger.info("Timer info = " + timerInfo);
-		int minuteArrondie = LocalDateTime.now().getMinute();
-		int decalage = minuteArrondie % 5;
-		if (decalage < 3) { minuteArrondie -= decalage; }
-		else { minuteArrondie += 5 - decalage; }
-		logger.info("Debug : minuteArrondie = " + minuteArrondie);
-		for (int i = minuteArrondie % 20; i < 60; i += 20) {
-			String partition = String.valueOf(i);
-			if (partition.length() == 1) { partition = "0" + partition; }
-			logger.info("Debug : partition = " + partition);
-			try { 
-				for (EntiteConnexion entiteC : EntiteConnexion.obtenirEntitesPartition(partition)) {
-					new DMP(entiteC.getRowKey(), logger).mettreAJourUtilisateur(); 
-				}
-			}
-			catch (StorageException | URISyntaxException | InvalidKeyException e) {
-				logger.warning("Echec de la MAJ pour la partition " + partition);
-				Utils.logErreur(e, logger);
-			}
-		}
-	}
-
 	// mettre une doc
 	@FunctionName("utilisateur")
 	public HttpResponseMessage dmp (
@@ -119,14 +85,20 @@ public final class Triggers {
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			String id = Authentification.getIdFromToken(accessToken);
-			DMP dmp = new DMP(id, logger);
+			EntiteConnexion entiteC = EntiteConnexion.obtenirEntiteAboutie(id).get(); // TODO : gérer le cas où Optional est vide
+			DMP dmp = new DMP(
+				entiteC.getUrlFichierRemboursements(), 
+				entiteC.obtenirCookiesMap(), 
+				logger
+			);
 			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
 			if (categorie.equals("medicaments")) { 
 				Optional<JSONObject> medicaments = entiteU.obtenirMedicamentsJObject();
-				//if (!medicaments.isPresent()) {
-					dmp.mettreAJourUtilisateur();
-					medicaments = entiteU.obtenirMedicamentsJObject();
-				//}
+				if (!medicaments.isPresent()) {
+					medicaments = Optional.of(dmp.obtenirMedicaments());
+					entiteU.definirMedicamentsJObject(medicaments.get());
+					entiteU.mettreAJourEntite();
+				}
 				corpsReponse.put("medicaments", medicaments.orElseGet(() -> new JSONObject()));
 				codeHttp = HttpStatus.OK;
 			} 
@@ -145,7 +117,8 @@ public final class Triggers {
 		}
 		catch (StorageException
 			| URISyntaxException
-			| InvalidKeyException e)
+			| InvalidKeyException
+			| IOException e)
 		{
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -402,59 +375,6 @@ public final class Triggers {
 			corpsReponse = new JSONObjectUneCle(CLE_CAUSE, ERR_INTERNE);
 		}
 		return construireReponse(codeHttp, corpsReponse, request);
-	}
-
-	@FunctionName("mettreAJourBases")
-	public HttpResponseMessage mettreAJourBases (
-		@HttpTrigger(
-			name = "majTrigger", 
-			dataType = "string", 
-			authLevel = AuthorizationLevel.FUNCTION,
-			methods = {HttpMethod.GET},
-			route = "mettreAJourBases/{etape:int}")
-		final HttpRequestMessage<Optional<String>> request,
-		@BindingName("etape") int etape,
-		final ExecutionContext context
-	) {
-		long startTime = System.currentTimeMillis();
-		HttpStatus codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
-		String corps = "";
-		Logger logger = context.getLogger();
-		switch (etape) {
-			case 1:
-				if (MiseAJourBDPM.majSubstances(logger)) {
-					codeHttp = HttpStatus.OK;
-					corps = "Mise à jour des substances terminée.";
-				}
-				break;
-			case 2:
-				if (MiseAJourBDPM.majMedicaments(logger)) {
-					codeHttp = HttpStatus.OK;
-					corps = "Mise à jour des médicaments terminée.";
-				}
-				break;
-			case 3:
-				if (MiseAJourClassesSubstances.handler(logger)) {
-					codeHttp = HttpStatus.OK;
-					corps = "Mise à jour des classes de substances terminée.";
-				}
-				break;
-			case 4:
-				if (MiseAJourInteractions.handler(logger)) {
-					codeHttp = HttpStatus.OK;
-					corps = "Mise à jour des interactions terminée.";
-				}
-				break;
-			default:
-				codeHttp = HttpStatus.BAD_REQUEST;
-				corps = "Le paramètre maj de la requête n'est pas reconnu.";
-		}
-		return request.createResponseBuilder(codeHttp)
-			.body(corps 
-				+ " Durée totale : " 
-				+ String.valueOf(System.currentTimeMillis() - startTime) 
-				+ " ms")
-			.build();
 	}
 
 	private HttpResponseMessage construireReponse (HttpStatus codeHttp, JSONObject corpsReponse, HttpRequestMessage<Optional<String>> request) {

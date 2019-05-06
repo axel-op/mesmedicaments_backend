@@ -78,51 +78,20 @@ public class DMP {
 	}
 
 	private final Logger LOGGER;
-	private final String ID;
+	//private final String ID;
+	private final String URL_FICHIER_REMBOURSEMENTS;
+	private Map<String, String> cookies;
 
-	public DMP (String id, Logger logger) {
-		this.ID = id;
+	public DMP (String urlFichierRemboursements, Map<String, String> cookies, Logger logger) {
 		this.LOGGER = logger;
+		this.URL_FICHIER_REMBOURSEMENTS = urlFichierRemboursements;
+		this.cookies = cookies;
 	}
 
-	public void mettreAJourUtilisateur () throws StorageException, URISyntaxException, InvalidKeyException {
-		EntiteConnexion entiteC = EntiteConnexion.obtenirEntiteAboutie(ID).get();
-		String urlFichier = entiteC.getUrlFichierRemboursements();
-		Map<String, String> cookies = entiteC.obtenirCookiesMap();
-		String id = entiteC.getRowKey();
-		Optional<PDDocument> fichier = obtenirFichierRemboursements(urlFichier, cookies);
-		if (fichier.isPresent()) {
-			try {
-				JSONObject medicaments = obtenirMedicaments(fichier.get());
-				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
-				// TODO : vérifier jusqu'à quand la connexion tient et aviser
-				if (!medicaments.isEmpty() || entiteU.getMedicaments() == null) {
-					entiteU.definirMedicamentsJObject(medicaments);
-				}
-				entiteU.mettreAJourEntite();
-				entiteC.setTentatives(0);
-			}
-			catch (IOException | StorageException | URISyntaxException | InvalidKeyException e) {
-				entiteC.setTentatives(entiteC.getTentatives() + 1);
-				if (entiteC.getTentatives() >= 5) {
-					entiteC.marquerCommeEchouee();
-				}
-				else {
-					int nouvellePartition = Integer.parseInt(entiteC.getPartitionKey()) + 10;
-					entiteC.setPartitionKey(String.valueOf(nouvellePartition));
-				}
-			}
-			entiteC.mettreAJourEntite();
-		}
-		else { 
-			/* TODO : grave erreur, notifier */ 
-			entiteC.marquerCommeEchouee();
-		}
-	}
-
-	private JSONObject obtenirMedicaments (PDDocument fichierRemboursements) 
+	public JSONObject obtenirMedicaments () 
 		throws IOException, StorageException, URISyntaxException, InvalidKeyException
 	{
+		PDDocument fichierRemboursements = obtenirFichierRemboursements().get(); // TODO : gérer le cas où Optional est vide
 		JSONObject medParDate = new JSONObject();
 		PDFTextStripper stripper = new PDFTextStripper();
 		BufferedReader br = new BufferedReader(
@@ -137,7 +106,6 @@ public class DMP {
 		boolean balise = false;
 		boolean alerte = true; // Si pas de section Pharmacie trouvée
 		while ((ligne = br.readLine()) != null) {
-			LOGGER.info("Debug : ligne = " + ligne);
 			if (ligne.contains("Hospitalisation")) { balise = false; }
 			if (balise) {
 				if (ligne.matches("[0-9]{2}/[0-9]{2}/[0-9]{4}.*")) {
@@ -160,7 +128,6 @@ public class DMP {
 		fichierRemboursements.close();
 		br.close();
 		if (alerte) {} // TODO : alerter
-		LOGGER.info("Debug : taille medParDate = " + medParDate.length());
 		return medParDate;
 	}
 
@@ -233,12 +200,9 @@ public class DMP {
 			.findFirst();
 	}
 
-	private Optional<PDDocument> obtenirFichierRemboursements (String urlFichier, Map<String, String> cookies) {
+	private Optional<PDDocument> obtenirFichierRemboursements () {
 		try {
-			//EntiteConnexion entite = EntiteConnexion.obtenirEntite(ID);
-			//HashMap<String, String> cookies = entite.obtenirCookiesMap();
-			//String urlFichier = entite.getUrlFichierRemboursements();
-			HttpsURLConnection connPDF = (HttpsURLConnection) new URL(urlFichier).openConnection();
+			HttpsURLConnection connPDF = (HttpsURLConnection) new URL(URL_FICHIER_REMBOURSEMENTS).openConnection();
 			connPDF.setRequestMethod("GET");
 			for (String cookie : cookies.keySet()) { 
 				connPDF.addRequestProperty("Cookie", cookie + "=" + cookies.get(cookie) + "; "); 

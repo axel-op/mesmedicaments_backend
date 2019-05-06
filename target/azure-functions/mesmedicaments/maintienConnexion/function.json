@@ -1,6 +1,6 @@
 {
   "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
-  "entryPoint" : "app.mesmedicaments.Triggers.maintienConnexion",
+  "entryPoint" : "app.mesmedicaments.PrivateTriggers.maintienConnexion",
   "bindings" : [ {
     "type" : "timerTrigger",
     "direction" : "in",

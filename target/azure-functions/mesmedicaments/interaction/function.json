@@ -1,6 +1,6 @@
 {
   "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
-  "entryPoint" : "app.mesmedicaments.Triggers.interaction",
+  "entryPoint" : "app.mesmedicaments.PublicTriggers.interaction",
   "bindings" : [ {
     "type" : "httpTrigger",
     "direction" : "in",

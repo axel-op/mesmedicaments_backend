@@ -29,65 +29,16 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import app.mesmedicaments.Utils;
-import app.mesmedicaments.entitestables.EntiteConnexion;
-import app.mesmedicaments.entitestables.EntiteInteraction;
-import app.mesmedicaments.entitestables.EntiteMedicament;
-import app.mesmedicaments.entitestables.EntiteUtilisateur;
+import app.mesmedicaments.entitestables.*;
 
 public class DMP {
 
 	private static Map<String, Set<Long>> nomsMedicamentsNormalisesMin = Collections.emptyMap();
 	private static Map<String, Set<Long>> cacheRecherche = new HashMap<>();
 
-	public static void majConnexion (EntiteConnexion entiteC, Logger logger) 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		String urlFichier = entiteC.getUrlFichierRemboursements();
-		Map<String, String> cookies = entiteC.obtenirCookiesMap();
-		String id = entiteC.getRowKey();
-		DMP dmp = new DMP(id, logger);
-		Optional<PDDocument> fichier = dmp.obtenirFichierRemboursements(urlFichier, cookies);
-		if (fichier.isPresent()) {
-			try {
-				JSONObject medicaments = dmp.obtenirMedicaments(fichier.get());
-				//JSONObject interactions = dmp.obtenirInteractions(medicaments);
-				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
-				entiteU.definirMedicamentsJObject(medicaments);
-				//entiteU.def
-				entiteU.mettreAJourEntite();
-				entiteC.setTentatives(0);
-			}
-			catch (IOException | StorageException | URISyntaxException | InvalidKeyException e) {
-				entiteC.setTentatives(entiteC.getTentatives() + 1);
-				if (entiteC.getTentatives() >= 5) {
-					entiteC.marquerCommeEchouee();
-				}
-				else {
-					int nouvellePartition = Integer.parseInt(entiteC.getPartitionKey()) + 10;
-					entiteC.setPartitionKey(String.valueOf(nouvellePartition));
-				}
-			}
-			finally { entiteC.mettreAJourEntite(); }
-		}
-		else { 
-			/* TODO : grave erreur, notifier */ 
-			entiteC.marquerCommeEchouee();
-		}
-	}
- 
-	//doc
-	public static void majConnexions (String partition, Logger logger) 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		for (EntiteConnexion entiteC : EntiteConnexion.obtenirEntitesPartition(partition)) {
-			majConnexion(entiteC, logger);
-		}
-	}
-
 	private static Map<String, Set<Long>> importerNomsMedicamentsNormalisesMin () 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		long startTime = System.currentTimeMillis();
 		Map<String, Set<Long>> nomsMed = new HashMap<>();
 		for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
 			entite.obtenirNomsJArray().forEach(
@@ -135,56 +86,39 @@ public class DMP {
 		this.LOGGER = logger;
 	}
 
-	public JSONObject obtenirInteractions (JSONObject medicaments) 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		JSONObject interactions = new JSONObject();
-		for (int risque = 1; risque <= 4; risque++) { 
-			interactions.put(String.valueOf(risque), new JSONArray());
-		}
-		Map<Long, Set<Long>> subMeds = new HashMap<>();
-		/*Set<Long> codesCIS = EntiteUtilisateur.obtenirEntite(ID)
-			.obtenirMedicamentsRecentsJObject()*/
-		Set<Long> codesCIS = medicaments
-			.toMap().values().stream()
-				.map(String::valueOf)
-				.map(JSONArray::new)
-				.flatMap(jarray -> jarray.toList().stream())
-				.mapToLong(obj -> (long) ((int) obj))
-				.boxed()
-				.collect(Collectors.toSet());
-		for (long codeCIS : codesCIS) {
-			EntiteMedicament.obtenirEntite(codeCIS)
-				.obtenirSubstancesActivesJArray()
-					.forEach(codeSub -> subMeds
-						.computeIfAbsent((long) ((int) codeSub), cle -> new TreeSet<>())
-							.add(codeCIS));
-		}
-		Set<Set<Long>> pairesSubs = Sets.combinations(subMeds.keySet(), 2);
-		for (Set<Long> paire : pairesSubs) {
-			Long[] codes = paire.toArray(new Long[0]);
-			EntiteInteraction entite = EntiteInteraction.obtenirEntite(codes[0], codes[1]);
-			if (entite != null) {
-				for (long med1 : subMeds.get(codes[0])) {
-					for (long med2 : subMeds.get(codes[1])) {
-						if (med1 != med2) {
-							JSONObject interaction = new JSONObject();
-							interaction.put("médicament1", String.valueOf(med1));
-							interaction.put("médicament2", String.valueOf(med2));
-							interaction.put("descriptif", entite.getDescriptif());
-							interaction.put("conduite", entite.getConduite());
-							interactions.getJSONArray(String.valueOf(entite.getRisque()))
-								.put(interaction);
-						}
-					}
+	public void mettreAJourUtilisateur () throws StorageException, URISyntaxException, InvalidKeyException {
+		EntiteConnexion entiteC = EntiteConnexion.obtenirEntiteAboutie(ID).get();
+		String urlFichier = entiteC.getUrlFichierRemboursements();
+		Map<String, String> cookies = entiteC.obtenirCookiesMap();
+		String id = entiteC.getRowKey();
+		Optional<PDDocument> fichier = obtenirFichierRemboursements(urlFichier, cookies);
+		if (fichier.isPresent()) {
+			try {
+				JSONObject medicaments = obtenirMedicaments(fichier.get());
+				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
+				entiteU.definirMedicamentsJObject(medicaments);
+				entiteU.mettreAJourEntite();
+				entiteC.setTentatives(0);
+			}
+			catch (IOException | StorageException | URISyntaxException | InvalidKeyException e) {
+				entiteC.setTentatives(entiteC.getTentatives() + 1);
+				if (entiteC.getTentatives() >= 5) {
+					entiteC.marquerCommeEchouee();
+				}
+				else {
+					int nouvellePartition = Integer.parseInt(entiteC.getPartitionKey()) + 10;
+					entiteC.setPartitionKey(String.valueOf(nouvellePartition));
 				}
 			}
+			finally { entiteC.mettreAJourEntite(); }
 		}
-		return interactions;
+		else { 
+			/* TODO : grave erreur, notifier */ 
+			entiteC.marquerCommeEchouee();
+		}
 	}
 
-	// TODO : cette méthode doit être exécutée de manière asynchrone (pas lors d'un trigger depuis l'appli) et son résultat enregistré dans la BDD
-	public JSONObject obtenirMedicaments (PDDocument fichierRemboursements) 
+	private JSONObject obtenirMedicaments (PDDocument fichierRemboursements) 
 		throws IOException, StorageException, URISyntaxException, InvalidKeyException
 	{
 		JSONObject medParDate = new JSONObject();
@@ -211,7 +145,6 @@ public class DMP {
 						if (resultat.isPresent()) {
 							if (!medParDate.has(date)) { medParDate.put(date, new JSONArray()); }
 							medParDate.getJSONArray(date).put(resultat.get());
-							//medParDate.append(date, resultat.get());
 						}
 					}
 				}
@@ -223,17 +156,7 @@ public class DMP {
 		}
 		fichierRemboursements.close();
 		br.close();
-		if (alerte) {} // faire quelque chose
-		/*try {
-			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(ID);
-			entiteU.definirMedicamentsRecentsJObject(medParDate);
-			entiteU.mettreAJourEntite();
-		}
-		catch (StorageException | URISyntaxException | InvalidKeyException e)
-		{
-			Utils.logErreur(e, LOGGER);
-			LOGGER.warning("Impossible de mettre à jour les médicaments récents pour l'utilisateur " + ID);
-		}*/
+		if (alerte) {} // TODO : alerter
 		return medParDate;
 	}
 
@@ -246,7 +169,8 @@ public class DMP {
 			mot = mot.toLowerCase();
 			if (mot.equals("-")
 				|| mot.equals("verre")
-				|| mot.equals("monture"))
+				|| mot.equals("monture")
+				|| mot.matches(" *"))
 			{
 				devraitTrouver = false;
 				break; 

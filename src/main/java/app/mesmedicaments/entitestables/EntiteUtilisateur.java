@@ -3,6 +3,7 @@ package app.mesmedicaments.entitestables;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.Date;
+import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.TableOperation;
@@ -75,9 +76,9 @@ public class EntiteUtilisateur extends AbstractEntite {
     /**
      * L'objet JSON associe une date (non formatée) à une liste de médicaments
      */
-    public JSONObject obtenirMedicamentsJObject () { 
-        if (medicaments == null) { return new JSONObject(); }
-        return new JSONObject(medicaments); 
+    public Optional<JSONObject> obtenirMedicamentsJObject () { 
+        if (medicaments == null) { return Optional.empty(); }
+        return Optional.of(new JSONObject(medicaments)); 
     }
 
     // Setters

@@ -1,6 +1,5 @@
 package app.mesmedicaments;
 
-import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
@@ -8,7 +7,10 @@ import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
@@ -19,16 +21,17 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
-import com.microsoft.azure.functions.annotation.QueueTrigger;
 import com.microsoft.azure.functions.annotation.TimerTrigger;
 import com.microsoft.azure.storage.StorageException;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.Authentification;
 import app.mesmedicaments.connexion.DMP;
 import app.mesmedicaments.entitestables.EntiteConnexion;
+import app.mesmedicaments.entitestables.EntiteInteraction;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
@@ -64,30 +67,6 @@ public final class Triggers {
 		HEADER_DEVICEID = "deviceid";
 	}
 
-	// TODO : ajouter un trigger de type Queue lorsque les utilisateurs se connectent pour effectuer une mise à jour de leurs médicaments
-	@FunctionName("nouvelleConnexion")
-	public void nouvelleConnexion (
-		@QueueTrigger(
-			name = "nouvelleConnexionTrigger",
-			queueName = "nouvelles-connexions",
-			connection = "AzureWebJobsStorage")
-		final String message, 
-		final ExecutionContext context
-	) {
-		Logger logger = context.getLogger();
-		logger.info("Debug : message = " + message);
-		if (message.length() != 8) { throw new IllegalArgumentException(); }
-		try {
-			Optional<EntiteConnexion> entiteC = EntiteConnexion.obtenirEntiteAboutie(message);
-			if (entiteC.isPresent()) {
-				DMP.majConnexion(entiteC.get(), logger);
-			}
-		}
-		catch (StorageException | URISyntaxException | InvalidKeyException e) {
-			Utils.logErreur(e, logger);
-		}
-	}
-
 	@FunctionName("maintienConnexion")
 	public void maintienConnexion (
 		@TimerTrigger(
@@ -103,12 +82,15 @@ public final class Triggers {
 		if (decalage < 3) { minuteArrondie -= decalage; }
 		else { minuteArrondie += 5 - decalage; }
 		logger.info("Debug : minuteArrondie = " + minuteArrondie);
-		// routine à effectuer en partant de minuteArrondie % 20 et de 20 en 20
 		for (int i = minuteArrondie % 20; i < 60; i += 20) {
 			String partition = String.valueOf(i);
 			if (partition.length() == 1) { partition = "0" + partition; }
 			logger.info("Debug : partition = " + partition);
-			try { DMP.majConnexions(partition, logger); }
+			try { 
+				for (EntiteConnexion entiteC : EntiteConnexion.obtenirEntitesPartition(partition)) {
+					new DMP(entiteC.getRowKey(), logger).mettreAJourUtilisateur(); 
+				}
+			}
 			catch (StorageException | URISyntaxException | InvalidKeyException e) {
 				logger.warning("Echec de la MAJ pour la partition " + partition);
 				Utils.logErreur(e, logger);
@@ -117,16 +99,17 @@ public final class Triggers {
 	}
 
 	// mettre une doc
-	@FunctionName("dmp")
+	@FunctionName("utilisateur")
 	public HttpResponseMessage dmp (
 		@HttpTrigger(
-			name = "dmpTrigger",
+			name = "utilisateurTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "dmp/{categorie:alpha?}")
+			route = "utilisateur/{categorie:alpha?}")
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
+		Logger logger = context.getLogger();
 		String[] parametres = request.getUri().getPath().split("/");
 		String categorie = null;
 		if (parametres.length > 3) { categorie = parametres[3]; }
@@ -136,25 +119,25 @@ public final class Triggers {
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			String id = Authentification.getIdFromToken(accessToken);
-			DMP dmp = new DMP(id, context.getLogger());
+			DMP dmp = new DMP(id, logger);
 			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
-			if (categorie != null) {
-				if (categorie.equals("medicaments")) { 
-					corpsReponse.put("medicaments", entiteU.obtenirMedicamentsJObject());
-					codeHttp = HttpStatus.OK;
-				} 
-				else if (categorie.equals("interactions")) {
-					//corpsReponse.put("interactions", dmp.obtenirInteractions()); 
-					codeHttp = HttpStatus.NOT_IMPLEMENTED;
+			if (categorie.equals("medicaments")) { 
+				Optional<JSONObject> medicaments = entiteU.obtenirMedicamentsJObject();
+				if (!medicaments.isPresent()) {
+					dmp.mettreAJourUtilisateur();
+					medicaments = entiteU.obtenirMedicamentsJObject();
 				}
-				else { throw new IllegalArgumentException("Catégorie incorrecte"); }
-			}
-			else {
-				/*corpsReponse
-					.put("medicaments", entiteU.obtenirMedicamentsJObject())
-					.put("interactions", dmp.obtenirInteractions());*/
+				corpsReponse.put("medicaments", medicaments.orElseGet(() -> new JSONObject()));
+				codeHttp = HttpStatus.OK;
+			} 
+			/*
+			if (categorie == null || categorie.equals("interactions")) {
+				// ajouter une fois implémenté
+				//corpsReponse.put("interactions", dmp.obtenirInteractions()); 
 				codeHttp = HttpStatus.NOT_IMPLEMENTED;
 			}
+			else { throw new IllegalArgumentException("Catégorie incorrecte"); }
+			*/
 		}
 		catch (JwtException
 			| IllegalArgumentException e) {
@@ -164,6 +147,57 @@ public final class Triggers {
 			| URISyntaxException
 			| InvalidKeyException e)
 		{
+			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
+		}
+		return construireReponse(codeHttp, corpsReponse, request);
+	}
+
+	@FunctionName("interaction")
+	public HttpResponseMessage interaction (
+		@HttpTrigger(
+			name = "interactionTrigger",
+			authLevel = AuthorizationLevel.ANONYMOUS,
+			methods = {HttpMethod.GET},
+			route = "interaction/{codecis1:int}/{codecis2:int}")
+		final HttpRequestMessage<Optional<String>> request,
+		final ExecutionContext context
+	) {
+		String[] parametres = request.getUri().getPath().split("/");
+		long codeCis1 = Long.parseLong(parametres[3]);
+		long codeCis2 = Long.parseLong(parametres[4]);
+		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
+		JSONObject corpsReponse = new JSONObject();
+		try {
+			EntiteMedicament entiteMed1 = EntiteMedicament.obtenirEntite(codeCis1);
+			EntiteMedicament entiteMed2 = EntiteMedicament.obtenirEntite(codeCis2);
+			Function<JSONArray, Set<Integer>> jArrayToSet = jArray -> jArray
+				.toList()
+				.stream()
+				.mapToInt(obj -> (int) obj)
+				.boxed()
+				.collect(Collectors.toSet());
+			Set<Integer> substances1 = jArrayToSet.apply(entiteMed1.obtenirSubstancesActivesJArray());
+			Set<Integer> substances2 = jArrayToSet.apply(entiteMed2.obtenirSubstancesActivesJArray());
+			JSONArray interactions = new JSONArray();
+			for (int codeSubstance1 : substances1) {
+				for(int codeSubstance2 : substances2) {
+					EntiteInteraction entiteInt = EntiteInteraction.obtenirEntite(codeSubstance1, codeSubstance2);
+					if (entiteInt != null) {
+						interactions.put(
+							new JSONObject()
+							.put("substances", new JSONArray().put(codeSubstance1).put(codeSubstance2))
+							.put("risque", entiteInt.getRisque())
+							.put("descriptif", entiteInt.getDescriptif())
+							.put("conduite", entiteInt.getConduite())
+						);
+					}
+				}
+			}
+			corpsReponse.put("interactions", interactions);
+			codeHttp = HttpStatus.OK;
+		}
+		catch (StorageException | URISyntaxException | InvalidKeyException e) {
+			Utils.logErreur(e, context.getLogger());
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
 		return construireReponse(codeHttp, corpsReponse, request);
@@ -180,17 +214,17 @@ public final class Triggers {
 		final ExecutionContext context
 	) {
 		// Si codecis spécifié : fichier JSON sur le medicament
-		// Sinon : liste des codecis associés à leur noms
+		// Sinon : liste de tous les codecis associés à leurs noms
 		String[] parametres = request.getUri().getPath().split("/");
 		String categorie = parametres[3];
 		String codeProduit = null;
 		if (parametres.length > 4) { codeProduit = parametres[4]; }
-		String accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			if (categorie == null) { throw new IllegalArgumentException(); }
+			if (categorie.equals("substances")) { /* TODO (ne pas permettre le renvoi de toutes les substances) */ }
 			if (categorie.equals("medicaments")) {
 				if (codeProduit != null) {
 					EntiteMedicament entite = EntiteMedicament.obtenirEntite(

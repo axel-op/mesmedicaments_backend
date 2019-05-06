@@ -82,13 +82,13 @@ public class EntiteInteraction extends AbstractEntite {
         super(TABLE);
     }
 
-    /* Getters */
+    // Getters
 
     public int getRisque () { return risque; }
     public String getDescriptif () { return descriptif; }
     public String getConduite () { return conduite; }
 
-    /* Setters */
+    // Setters
 
     public void setRisque (int risque) {
         if (risque < 1 || risque > 4) { throw new IllegalArgumentException(); }

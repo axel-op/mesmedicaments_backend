@@ -5,7 +5,7 @@
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "utilisateurTrigger",
-    "route" : "utilisateur/{categorie:alpha?}",
+    "route" : "utilisateur/{categorie:alpha}",
     "methods" : [ "GET" ],
     "authLevel" : "ANONYMOUS"
   }, {

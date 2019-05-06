@@ -193,6 +193,7 @@ public final class Authentification {
 		entiteUtilisateur.setPrenom(prenom);
 		entiteUtilisateur.setEmail(email);
 		entiteUtilisateur.setGenre(genre);
+		entiteUtilisateur.setMedicaments(null);
 		entiteUtilisateur.setDateInscription(
 			Date.from(Instant.now(Clock.system(TIMEZONE))));
 		entiteUtilisateur.creerEntite();

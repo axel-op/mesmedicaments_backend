@@ -77,7 +77,7 @@ public class EntiteUtilisateur extends AbstractEntite {
      * L'objet JSON associe une date (non formatée) à une liste de médicaments
      */
     public Optional<JSONObject> obtenirMedicamentsJObject () { 
-        if (medicaments == null) { return Optional.empty(); }
+        if (medicaments == null || medicaments.equals("")) { return Optional.empty(); }
         return Optional.of(new JSONObject(medicaments)); 
     }
 

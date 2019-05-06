@@ -105,7 +105,7 @@ public final class Triggers {
 			name = "utilisateurTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "utilisateur/{categorie:alpha?}")
+			route = "utilisateur/{categorie:alpha}")
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
@@ -123,10 +123,10 @@ public final class Triggers {
 			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
 			if (categorie.equals("medicaments")) { 
 				Optional<JSONObject> medicaments = entiteU.obtenirMedicamentsJObject();
-				if (!medicaments.isPresent()) {
+				//if (!medicaments.isPresent()) {
 					dmp.mettreAJourUtilisateur();
 					medicaments = entiteU.obtenirMedicamentsJObject();
-				}
+				//}
 				corpsReponse.put("medicaments", medicaments.orElseGet(() -> new JSONObject()));
 				codeHttp = HttpStatus.OK;
 			} 

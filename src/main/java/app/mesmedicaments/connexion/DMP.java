@@ -20,7 +20,6 @@ import java.util.stream.Collectors;
 
 import javax.net.ssl.HttpsURLConnection;
 
-import com.google.common.collect.Sets;
 import com.microsoft.azure.storage.StorageException;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -138,6 +137,7 @@ public class DMP {
 		boolean balise = false;
 		boolean alerte = true; // Si pas de section Pharmacie trouvée
 		while ((ligne = br.readLine()) != null) {
+			LOGGER.info("Debug : ligne = " + ligne);
 			if (ligne.contains("Hospitalisation")) { balise = false; }
 			if (balise) {
 				if (ligne.matches("[0-9]{2}/[0-9]{2}/[0-9]{4}.*")) {
@@ -160,20 +160,21 @@ public class DMP {
 		fichierRemboursements.close();
 		br.close();
 		if (alerte) {} // TODO : alerter
+		LOGGER.info("Debug : taille medParDate = " + medParDate.length());
 		return medParDate;
 	}
 
 	private Optional<Long> trouverCorrespondanceMedicament (String recherche) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
+		if (recherche.matches(" *")) { return Optional.empty(); }
 		HashMap<Long, Double> classement = new HashMap<>();
 		boolean devraitTrouver = true;
 		for (String mot : recherche.split(" ")) {
 			mot = mot.toLowerCase();
 			if (mot.equals("-")
 				|| mot.equals("verre")
-				|| mot.equals("monture")
-				|| mot.matches(" *"))
+				|| mot.equals("monture"))
 			{
 				devraitTrouver = false;
 				break; 

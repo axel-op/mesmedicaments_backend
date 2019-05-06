@@ -105,8 +105,11 @@ public class EntiteUtilisateur extends AbstractEntite {
     /**
      * Doit être sous forme de {@link JSONObject} converti en {@link String}
      */
-    public void setMedicaments (String medicamentsRecents) {
-        this.medicaments = new JSONObject(medicamentsRecents).toString();
+    public void setMedicaments (String medicaments) {
+        if (medicaments != null) {
+            this.medicaments = new JSONObject(medicaments).toString();
+        }
+        else { this.medicaments = null; }
     }
 
     public void definirMedicamentsJObject (JSONObject medicamentsRecents) {

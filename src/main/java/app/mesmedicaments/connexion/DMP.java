@@ -7,6 +7,8 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -109,7 +111,7 @@ public class DMP {
 			if (ligne.contains("Hospitalisation")) { balise = false; }
 			if (balise) {
 				if (ligne.matches("[0-9]{2}/[0-9]{2}/[0-9]{4}.*")) {
-					String date = ligne.substring(0, 10);
+					String date = parserDate(ligne.substring(0, 10)).toString();
 					String recherche = ligne.substring(0, 10);
 					if (!recherche.matches(" *")) {
 						Optional<Long> resultat = trouverCorrespondanceMedicament(ligne.substring(10));
@@ -215,5 +217,9 @@ public class DMP {
 			Utils.logErreur(e, LOGGER);
 		}
 		return Optional.empty();
+	}
+
+	private LocalDate parserDate (String date) {
+		return LocalDate.parse(date, DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 	}
 }

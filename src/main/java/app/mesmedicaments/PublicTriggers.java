@@ -143,6 +143,9 @@ public final class PublicTriggers {
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
+			if (codeCis1 > 99999999 || codeCis2 > 99999999 ) {
+				throw new IllegalArgumentException("Codes CIS invalides");
+			}
 			EntiteMedicament entiteMed1 = EntiteMedicament.obtenirEntite(codeCis1).get();
 			EntiteMedicament entiteMed2 = EntiteMedicament.obtenirEntite(codeCis2).get();
 			Function<JSONArray, Set<Integer>> jArrayToSet = jArray -> jArray
@@ -194,11 +197,16 @@ public final class PublicTriggers {
 		String[] parametres = request.getUri().getPath().split("/");
 		String categorie = parametres[3];
 		String codeProduit = null;
-		if (parametres.length > 4) { codeProduit = parametres[4]; }
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			if (parametres.length > 4) { 
+				codeProduit = parametres[4]; 
+				if (codeProduit.length() > 10) { 
+					throw new IllegalArgumentException("Code produit invalide"); 
+				}
+			}
 			if (categorie == null) { throw new IllegalArgumentException(); }
 			if (categorie.equals("substances")) {
 				if (codeProduit == null) { codeHttp = HttpStatus.FORBIDDEN; }

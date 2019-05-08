@@ -39,31 +39,18 @@ import io.jsonwebtoken.JwtException;
 
 public final class PublicTriggers {
 
-	private static final String CLE_CAUSE;
-	private static final String CLE_HEURE;
-	private static final String CLE_ERREUR_AUTH;
-	private static final String CLE_ENVOI_CODE;
-	private static final String CLE_PRENOM;
-	private static final String CLE_EMAIL;
-	private static final String CLE_GENRE;
-	private static final String CLE_INSCRIPTION_REQUISE;
-	private static final String ERR_INTERNE;
-	private static final String HEADER_AUTHORIZATION;
-	private static final String HEADER_DEVICEID;
-
-	static {
-		CLE_CAUSE = "cause";
-		CLE_HEURE = "heure";
-		CLE_ERREUR_AUTH = Authentification.CLE_ERREUR;
-		CLE_ENVOI_CODE = Authentification.CLE_ENVOI_CODE;
-		CLE_PRENOM = Authentification.CLE_PRENOM;
-		CLE_GENRE = Authentification.CLE_GENRE;
-		CLE_EMAIL = Authentification.CLE_EMAIL;
-		CLE_INSCRIPTION_REQUISE = Authentification.CLE_INSCRIPTION_REQUISE;
-		ERR_INTERNE = Authentification.ERR_INTERNE;
-		HEADER_AUTHORIZATION = "jwt";
-		HEADER_DEVICEID = "deviceid";
-	}
+	private static final String CLE_CAUSE = "cause";
+	private static final String CLE_HEURE = "heure";
+	private static final String CLE_ERREUR_AUTH = Authentification.CLE_ERREUR;
+	private static final String CLE_ENVOI_CODE = Authentification.CLE_ENVOI_CODE;
+	private static final String CLE_PRENOM = Authentification.CLE_PRENOM;
+	private static final String CLE_EMAIL = Authentification.CLE_EMAIL;
+	private static final String CLE_GENRE = Authentification.CLE_GENRE;
+	private static final String CLE_INSCRIPTION_REQUISE = Authentification.CLE_INSCRIPTION_REQUISE;
+	private static final String CLE_MEMORISER_ID = "memoriserMdp";
+	private static final String ERR_INTERNE = Authentification.ERR_INTERNE;
+	private static final String HEADER_AUTHORIZATION = "jwt";
+	private static final String HEADER_DEVICEID = "deviceId";
 
 	// mettre une doc
 	@FunctionName("utilisateur")
@@ -311,7 +298,7 @@ public final class PublicTriggers {
 				final String id = corpsRequete.getString("id");
 				final String mdp = corpsRequete.getString("mdp");
 				auth = new Authentification(logger, id);
-				resultat = auth.connexionDMP(mdp);
+				resultat = auth.connexionDMP(mdp, corpsRequete.getBoolean(CLE_MEMORISER_ID));
 				if (!resultat.isNull(CLE_ERREUR_AUTH)) {
 					codeHttp = HttpStatus.CONFLICT;
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));

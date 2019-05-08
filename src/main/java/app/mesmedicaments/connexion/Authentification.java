@@ -199,7 +199,7 @@ public final class Authentification {
 		entiteUtilisateur.creerEntite();
 	}
 
-	public JSONObject connexionDMP (String mdp) {
+	public JSONObject connexionDMP (String mdp, boolean memoriser) {
 		if (mdp.length() > 128) { throw new IllegalArgumentException("Format du mdp incorrect"); }
 		Document pageReponse;
 		Connection connexion;
@@ -257,7 +257,7 @@ public final class Authentification {
 			entiteConnexion.setSid(obtenirSid(pageReponse));
 			entiteConnexion.setTformdata(obtenirTformdata(pageReponse));
 			entiteConnexion.definirCookiesMap(cookies);
-			entiteConnexion.setMotDePasse(mdp);
+			if (memoriser) { entiteConnexion.setMotDePasse(mdp); }
 			entiteConnexion.creerEntite();
 		} catch (IOException 
 			| InvalidKeyException

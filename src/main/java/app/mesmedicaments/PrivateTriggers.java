@@ -51,23 +51,25 @@ public class PrivateTriggers {
 			logger.info("Debug : partition = " + partition);
 			try {
 				for (EntiteConnexion entiteC : EntiteConnexion.obtenirEntitesPartition(partition)) {
-					try { 
-						JSONObject medicaments = new DMP(
-							entiteC.getUrlFichierRemboursements(), 
-							entiteC.obtenirCookiesMap(), 
-							logger
-						).obtenirMedicaments();
-						EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(entiteC.getRowKey());
-						if (!medicaments.isEmpty() || entiteU.getMedicaments() == null) {
-							entiteU.definirMedicamentsJObject(medicaments);
-							entiteU.mettreAJourEntite();
+					if (entiteC.getMotDePasse() != null) {
+						try { 
+							JSONObject medicaments = new DMP(
+								entiteC.getUrlFichierRemboursements(), 
+								entiteC.obtenirCookiesMap(), 
+								logger
+							).obtenirMedicaments();
+							EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(entiteC.getRowKey());
+							if (!medicaments.isEmpty() || entiteU.getMedicaments() == null) {
+								entiteU.definirMedicamentsJObject(medicaments);
+								entiteU.mettreAJourEntite();
+							}
 						}
-					}
-					catch (Exception e) {
-						logger.info("Echec de la maj pour l'utilisateur " + entiteC.getRowKey());
-						Utils.logErreur(e, logger);
-						entiteC.marquerCommeEchouee();
-						entiteC.mettreAJourEntite();
+						catch (Exception e) {
+							logger.info("Echec de la maj pour l'utilisateur " + entiteC.getRowKey());
+							Utils.logErreur(e, logger);
+							entiteC.marquerCommeEchouee();
+							entiteC.mettreAJourEntite();
+						}
 					}
 				}
 			}

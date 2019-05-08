@@ -298,7 +298,7 @@ public final class PublicTriggers {
 				final String id = corpsRequete.getString("id");
 				final String mdp = corpsRequete.getString("mdp");
 				auth = new Authentification(logger, id);
-				resultat = auth.connexionDMP(mdp, Boolean.parseBoolean(request.getHeaders().get(CLE_MEMORISER_ID)));
+				resultat = auth.connexionDMP(mdp, corpsRequete.getBoolean(CLE_MEMORISER_ID));
 				if (!resultat.isNull(CLE_ERREUR_AUTH)) {
 					codeHttp = HttpStatus.CONFLICT;
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));

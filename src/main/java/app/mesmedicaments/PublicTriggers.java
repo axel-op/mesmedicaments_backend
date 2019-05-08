@@ -209,25 +209,24 @@ public final class PublicTriggers {
 			}
 			if (categorie.equals("medicaments")) {
 				if (codeProduit != null) {
-					EntiteMedicament entite = EntiteMedicament
+					EntiteMedicament entiteM = EntiteMedicament
 						.obtenirEntite(Long.parseLong(codeProduit))
 						.get();
-					JSONArray codesSub = entite.obtenirSubstancesActivesJArray();
+					JSONArray codesSub = entiteM.obtenirSubstancesActivesJArray();
 					JSONArray nomsSub = new JSONArray();
 					for (int i = 0; i < codesSub.length(); i++) {
 						EntiteSubstance entiteS = EntiteSubstance
 							.obtenirEntite(codesSub.getLong(i))
 							.get();
-						entiteS.obtenirNomsJArray()
-							.forEach((nom) -> nomsSub.put(nom));
+						nomsSub.put(entiteS.obtenirNomsJArray().get(0));
 					}
 					JSONObject infosMed = new JSONObject()
-						.put("noms", entite.getNoms())
-						.put("forme", entite.getForme())
-						.put("marque", entite.getMarque())
-						.put("autorisation", entite.getAutorisation())
+						.put("noms", entiteM.getNoms())
+						.put("forme", entiteM.getForme())
+						.put("marque", entiteM.getMarque())
+						.put("autorisation", entiteM.getAutorisation())
 						.put("substances", nomsSub);
-					corpsReponse.put(entite.getRowKey(), infosMed);
+					corpsReponse.put(entiteM.getRowKey(), infosMed);
 					codeHttp = HttpStatus.OK;
 				} 
 				else {

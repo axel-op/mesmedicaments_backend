@@ -25,10 +25,10 @@ import app.mesmedicaments.misesajour.MiseAJourInteractions;
 
 public class PrivateTriggers {
 
-	@FunctionName("nouvellesConnexions")
-	public void nouvellesConnexions (
+	@FunctionName("nouvelleConnexion")
+	public void nouvelleConnexion (
 		@QueueTrigger(
-			name = "nouvellesConnexionsTrigger",
+			name = "nouvelleConnexionTrigger",
 			queueName = "nouvelles-connexions",
 			connection = "AzureWebJobsStorage"
 		) final String message,

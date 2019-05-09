@@ -1,6 +1,5 @@
 package app.mesmedicaments;
 
-import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
@@ -31,8 +30,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.Authentification;
-import app.mesmedicaments.connexion.DMP;
-import app.mesmedicaments.entitestables.EntiteConnexion;
 import app.mesmedicaments.entitestables.EntiteInteraction;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteSubstance;
@@ -69,19 +66,16 @@ public final class PublicTriggers {
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			String id = Authentification.getIdFromToken(accessToken);
-			EntiteConnexion entiteC = EntiteConnexion.obtenirEntite(id).get(); // TODO : gérer le cas où Optional est vide
-			DMP dmp = new DMP(
-				entiteC.getUrlFichierRemboursements(), 
-				entiteC.obtenirCookiesMap(), 
-				logger
-			);
-			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
+			
 			if (categorie.equals("medicaments")) { 
-				Optional<JSONObject> medicaments = entiteU.obtenirMedicamentsJObject();
-				if (!medicaments.isPresent()) {
-					medicaments = Optional.of(dmp.obtenirMedicaments());
-					entiteU.definirMedicamentsJObject(medicaments.get());
-					entiteU.mettreAJourEntite();
+				Optional<JSONObject> medicaments = Optional.empty();
+				long startTime = System.currentTimeMillis();
+				while (!medicaments.isPresent() && System.currentTimeMillis() - startTime < 60000) {
+					EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
+					medicaments = entiteU.obtenirMedicamentsJObject();
+				}
+				if (!medicaments.isPresent()) { 
+					throw new Exception("Impossible de récupérer les médicaments de l'utilisateur"); 
 				}
 				corpsReponse.put("medicaments", medicaments.orElseGet(() -> new JSONObject()));
 				codeHttp = HttpStatus.OK;
@@ -99,10 +93,7 @@ public final class PublicTriggers {
 			| IllegalArgumentException e) {
 			codeHttp = HttpStatus.UNAUTHORIZED;
 		}
-		catch (StorageException
-			| URISyntaxException
-			| InvalidKeyException
-			| IOException e)
+		catch (Exception e)
 		{
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -305,6 +296,7 @@ public final class PublicTriggers {
 					codeHttp = HttpStatus.CONFLICT;
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
 				} else {
+					logger.info("Ajout de la connexion à la queue nouvelles-connexions");
 					queue.setValue(new JSONObject().put("id", id).toString());
 					corpsReponse.put("accessToken", auth.createAccessToken());
 					codeHttp = HttpStatus.OK;

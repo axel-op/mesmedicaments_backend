@@ -68,16 +68,21 @@ public final class PublicTriggers {
 			String id = Authentification.getIdFromToken(accessToken);
 			
 			if (categorie.equals("medicaments")) { 
-				Optional<JSONObject> medicaments = Optional.empty();
+				Optional<EntiteUtilisateur> optEntiteU = Optional.empty();
+				Optional<JSONObject> optMedicaments = Optional.empty();
 				long startTime = System.currentTimeMillis();
-				while (!medicaments.isPresent() && System.currentTimeMillis() - startTime < 60000) {
-					EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
-					medicaments = entiteU.obtenirMedicamentsJObject();
+				while ((!optEntiteU.isPresent() || !optMedicaments.isPresent()) 
+					&& System.currentTimeMillis() - startTime < 60000
+				) {
+					optEntiteU = EntiteUtilisateur.obtenirEntite(id);
+					if (optEntiteU.isPresent()) {
+						optMedicaments = optEntiteU.get().obtenirMedicamentsJObject();
+					}
 				}
-				if (!medicaments.isPresent()) { 
+				if (!optMedicaments.isPresent()) { 
 					throw new Exception("Impossible de récupérer les médicaments de l'utilisateur"); 
 				}
-				corpsReponse.put("medicaments", medicaments.orElseGet(() -> new JSONObject()));
+				corpsReponse.put("medicaments", optMedicaments.orElseGet(() -> new JSONObject()));
 				codeHttp = HttpStatus.OK;
 			} 
 			/*

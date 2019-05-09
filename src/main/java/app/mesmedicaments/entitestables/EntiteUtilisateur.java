@@ -8,34 +8,29 @@ import java.util.Optional;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.TableOperation;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class EntiteUtilisateur extends AbstractEntite {
 
     //private static final CloudTable TABLE_UTILISATEURS;
-    private static final String CLE_PARTITION;
+    private static final String CLE_PARTITION = "utilisateur";
 
-    static {
-        CLE_PARTITION = "utilisateur";
-        //TABLE_UTILISATEURS = obtenirCloudTable();
-    }
-
-    public static EntiteUtilisateur obtenirEntite (String id) 
+    public static Optional<EntiteUtilisateur> obtenirEntite (String id) 
         throws StorageException,
         URISyntaxException,
         InvalidKeyException
     {
         TableOperation operation = TableOperation.retrieve(CLE_PARTITION, id, EntiteUtilisateur.class);
-        return obtenirCloudTable(System.getenv("tableazure_utilisateurs")).execute(operation).getResultAsType();
+        return Optional.ofNullable(
+            obtenirCloudTable(System.getenv("tableazure_utilisateurs"))
+            .execute(operation)
+            .getResultAsType()
+        );
     }
 
-    String prenom;
-    String genre;
-    String email;
-    //String motDePasse;
+    int idDmp;
     Date dateInscription;
-    String deviceId;
-    byte[] jwtSalt;
     Date derniereConnexion;
     String medicaments;
     //String medicamentsRecentsPerso
@@ -60,12 +55,8 @@ public class EntiteUtilisateur extends AbstractEntite {
 
     // Getters
 
-    public String getPrenom () { return prenom; }
-    public String getGenre () { return genre; }
-    public String getEmail () { return email; }
+    public int getIdDmp () { return idDmp; }
     public Date getDateInscription () { return dateInscription; }
-    public String getDeviceId () { return deviceId; }
-    public byte[] getJwtSalt () { return jwtSalt; }
     public Date getDerniereConnexion () { return derniereConnexion; }
 
     /**
@@ -83,23 +74,8 @@ public class EntiteUtilisateur extends AbstractEntite {
 
     // Setters
 
-    public void setPrenom (String prenom) { this.prenom = prenom; }
-
-    public void setGenre (String genre) {
-        char g = genre.charAt(0);
-        if (g == 'M' || g == 'm') { this.genre = "M"; }
-        else if (g == 'F' || g == 'f') { this.genre = "F"; }
-        else { throw new IllegalArgumentException(); }
-    }
-
-    public void setEmail (String email) {
-        // checker avec regex
-        this.email = email;
-    }
-
+    public void setIdDmp (int idDmp) { this.idDmp = idDmp; }
     public void setDateInscription (Date dateInscription) { this.dateInscription = dateInscription; }
-    public void setDeviceId (String deviceId) { this.deviceId = deviceId; }
-    public void setJwtSalt (byte[] salt) { jwtSalt = salt; }
     public void setDerniereConnexion (Date date) { derniereConnexion = date; }
 
     /**
@@ -112,8 +88,34 @@ public class EntiteUtilisateur extends AbstractEntite {
         else { this.medicaments = null; }
     }
 
-    public void definirMedicamentsJObject (JSONObject medicamentsRecents) {
-        this.medicaments = medicamentsRecents.toString();
+    /**
+     * Ecrase les médicaments déjà présents par les nouveaux
+     */
+    public void definirMedicamentsJObject (JSONObject medicaments) {
+        this.medicaments = medicaments.toString();
+    }
+
+    /**
+     * Ajoute les médicaments à ceux existant déjà
+     * @param nouveaux
+     */
+    public void ajouterMedicamentsJObject (JSONObject nouveaux) {
+        if (this.medicaments != null) {
+            JSONObject actuels = new JSONObject(this.medicaments);
+            nouveaux.keySet().forEach((cleDate) -> {
+                JSONArray jarray = nouveaux.getJSONArray(cleDate);
+                for (int i = 0; i < jarray.length(); i++) {
+                    int codeCis = jarray.getInt(i);
+                    if (!actuels.has(cleDate)
+                        || (actuels.has(cleDate) && !actuels.getJSONArray(cleDate).toList().contains(codeCis))
+                    ) {
+                        actuels.append(cleDate, codeCis);
+                    }
+                }
+            });
+            definirMedicamentsJObject(actuels);
+        }
+        else { definirMedicamentsJObject(nouveaux); }
     }
 
 }

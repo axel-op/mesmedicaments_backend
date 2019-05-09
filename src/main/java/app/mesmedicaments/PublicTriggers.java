@@ -18,10 +18,12 @@ import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
+import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import com.microsoft.azure.functions.annotation.QueueOutput;
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
@@ -43,14 +45,8 @@ public final class PublicTriggers {
 	private static final String CLE_HEURE = "heure";
 	private static final String CLE_ERREUR_AUTH = Authentification.CLE_ERREUR;
 	private static final String CLE_ENVOI_CODE = Authentification.CLE_ENVOI_CODE;
-	private static final String CLE_PRENOM = Authentification.CLE_PRENOM;
-	private static final String CLE_EMAIL = Authentification.CLE_EMAIL;
-	private static final String CLE_GENRE = Authentification.CLE_GENRE;
-	private static final String CLE_INSCRIPTION_REQUISE = Authentification.CLE_INSCRIPTION_REQUISE;
-	private static final String CLE_MEMORISER_ID = "memorisermdp";
 	private static final String ERR_INTERNE = Authentification.ERR_INTERNE;
 	private static final String HEADER_AUTHORIZATION = "jwt";
-	private static final String HEADER_DEVICEID = "deviceid";
 
 	// mettre une doc
 	@FunctionName("utilisateur")
@@ -73,13 +69,13 @@ public final class PublicTriggers {
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			String id = Authentification.getIdFromToken(accessToken);
-			EntiteConnexion entiteC = EntiteConnexion.obtenirEntiteAboutie(id).get(); // TODO : gérer le cas où Optional est vide
+			EntiteConnexion entiteC = EntiteConnexion.obtenirEntite(id).get(); // TODO : gérer le cas où Optional est vide
 			DMP dmp = new DMP(
 				entiteC.getUrlFichierRemboursements(), 
 				entiteC.obtenirCookiesMap(), 
 				logger
 			);
-			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id);
+			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
 			if (categorie.equals("medicaments")) { 
 				Optional<JSONObject> medicaments = entiteU.obtenirMedicamentsJObject();
 				if (!medicaments.isPresent()) {
@@ -266,9 +262,14 @@ public final class PublicTriggers {
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.POST, HttpMethod.GET},
 			dataType = "string",
-			route = "connexion/{etape:int}")
-		final HttpRequestMessage<Optional<String>> request,
+			route = "connexion/{etape:int}"
+		) final HttpRequestMessage<Optional<String>> request,
 		@BindingName("etape") int etape,
+		@QueueOutput(
+			name = "connexionQueueOutput",
+			queueName = "nouvelles-connexions",
+			connection = "AzureWebJobsStorage"
+		) final OutputBinding<String> queue,
 		final ExecutionContext context
 	) {
 		JSONObject corpsRequete = null;
@@ -282,22 +283,11 @@ public final class PublicTriggers {
 			if (request.getHttpMethod() == HttpMethod.POST) {
 				corpsRequete = new JSONObject(request.getBody().get());
 			}
-			final String deviceId = request.getHeaders().get(HEADER_DEVICEID);
-			if (etape == 0) { // Renouvellement du token d'accès
-				final String jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
-				if (Authentification.checkRefreshToken(jwt, deviceId)) { 
-					final String id = Authentification.getIdFromToken(jwt);
-					auth = new Authentification(logger, id);
-					corpsReponse.put("accessToken", auth.createAccessToken()); 
-					codeHttp = HttpStatus.OK;
-				}
-				else { throw new JwtException("Le token de rafraîchissement n'est pas valide"); }
-			}
-			else if (etape == 1) { // Première étape de la connexion
+			if (etape == 1) { // Première étape de la connexion
 				final String id = corpsRequete.getString("id");
 				final String mdp = corpsRequete.getString("mdp");
 				auth = new Authentification(logger, id);
-				resultat = auth.connexionDMP(mdp, corpsRequete.getBoolean(CLE_MEMORISER_ID));
+				resultat = auth.connexionDMP(mdp);
 				if (!resultat.isNull(CLE_ERREUR_AUTH)) {
 					codeHttp = HttpStatus.CONFLICT;
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
@@ -315,17 +305,9 @@ public final class PublicTriggers {
 					codeHttp = HttpStatus.CONFLICT;
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
 				} else {
-					boolean inscriptionRequise = resultat.getBoolean(CLE_INSCRIPTION_REQUISE);
+					queue.setValue(new JSONObject().put("id", id).toString());
+					corpsReponse.put("accessToken", auth.createAccessToken());
 					codeHttp = HttpStatus.OK;
-					corpsReponse
-						.put(CLE_PRENOM, resultat.get(CLE_PRENOM))
-						.put(CLE_EMAIL, resultat.get(CLE_EMAIL))
-						.put(CLE_GENRE, resultat.get(CLE_GENRE))
-						.put(CLE_INSCRIPTION_REQUISE, inscriptionRequise)
-						.put("accessToken", auth.createAccessToken());
-					if (!inscriptionRequise) {
-						corpsReponse.put("refreshToken", auth.createRefreshToken(deviceId));
-					}
 				}
 			} else { throw new IllegalArgumentException(); }
 		}
@@ -340,51 +322,6 @@ public final class PublicTriggers {
 		catch (JwtException e) 
 		{
 			Utils.logErreur(e, logger);
-			codeHttp = HttpStatus.UNAUTHORIZED;
-		}
-		catch (Exception e) {
-			Utils.logErreur(e, logger);
-			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
-			corpsReponse = new JSONObjectUneCle(CLE_CAUSE, ERR_INTERNE);
-		}
-		return construireReponse(codeHttp, corpsReponse, request);
-	}
-
-	@FunctionName("inscription")
-	public HttpResponseMessage inscription (
-		@HttpTrigger(
-			name = "inscriptionTrigger",
-			dataType = "string",
-			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.POST})
-		final HttpRequestMessage<Optional<String>> request,
-		final ExecutionContext context
-	) {
-		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
-		JSONObject corpsReponse = new JSONObject();
-		Logger logger = context.getLogger();
-		Authentification auth;
-		try {
-			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			JSONObject corpsRequete = new JSONObject(request.getBody().get());
-			final String jwt = request.getHeaders().get(HEADER_AUTHORIZATION);
-			final String deviceId = request.getHeaders().get(HEADER_DEVICEID);
-			final String id = Authentification.getIdFromToken(jwt);
-			final String prenom = corpsRequete.getString("prenom");
-			final String email = corpsRequete.getString("email");
-			final String genre = corpsRequete.getString("genre");
-			auth = new Authentification(logger, id);
-			auth.inscription(prenom, email, genre);
-			corpsReponse.put("refreshToken", auth.createRefreshToken(deviceId));
-			codeHttp = HttpStatus.OK;
-		}
-		catch (NullPointerException 
-			| IllegalArgumentException e) {
-			codeHttp = HttpStatus.BAD_REQUEST;
-		}
-		catch (JSONException
-			| NoSuchElementException
-			| JwtException e) {
 			codeHttp = HttpStatus.UNAUTHORIZED;
 		}
 		catch (Exception e) {

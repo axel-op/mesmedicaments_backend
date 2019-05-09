@@ -2,15 +2,12 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.CloudTable;
 import com.microsoft.azure.storage.table.TableOperation;
-import com.microsoft.azure.storage.table.TableQuery;
-import com.microsoft.azure.storage.table.TableQuery.QueryComparisons;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -18,77 +15,37 @@ import org.json.JSONObject;
 public class EntiteConnexion extends AbstractEntite {
 
 	//private static final CloudTable TABLE_UTILISATEURS;
-	//private static final String CLE_PARTITION;
+	private static final String CLE_PARTITION = "connexion";
 	private static final String TABLE = System.getenv("tableazure_connexions");
-	private static final String CLEPARTITION_NONABOUTIE = "non aboutie";
 
-	public static Iterable<EntiteConnexion> obtenirEntitesPartition (String partition) 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		String filtrePK = TableQuery.generateFilterCondition(
-			"PartitionKey", 
-			QueryComparisons.EQUAL, 
-			partition);
-		return obtenirCloudTable(TABLE)
-			.execute(new TableQuery<>(EntiteConnexion.class)
-				.where(filtrePK));
-	} 
-
-	private static EntiteConnexion obtenirEntite (String partition, String id)
+	public static Optional<EntiteConnexion> obtenirEntite (String id)
 		throws URISyntaxException, InvalidKeyException
 	{
 		try {
 			TableOperation operation = TableOperation.retrieve(
-				partition, 
+				CLE_PARTITION, 
 				id, 
 				EntiteConnexion.class);
-			return obtenirCloudTable(TABLE)
+			return Optional.ofNullable(
+				obtenirCloudTable(TABLE)
 				.execute(operation)
-				.getResultAsType();
+				.getResultAsType()
+			);
 		}
 		catch (StorageException e) {
 			return null;
 		}
 	}
 
-	public static Optional<EntiteConnexion> obtenirEntiteAboutie (String id) 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		EntiteConnexion entite = null;
-		for (int i = 0; i < 60; i += 5) {
-			String partition = String.valueOf(i);
-			if (partition.length() == 1) { partition = "0" + partition; }
-			entite = obtenirEntite(partition, id);
-			if (entite != null) { return Optional.of(entite); }
-		}
-		return Optional.empty();
-	}
-
-	/**
-	 * Ne renvoie que les connexions non abouties
-	 * @param id
-	 * @return
-	 * @throws URISyntaxException
-	 * @throws InvalidKeyException
-	 */
-	public static EntiteConnexion obtenirEntiteNonAboutie (String id) 
-		throws URISyntaxException, InvalidKeyException
-	{
-		return obtenirEntite(CLEPARTITION_NONABOUTIE, id);
-	}
-
 	String sid;
 	String tformdata;
 	String cookies;
-	//boolean inscriptionRequise;
 	String urlFichierRemboursements;
-	String motDePasse;
-	Integer tentatives;
 
 	public EntiteConnexion (String id) 
 		throws StorageException, InvalidKeyException, URISyntaxException
 	{
-		super(TABLE, CLEPARTITION_NONABOUTIE, id);
+		super(TABLE, CLE_PARTITION, id);
 	}
 
 	/**
@@ -135,22 +92,6 @@ public class EntiteConnexion extends AbstractEntite {
 		}
 	}
 
-	@Override
-	public void mettreAJourEntite () throws StorageException {
-		if (tentatives == null) { tentatives = 0; }
-		if (this.partitionKey.equals(CLEPARTITION_NONABOUTIE)
-			&& !Optional.ofNullable(urlFichierRemboursements).orElse("").equals(""))
-		{
-			int minute = LocalDateTime.now().getMinute();
-			String partition = String.valueOf(minute - (minute % 5));
-			if (partition.length() == 1) { partition = "0" + partition; }
-			this.partitionKey = partition;
-		}
-		try { supprimerAutresOccurrences(); }
-		catch (URISyntaxException | InvalidKeyException e) {}
-		super.mettreAJourEntite();
-	}
-
 	/* Getters */
 
 	public String getSid () { return sid; }
@@ -176,11 +117,6 @@ public class EntiteConnexion extends AbstractEntite {
 
 	//public boolean getInscriptionRequise () { return inscriptionRequise; }
 	public String getUrlFichierRemboursements () { return urlFichierRemboursements; }
-	public String getMotDePasse () { return motDePasse; }
-
-	public Integer getTentatives () { 
-		return Optional.ofNullable(tentatives).orElse(0);
-	}
 
 	/* Setters */
 
@@ -208,8 +144,6 @@ public class EntiteConnexion extends AbstractEntite {
 
 	//public void setInscriptionRequise (boolean inscriptionRequise) { this.inscriptionRequise = inscriptionRequise; }
 	public void setUrlFichierRemboursements (String url) { urlFichierRemboursements = url; }
-	public void setMotDePasse (String mdp) { motDePasse = mdp; }
-	public void setTentatives (int tentatives) { this.tentatives = tentatives; }
 
 	// Affichage
 	public String toString () {

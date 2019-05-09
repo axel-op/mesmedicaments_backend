@@ -1,8 +1,5 @@
 package app.mesmedicaments;
 
-import java.net.URISyntaxException;
-import java.security.InvalidKeyException;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.logging.Logger;
 
@@ -15,8 +12,7 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
-import com.microsoft.azure.functions.annotation.TimerTrigger;
-import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.functions.annotation.QueueTrigger;
 
 import org.json.JSONObject;
 
@@ -29,56 +25,45 @@ import app.mesmedicaments.misesajour.MiseAJourInteractions;
 
 public class PrivateTriggers {
 
-
-    @FunctionName("maintienConnexion")
-	public void maintienConnexion (
-		@TimerTrigger(
-			name = "maintienConnexionTrigger",
-			schedule = "0 */5 * * * *")
-		final String timerInfo,
+	@FunctionName("nouvellesConnexions")
+	public void nouvellesConnexions (
+		@QueueTrigger(
+			name = "nouvellesConnexionsTrigger",
+			queueName = "nouvelles-connexions",
+			connection = "AzureWebJobsStorage"
+		) final String message,
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
-		logger.info("Timer info = " + timerInfo);
-		int minuteArrondie = LocalDateTime.now().getMinute();
-		int decalage = minuteArrondie % 5;
-		if (decalage < 3) { minuteArrondie -= decalage; }
-		else { minuteArrondie += 5 - decalage; }
-		logger.info("Debug : minuteArrondie = " + minuteArrondie);
-		for (int i = minuteArrondie % 20; i < 60; i += 20) {
-			String partition = String.valueOf(i);
-			if (partition.length() == 1) { partition = "0" + partition; }
-			logger.info("Debug : partition = " + partition);
-			try {
-				for (EntiteConnexion entiteC : EntiteConnexion.obtenirEntitesPartition(partition)) {
-					if (entiteC.getMotDePasse() != null) {
-						try { 
-							JSONObject medicaments = new DMP(
-								entiteC.getUrlFichierRemboursements(), 
-								entiteC.obtenirCookiesMap(), 
-								logger
-							).obtenirMedicaments();
-							EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(entiteC.getRowKey());
-							if (!medicaments.isEmpty() || entiteU.getMedicaments() == null) {
-								entiteU.definirMedicamentsJObject(medicaments);
-								entiteU.mettreAJourEntite();
-							}
-						}
-						catch (Exception e) {
-							logger.info("Echec de la maj pour l'utilisateur " + entiteC.getRowKey());
-							Utils.logErreur(e, logger);
-							entiteC.marquerCommeEchouee();
-							entiteC.mettreAJourEntite();
-						}
-					}
-				}
+		logger.info("Message reçu : " + message);
+		try {
+			String id = new JSONObject(message).getString("id");
+			logger.info("Récupération de l'EntiteConnexion...");
+			EntiteConnexion entiteC = EntiteConnexion.obtenirEntite(id).get();
+			DMP dmp = new DMP(
+				entiteC.getUrlFichierRemboursements(),
+				entiteC.obtenirCookiesMap(),
+				logger
+			);
+			logger.info("Récupération des médicaments...");
+			JSONObject medicaments = dmp.obtenirMedicaments();
+			logger.info("Récupération de l'EntiteUtilisateur...");
+			Optional<EntiteUtilisateur> optEntiteU = EntiteUtilisateur.obtenirEntite(id);
+			EntiteUtilisateur entiteU;
+			if (!optEntiteU.isPresent()) {
+				logger.info("Utilisateur " + id + " non trouvé, va être créé");
+				entiteU = new EntiteUtilisateur(id);
 			}
-			catch (StorageException | URISyntaxException | InvalidKeyException e) {
-				Utils.logErreur(e, logger);
-				logger.info("Echec lors de la maj de la partition : " + partition);
-			}
+			else { entiteU = optEntiteU.get(); }
+			logger.info("Ajout des médicaments à l'utilisateur");
+			entiteU.ajouterMedicamentsJObject(medicaments);
+			entiteU.mettreAJourEntite();
 		}
-    }
+		catch (Exception e) {
+			Utils.logErreur(e, logger);
+			logger.warning("Impossible de récupérer les médicaments");
+		}
+	}
 
     @FunctionName("mettreAJourBases")
 	public HttpResponseMessage mettreAJourBases (

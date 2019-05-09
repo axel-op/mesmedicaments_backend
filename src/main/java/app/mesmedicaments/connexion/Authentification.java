@@ -3,13 +3,8 @@ package app.mesmedicaments.connexion;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
-import java.security.SecureRandom;
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Arrays;
-import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,8 +21,6 @@ import org.jsoup.nodes.Document;
 import app.mesmedicaments.JSONObjectUneCle;
 import app.mesmedicaments.Utils;
 import app.mesmedicaments.entitestables.EntiteConnexion;
-import app.mesmedicaments.entitestables.EntiteUtilisateur;
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
@@ -42,10 +35,6 @@ public final class Authentification {
 	public static final String CLE_SID;
 	public static final String CLE_TFORMDATA;
 	public static final String CLE_COOKIES;
-	public static final String CLE_PRENOM;
-	public static final String CLE_GENRE;
-	public static final String CLE_EMAIL;
-	public static final String CLE_INSCRIPTION_REQUISE;
 	public static final String ERR_INTERNE;
 	public static final String ERR_ID;
 	public static final String ERR_SQL;
@@ -58,7 +47,6 @@ public final class Authentification {
 	private static final String URL_CONNEXION_DMP;
 	private static final String URL_POST_FORM_DMP;
 	private static final String URL_ENVOI_CODE;
-	private static final String URL_INFOS_DMP;
 	//private static final String ID_MSI;
 	private static final ZoneId TIMEZONE;
 	private static SignatureAlgorithm JWT_SIGNING_ALG;
@@ -76,21 +64,16 @@ public final class Authentification {
 		URL_CONNEXION_DMP = System.getenv("url_connexion_dmp");
 		URL_POST_FORM_DMP = System.getenv("url_post_form_dmp");
 		URL_ENVOI_CODE = System.getenv("url_post_envoi_code");
-		URL_INFOS_DMP = System.getenv("url_infos_dmp");
 		//ID_MSI = System.getenv("msi_auth");
 		CLE_ERREUR = "erreur";
 		CLE_ENVOI_CODE = "envoiCode";
 		CLE_COOKIES = "cookies";
 		CLE_SID = "sid";
 		CLE_TFORMDATA = "tformdata";
-		CLE_PRENOM = "prenom";
-		CLE_EMAIL = "email";
-		CLE_GENRE = "genre";
-		CLE_INSCRIPTION_REQUISE = "inscription requise";
 		TIMEZONE = ZoneId.of("ECT", ZoneId.SHORT_IDS);
 		JWT_SIGNING_ALG = SignatureAlgorithm.HS512;
 		JWT_SIGNING_KEY = "SuperSecretTest";
-		///////////////// définir un secret et le lier à KEYVAULT
+		///////////////// définir un secret et le lier à KEYVAULT (pas nécessaire après tout)
 	}
 
 	public static String getIdFromToken (String jwt) 
@@ -106,39 +89,6 @@ public final class Authentification {
 			.getBody()
 			.get("id");
 	}
-
-	public static boolean checkRefreshToken (String refreshJwt, String deviceIdHeader) 
-		throws StorageException,
-		URISyntaxException,
-		InvalidKeyException
-	{
-		Claims claims = Jwts.parser()
-			.setSigningKey(JWT_SIGNING_KEY)
-			.parseClaimsJws(refreshJwt)
-			.getBody();
-		String id = (String) claims.get("id");
-		String type = (String) claims.get("type");
-		String deviceId = (String) claims.get("deviceId");
-		byte[] sel = Base64.getDecoder().decode((String) claims.get("sel"));
-		if (id.length() != 8 
-			|| !type.equals("refresh")
-			|| !deviceId.equals(deviceIdHeader)) 
-		{ return false; }
-		EntiteUtilisateur entite = EntiteUtilisateur.obtenirEntite(id);
-		if (entite == null) { return false; }
-		if (!entite.getDeviceId().equals(deviceId)) { return false; }
-		Date derniereConnexion = entite.getDerniereConnexion();
-		if (derniereConnexion != null) {
-			LocalDateTime derniereConnexionLocale = LocalDateTime.ofInstant(
-				derniereConnexion.toInstant(), TIMEZONE);
-			if (derniereConnexionLocale.plusYears(1).isBefore(LocalDateTime.now())
-				|| !Arrays.equals(entite.getJwtSalt(), sel))
-			{ return false; }
-		}
-		entite.setDerniereConnexion(new Date());
-		entite.mettreAJourEntite();
-		return true;
-	}
 	
 	private Logger logger;
 	private String id;
@@ -149,57 +99,19 @@ public final class Authentification {
 		this.id = id;
 	}
 
+	/**
+	 * Crée le seul token nécessaire pour modifier/accéder aux médicaments de l'utilisateur
+	 * @return
+	 */
     public String createAccessToken () {
         return Jwts.builder()
             .signWith(JWT_SIGNING_ALG, JWT_SIGNING_KEY)
             .setClaims(new JSONObjectUneCle("id", id).toMap())
-            .setExpiration(new Date(System.currentTimeMillis() + 3600000)) // une heure
             .setIssuedAt(new Date())
             .compact();            
 	}
 
-	public String createRefreshToken (String deviceIdHeader) 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		if (deviceIdHeader == null || deviceIdHeader.equals("")) {
-			throw new IllegalArgumentException();
-		}
-		byte[] sel = new byte[16];
-		new SecureRandom().nextBytes(sel);
-		EntiteUtilisateur entite = EntiteUtilisateur.obtenirEntite(id);
-		entite.setJwtSalt(sel);
-		entite.setDeviceId(deviceIdHeader);
-		Claims claims = Jwts.claims();
-		claims.put("id", id);
-		claims.put("type", "refresh");
-		claims.put("sel", Base64.getEncoder().encodeToString(sel));
-		claims.put("deviceId", deviceIdHeader);
-		entite.mettreAJourEntite();
-		return Jwts.builder()
-			.signWith(JWT_SIGNING_ALG, JWT_SIGNING_KEY)
-			.setClaims(claims)
-			.setIssuedAt(new Date())
-			.compact();
-	}
-
-	public void inscription (String prenom, String email, String genre) 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		if (prenom.length() > 30
-			|| email.length() > 128
-			|| genre.length() != 1
-		) { throw new IllegalArgumentException(); }
-		EntiteUtilisateur entiteUtilisateur = new EntiteUtilisateur(id);
-		entiteUtilisateur.setPrenom(prenom);
-		entiteUtilisateur.setEmail(email);
-		entiteUtilisateur.setGenre(genre);
-		entiteUtilisateur.setMedicaments(null);
-		entiteUtilisateur.setDateInscription(
-			Date.from(Instant.now(Clock.system(TIMEZONE))));
-		entiteUtilisateur.creerEntite();
-	}
-
-	public JSONObject connexionDMP (String mdp, boolean memoriser) {
+	public JSONObject connexionDMP (String mdp) {
 		if (mdp.length() > 128) { throw new IllegalArgumentException("Format du mdp incorrect"); }
 		Document pageReponse;
 		Connection connexion;
@@ -257,8 +169,7 @@ public final class Authentification {
 			entiteConnexion.setSid(obtenirSid(pageReponse));
 			entiteConnexion.setTformdata(obtenirTformdata(pageReponse));
 			entiteConnexion.definirCookiesMap(cookies);
-			if (memoriser) { entiteConnexion.setMotDePasse(mdp); }
-			entiteConnexion.creerEntite();
+			entiteConnexion.creerEntite(); 
 		} catch (IOException 
 			| InvalidKeyException
 			| URISyntaxException
@@ -280,7 +191,7 @@ public final class Authentification {
 		JSONObject retour = new JSONObject();
 		LocalDateTime maintenant = LocalDateTime.now(TIMEZONE);
 		try {
-			entiteConnexion = EntiteConnexion.obtenirEntiteNonAboutie(id);
+			entiteConnexion = EntiteConnexion.obtenirEntite(id).get();
 			if (entiteConnexion == null) {
 				logger.info("Appel API connexion étape 2 mais pas d'élément de l'étape 1 trouvé");
 				throw new IllegalArgumentException("Pas d'élément de l'étape 1 trouvé"); 
@@ -312,7 +223,6 @@ public final class Authentification {
 				obtenirURLFichierRemboursements(cookies).orElse(null)
 			);
 			entiteConnexion.mettreAJourEntite();
-			recupererInfosUtilisateur(cookies, retour);
 		}
 		catch (IOException 
 			| InvalidKeyException
@@ -322,36 +232,6 @@ public final class Authentification {
 			retour.put(CLE_ERREUR, ERR_INTERNE);
 		}
 		return retour;
-	}
-
-	private void recupererInfosUtilisateur (Map<String, String> cookies, JSONObject retour) 
-		throws IOException, StorageException, URISyntaxException, InvalidKeyException
-	{
-		Connection connexion;
-		Document pageInfos;
-		EntiteUtilisateur entiteUtilisateur = EntiteUtilisateur.obtenirEntite(id);
-		if (entiteUtilisateur == null) {
-			retour.put(CLE_INSCRIPTION_REQUISE, true);
-			connexion = Jsoup.connect(URL_INFOS_DMP);
-			connexion.method(Connection.Method.GET)
-				.userAgent(USERAGENT)
-				.cookies(cookies)
-				.execute();
-			pageInfos = connexion.response().parse();
-			retour.put(CLE_PRENOM, formaterPrenom(
-				pageInfos.getElementById("firstNameValue")
-					.text()));
-			retour.put(CLE_EMAIL, pageInfos.getElementById("email")
-				.val());
-			retour.put(CLE_GENRE, pageInfos.getElementById("genderValue")
-				.text());
-		}
-		else {
-			retour.put(CLE_INSCRIPTION_REQUISE, false);
-			retour.put(CLE_PRENOM, entiteUtilisateur.getPrenom());
-			retour.put(CLE_EMAIL, entiteUtilisateur.getEmail());
-			retour.put(CLE_GENRE, entiteUtilisateur.getGenre());
-		}
 	}
 
 	private Optional<String> obtenirURLFichierRemboursements (Map<String, String> cookies) throws IOException {
@@ -388,23 +268,5 @@ public final class Authentification {
 		return page.getElementsByAttributeValue("name", "t:formdata")
 			.first()
 			.val();
-	}
-
-	/**
-	 * Garde une majuscule au début du prénom et après chaque tiret, le reste en minuscule
-	 */
-	private String formaterPrenom (String prenom) {
-		String prenomFormate = "";
-		boolean mettreEnMaj = true;
-		for (char c : prenom.toCharArray()) {
-			if (mettreEnMaj) { 
-				prenomFormate += String.valueOf(c).toUpperCase();
-				mettreEnMaj = false;
-			} else {
-				prenomFormate += String.valueOf(c).toLowerCase();
-			}
-			if (c == '-' || c == ' ') { mettreEnMaj = true; }
-		}
-		return prenomFormate;
 	}
 }

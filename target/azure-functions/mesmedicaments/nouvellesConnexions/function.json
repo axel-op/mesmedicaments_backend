@@ -1,0 +1,11 @@
+{
+  "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
+  "entryPoint" : "app.mesmedicaments.PrivateTriggers.nouvellesConnexions",
+  "bindings" : [ {
+    "type" : "queueTrigger",
+    "direction" : "in",
+    "name" : "nouvellesConnexionsTrigger",
+    "queueName" : "nouvelles-connexions",
+    "connection" : "AzureWebJobsStorage"
+  } ]
+}

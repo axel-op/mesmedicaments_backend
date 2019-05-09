@@ -214,19 +214,20 @@ public final class PublicTriggers {
 						.obtenirEntite(Long.parseLong(codeProduit))
 						.get();
 					JSONArray codesSub = entiteM.obtenirSubstancesActivesJArray();
-					JSONArray nomsSub = new JSONArray();
+					JSONObject substances = new JSONObject();
 					for (int i = 0; i < codesSub.length(); i++) {
 						EntiteSubstance entiteS = EntiteSubstance
 							.obtenirEntite(codesSub.getLong(i))
 							.get();
-						nomsSub.put(entiteS.obtenirNomsJArray().get(0));
+						//nomsSub.put(entiteS.obtenirNomsJArray().get(0));
+						substances.put(entiteS.getRowKey(), entiteS.obtenirNomsJArray());
 					}
 					JSONObject infosMed = new JSONObject()
 						.put("noms", entiteM.getNoms())
 						.put("forme", entiteM.getForme())
 						.put("marque", entiteM.getMarque())
 						.put("autorisation", entiteM.getAutorisation())
-						.put("substances", nomsSub);
+						.put("substances", substances);
 					corpsReponse.put(entiteM.getRowKey(), infosMed);
 					codeHttp = HttpStatus.OK;
 				} 

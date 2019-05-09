@@ -342,9 +342,11 @@ public final class MiseAJourInteractions {
 	 * @see EntiteInteraction
 	 * @see EntiteInteraction#risque
 	 * @param entites La {@link Collection} d'entités à filtrer
+	 * @return La liste de toutes les entités supprimées
 	 */
-	private static void supprimerDoublons (Collection<EntiteInteraction> entites) {
+	private static List<EntiteInteraction> supprimerDoublons (Collection<EntiteInteraction> entites) {
 		ArrayList<EntiteInteraction> listeEntites = new ArrayList<>(entites);
+		ArrayList<EntiteInteraction> supprimees = new ArrayList<>();
 		for (int i = 0; i < listeEntites.size(); i++) {
 			for (int j = i + 1; j < listeEntites.size(); j++) {
 				EntiteInteraction e1 = listeEntites.get(i);
@@ -354,17 +356,20 @@ public final class MiseAJourInteractions {
 				{
 					if (e1.getRisque() > e2.getRisque()) {
 						if (entites.contains(e2)) {
+							supprimees.add(e2);
 							entites.remove(e2);
 						}
 					}
 					else { 
 						if (entites.contains(e1)) {
+							supprimees.add(e1);
 							entites.remove(e1); 
 						}
 					}
 				}
 			}
 		}
+		return supprimees;
 	}
 	
 	/**
@@ -380,8 +385,11 @@ public final class MiseAJourInteractions {
 	{
 		logger.info("Suppression des doublons...");
 		long startTime = System.currentTimeMillis();
-		entitesRegroupees.values().stream().forEach(MiseAJourInteractions::supprimerDoublons);
-		logger.info("Doublons supprimés en " + Utils.tempsDepuis(startTime) + " ms");
+		List<EntiteInteraction> supprimes = new ArrayList<>();
+		entitesRegroupees.values().stream().forEach((entites) -> {
+			supprimes.addAll(supprimerDoublons(entites));
+		});
+		logger.info(supprimes.size() + " doublons supprimés en " + Utils.tempsDepuis(startTime) + " ms");
 		logger.info("Mise à jour de la base de données en cours...");
 		startTime = System.currentTimeMillis();
 		for (Collection<EntiteInteraction> entites : entitesRegroupees.values()) {

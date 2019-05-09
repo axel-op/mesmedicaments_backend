@@ -31,7 +31,7 @@ public final class MiseAJourClassesSubstances {
 
 	private static Logger logger;
 	private static Map<String, Set<Long>> classes = new HashMap<>();
-	private static Map<String, Set<Long>> nomsSubstances = new HashMap<>();
+	private static Map<String, Set<Long>> nomsSubstancesNormalisesMin = new HashMap<>();
 	private static Map<String, Set<Long>> cacheRecherche = new HashMap<>();
 
 	static {
@@ -43,8 +43,8 @@ public final class MiseAJourClassesSubstances {
 	public static boolean handler (Logger logger) {
 		MiseAJourClassesSubstances.logger = logger;
 		logger.info("Début de la mise à jour des classes de substances");
-		nomsSubstances = importerSubstances(logger);
-		if (nomsSubstances.isEmpty()) { return false; }
+		nomsSubstancesNormalisesMin = importerSubstances(logger);
+		if (nomsSubstancesNormalisesMin.isEmpty()) { return false; }
 		if (!importerClasses()) { return false; }
 		if (!exporterClasses()) { return false; }
 		return true;
@@ -137,11 +137,9 @@ public final class MiseAJourClassesSubstances {
 		Set<Long> resultats = Optional
 			.ofNullable(cacheRecherche.get(recherche))
 			.orElseGet(HashSet::new);
-		nomsSubstances.keySet().stream()
-			.map(Utils::normaliser)
-			.map(String::toLowerCase)
+		nomsSubstancesNormalisesMin.keySet().stream()
 			.filter(nom -> nom.matches("(?i:.*" + rechercheNorm + ".*)"))
-			.forEach(nom -> resultats.addAll(nomsSubstances.get(nom)));
+			.forEach(nom -> resultats.addAll(nomsSubstancesNormalisesMin.get(nom)));
 		cacheRecherche.put(recherche, resultats);
 		logger.fine(resultats.size() + " substances trouvées à la recherche : " + recherche);
 		return resultats;
@@ -155,6 +153,8 @@ public final class MiseAJourClassesSubstances {
 					entite.obtenirNomsJArray().toList()
 						.stream()
 						.map(String::valueOf)
+						.map(Utils::normaliser)
+						.map(String::toLowerCase)
 						.iterator()
 				) {
 					if (!resultats.containsKey(nom)) {

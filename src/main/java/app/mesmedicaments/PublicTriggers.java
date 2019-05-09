@@ -139,16 +139,23 @@ public final class PublicTriggers {
 			Set<Integer> substances2 = jArrayToSet.apply(entiteMed2.obtenirSubstancesActivesJArray());
 			JSONArray interactions = new JSONArray();
 			for (int codeSubstance1 : substances1) {
-				for(int codeSubstance2 : substances2) {
-					EntiteInteraction entiteInt = EntiteInteraction.obtenirEntite(codeSubstance1, codeSubstance2);
-					if (entiteInt != null) {
-						interactions.put(
-							new JSONObject()
-							.put("substances", new JSONArray().put(codeSubstance1).put(codeSubstance2))
-							.put("risque", entiteInt.getRisque())
-							.put("descriptif", entiteInt.getDescriptif())
-							.put("conduite", entiteInt.getConduite())
-						);
+				EntiteSubstance entiteS1 = EntiteSubstance.obtenirEntite(codeSubstance1).get(); // TODO gérer les cas où Optional est null
+				for (int codeSubstance2 : substances2) {
+					EntiteSubstance entiteS2 = EntiteSubstance.obtenirEntite(codeSubstance2).get();
+					if (codeSubstance1 != codeSubstance2) {
+						EntiteInteraction entiteInt = EntiteInteraction.obtenirEntite(codeSubstance1, codeSubstance2);
+						if (entiteInt != null) {
+							interactions.put(
+								new JSONObject()
+								.put("substances", new JSONObject()
+									.put(String.valueOf(codeSubstance1), entiteS1.obtenirNomsJArray())
+									.put(String.valueOf(codeSubstance2), entiteS2.obtenirNomsJArray())
+								)
+								.put("risque", entiteInt.getRisque())
+								.put("descriptif", entiteInt.getDescriptif())
+								.put("conduite", entiteInt.getConduite())
+							);
+						}
 					}
 				}
 			}

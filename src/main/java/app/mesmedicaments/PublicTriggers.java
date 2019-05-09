@@ -8,6 +8,7 @@ import java.time.format.DateTimeParseException;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -72,12 +73,13 @@ public final class PublicTriggers {
 				Optional<JSONObject> optMedicaments = Optional.empty();
 				long startTime = System.currentTimeMillis();
 				while ((!optEntiteU.isPresent() || !optMedicaments.isPresent()) 
-					&& System.currentTimeMillis() - startTime < 60000
+					&& System.currentTimeMillis() - startTime < 70000
 				) {
 					optEntiteU = EntiteUtilisateur.obtenirEntite(id);
 					if (optEntiteU.isPresent()) {
 						optMedicaments = optEntiteU.get().obtenirMedicamentsJObject();
 					}
+					TimeUnit.MILLISECONDS.sleep(500);
 				}
 				if (!optMedicaments.isPresent()) { 
 					throw new Exception("Impossible de récupérer les médicaments de l'utilisateur"); 
@@ -301,7 +303,7 @@ public final class PublicTriggers {
 					codeHttp = HttpStatus.CONFLICT;
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
 				} else {
-					logger.info("Ajout de la connexion à la queue nouvelles-connexions");
+					logger.info("Ajout de la connexion à la file nouvelles-connexions");
 					queue.setValue(new JSONObject().put("id", id).toString());
 					corpsReponse.put("accessToken", auth.createAccessToken());
 					codeHttp = HttpStatus.OK;

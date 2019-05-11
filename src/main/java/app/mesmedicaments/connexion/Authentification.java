@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -48,7 +47,6 @@ public final class Authentification {
 	private static final String URL_POST_FORM_DMP;
 	private static final String URL_ENVOI_CODE;
 	//private static final String ID_MSI;
-	private static final ZoneId TIMEZONE;
 	private static SignatureAlgorithm JWT_SIGNING_ALG;
     private static String JWT_SIGNING_KEY;
 	
@@ -70,7 +68,6 @@ public final class Authentification {
 		CLE_COOKIES = "cookies";
 		CLE_SID = "sid";
 		CLE_TFORMDATA = "tformdata";
-		TIMEZONE = ZoneId.of("ECT", ZoneId.SHORT_IDS);
 		JWT_SIGNING_ALG = SignatureAlgorithm.HS512;
 		JWT_SIGNING_KEY = "SuperSecretTest";
 		///////////////// définir un secret et le lier à KEYVAULT (pas nécessaire après tout)
@@ -189,7 +186,7 @@ public final class Authentification {
 		//boolean inscriptionRequise;
 		EntiteConnexion entiteConnexion;
 		JSONObject retour = new JSONObject();
-		LocalDateTime maintenant = LocalDateTime.now(TIMEZONE);
+		LocalDateTime maintenant = LocalDateTime.now(Utils.TIMEZONE);
 		try {
 			entiteConnexion = EntiteConnexion.obtenirEntite(id).get();
 			if (entiteConnexion == null) {
@@ -197,7 +194,7 @@ public final class Authentification {
 				throw new IllegalArgumentException("Pas d'élément de l'étape 1 trouvé"); 
 			}
 			LocalDateTime timestamp = LocalDateTime.ofInstant(
-				entiteConnexion.getTimestamp().toInstant(), TIMEZONE);
+				entiteConnexion.getTimestamp().toInstant(), Utils.TIMEZONE);
 			if (maintenant.minusMinutes(10).isAfter(timestamp)) { 
 				throw new IllegalArgumentException("L'heure ne correspond pas ou plus"); 
 			}

@@ -6,8 +6,9 @@ import java.util.HashMap;
 import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.table.CloudTable;
 import com.microsoft.azure.storage.table.TableOperation;
+import com.microsoft.azure.storage.table.TableQuery;
+import com.microsoft.azure.storage.table.TableQuery.QueryComparisons;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -17,6 +18,19 @@ public class EntiteConnexion extends AbstractEntite {
 	//private static final CloudTable TABLE_UTILISATEURS;
 	private static final String CLE_PARTITION = "connexion";
 	private static final String TABLE = System.getenv("tableazure_connexions");
+
+	public static Iterable<EntiteConnexion> obtenirToutesLesEntites () 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		String filtrePK = TableQuery.generateFilterCondition(
+			"PartitionKey", 
+			QueryComparisons.EQUAL, 
+			CLE_PARTITION
+		);
+		return obtenirCloudTable(TABLE)
+			.execute(new TableQuery<>(EntiteConnexion.class)
+				.where(filtrePK));
+	}
 
 	public static Optional<EntiteConnexion> obtenirEntite (String id)
 		throws URISyntaxException, InvalidKeyException
@@ -33,7 +47,7 @@ public class EntiteConnexion extends AbstractEntite {
 			);
 		}
 		catch (StorageException e) {
-			return null;
+			return Optional.empty();
 		}
 	}
 
@@ -60,36 +74,11 @@ public class EntiteConnexion extends AbstractEntite {
 		super(TABLE);
 	}
 
-	public void marquerCommeEchouee ()
+	public void supprimerEntite () 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		setPartitionKey("échouée");
-		supprimerAutresOccurrences();
-		mettreAJourEntite();
-	}
-
-	/**
-	 * Supprime toutes les occurrences ABOUTIES ayant le même id sur une partition différente de la table connexions
-	 * @throws StorageException
-	 * @throws URISyntaxException
-	 * @throws InvalidKeyException
-	 */
-	private void supprimerAutresOccurrences () 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		CloudTable cloudTable = obtenirCloudTable(TABLE);
-		for (int i = 0; i < 60; i += 5) {
-			String partition = String.valueOf(i);
-			if (partition.length() == 1) { partition = "0" + partition; }
-			if (!partition.equals(getPartitionKey())) {
-				TableOperation operation = TableOperation.retrieve(partition, getRowKey(), EntiteConnexion.class);
-				EntiteConnexion entite = cloudTable.execute(operation).getResultAsType();
-				if (entite != null) {
-					operation = TableOperation.delete(entite);
-					cloudTable.execute(operation);
-				}
-			}
-		}
+		obtenirCloudTable(TABLE)
+			.execute(TableOperation.delete(this));
 	}
 
 	/* Getters */

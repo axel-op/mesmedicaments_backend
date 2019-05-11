@@ -1,6 +1,7 @@
 package app.mesmedicaments;
 
 import java.text.Normalizer;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.function.Function;
 import java.util.logging.Logger;
@@ -12,11 +13,13 @@ public final class Utils {
 	//private static final String XORKEY;
 	public static final String NEWLINE;
 	private static HashMap<String, String> cacheNormalisation;
+	public static final ZoneId TIMEZONE;
 
 	static {
 		NEWLINE = System.getProperty("line.separator");
 		//XORKEY = System.getenv("cle_XOR");
 		cacheNormalisation = new HashMap<>();
+		TIMEZONE = ZoneId.of("ECT", ZoneId.SHORT_IDS);
 	}
 
 	private Utils () {}

@@ -33,6 +33,7 @@ public class EntiteCacheRecherche extends AbstractEntite {
 	}
 	
 	String resultats;
+	int nombre;
     
     public EntiteCacheRecherche (String recherche) 
 		throws StorageException, InvalidKeyException, URISyntaxException
@@ -57,6 +58,8 @@ public class EntiteCacheRecherche extends AbstractEntite {
 	}
 
 	public void setResultats (String resultats) { this.resultats = resultats; }
+	public void setNombre (int nombre) { this.nombre = nombre; }
 	public String getResultats () { return this.resultats; }
+	public int getNombre () { return this.nombre; }
 	public JSONArray obtenirResultatsJArray () { return new JSONArray(resultats); }
 }

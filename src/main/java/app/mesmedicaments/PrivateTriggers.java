@@ -45,9 +45,11 @@ public class PrivateTriggers {
 		String recherche = jsonObj.getString("recherche");
 		String resultats = jsonObj.getJSONArray("resultats").toString();
 		try {
-			EntiteCacheRecherche entite = new EntiteCacheRecherche(recherche);
+			EntiteCacheRecherche entite = EntiteCacheRecherche.obtenirEntite(recherche)
+				.orElse(new EntiteCacheRecherche(recherche));
+			entite.setNombre(entite.getNombre() + 1);
 			entite.setResultats(resultats);
-			entite.creerEntite();
+			entite.mettreAJourEntite();
 		}
 		catch (StorageException | URISyntaxException | InvalidKeyException e) {
 			logger.warning("Impossible de mettre en cache les résultats de la recherche : " + recherche

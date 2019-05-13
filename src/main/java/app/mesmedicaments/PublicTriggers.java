@@ -84,12 +84,12 @@ public final class PublicTriggers {
 						resultats.put(medicamentEnJson(entite, logger));
 					}
 				}
-				queue.setValue(new JSONObject()
-					.put("recherche", recherche)
-					.put("resultats", resultats)
-					.toString()
-				);
 			}
+			queue.setValue(new JSONObject()
+				.put("recherche", recherche)
+				.put("resultats", resultats)
+				.toString()
+			);
 			corpsReponse.put("resultats", resultats);
 			logger.info("Recherche de \"" + recherche + "\" : " + resultats.length() + " résultats trouvés");
 		}

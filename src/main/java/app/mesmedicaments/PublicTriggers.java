@@ -5,6 +5,7 @@ import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -12,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
@@ -45,15 +47,63 @@ public final class PublicTriggers {
 	private static final String CLE_ENVOI_CODE = Authentification.CLE_ENVOI_CODE;
 	private static final String ERR_INTERNE = Authentification.ERR_INTERNE;
 	private static final String HEADER_AUTHORIZATION = "jwt";
+	private static Iterable<EntiteMedicament> entitesMedicaments;
 
-	// mettre une doc
-	@FunctionName("utilisateur")
-	public HttpResponseMessage dmp (
+	@FunctionName("recherche")
+	public HttpResponseMessage recherche (
 		@HttpTrigger(
-			name = "utilisateurTrigger",
+			name = "rechercheTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "utilisateur/{categorie:alpha}")
+			route = "recherche/{recherche:alpha}"
+		) final HttpRequestMessage<Optional<String>> request,
+		@BindingName("recherche") String recherche,
+		final ExecutionContext context
+	) {
+		Logger logger = context.getLogger();
+		HttpStatus codeHttp = HttpStatus.OK;
+		JSONObject corpsReponse = new JSONObject();
+		try {
+			if (entitesMedicaments == null) { entitesMedicaments = EntiteMedicament.obtenirToutesLesEntites(); }
+			if (recherche.length() > 100) { throw new IllegalArgumentException(); }
+			JSONArray resultats = new JSONArray();
+			Iterator<EntiteMedicament> iter = entitesMedicaments.iterator();
+			while (resultats.length() < 10 && iter.hasNext()) {
+				EntiteMedicament entite = iter.next();
+				if (Utils.normaliser(entite.getNoms()).toLowerCase().contains(recherche)) {
+					resultats.put(medicamentEnJson(entite, logger));
+				}
+			}
+			/*Object[] trouves = StreamSupport
+				.stream(entitesMedicaments.spliterator(), true)
+				.filter((e) -> e.getNoms().toLowerCase().contains(recherche))
+				.toArray();
+			for (Object obj : trouves) {
+				resultats.put(medicamentEnJson((EntiteMedicament) obj, logger));
+			}*/
+				//.forEach((e) -> resultats.put(medicamentEnJson(e)));
+			corpsReponse.put("resultats", resultats);
+			logger.info("Recherche de \"" + recherche + "\" : " + resultats.length() + " résultats trouvés");
+		}
+		catch (StorageException | URISyntaxException | InvalidKeyException e) {
+			Utils.logErreur(e, logger);
+			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
+		}
+		catch (IllegalArgumentException e) {
+			codeHttp = HttpStatus.BAD_REQUEST;
+		}
+		return construireReponse(codeHttp, corpsReponse, request);
+		
+	}
+
+	// mettre une doc
+	@FunctionName("dmp")
+	public HttpResponseMessage dmp (
+		@HttpTrigger(
+			name = "dmpTrigger",
+			authLevel = AuthorizationLevel.ANONYMOUS,
+			methods = {HttpMethod.GET},
+			route = "dmp/{categorie:alpha}")
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
@@ -86,15 +136,7 @@ public final class PublicTriggers {
 				}
 				corpsReponse.put("medicaments", optMedicaments.orElseGet(() -> new JSONObject()));
 				codeHttp = HttpStatus.OK;
-			} 
-			/*
-			if (categorie == null || categorie.equals("interactions")) {
-				// ajouter une fois implémenté
-				//corpsReponse.put("interactions", dmp.obtenirInteractions()); 
-				codeHttp = HttpStatus.NOT_IMPLEMENTED;
 			}
-			else { throw new IllegalArgumentException("Catégorie incorrecte"); }
-			*/
 		}
 		catch (JwtException
 			| IllegalArgumentException e) {
@@ -182,6 +224,7 @@ public final class PublicTriggers {
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
+		Logger logger = context.getLogger();
 		String[] parametres = request.getUri().getPath().split("/");
 		String categorie = parametres[3];
 		String codeProduit = null;
@@ -202,8 +245,7 @@ public final class PublicTriggers {
 					EntiteSubstance entite = EntiteSubstance
 						.obtenirEntite(Long.parseLong(codeProduit))
 						.get();
-					JSONObject infosSub = new JSONObject()
-						.put("noms", entite.obtenirNomsJArray());
+					JSONObject infosSub = new JSONObject().put("noms", entite.obtenirNomsJArray());
 					corpsReponse.put(entite.getRowKey(), infosSub);
 					codeHttp = HttpStatus.OK;
 				}
@@ -213,22 +255,7 @@ public final class PublicTriggers {
 					EntiteMedicament entiteM = EntiteMedicament
 						.obtenirEntite(Long.parseLong(codeProduit))
 						.get();
-					JSONArray codesSub = entiteM.obtenirSubstancesActivesJArray();
-					JSONObject substances = new JSONObject();
-					for (int i = 0; i < codesSub.length(); i++) {
-						EntiteSubstance entiteS = EntiteSubstance
-							.obtenirEntite(codesSub.getLong(i))
-							.get();
-						//nomsSub.put(entiteS.obtenirNomsJArray().get(0));
-						substances.put(entiteS.getRowKey(), entiteS.obtenirNomsJArray());
-					}
-					JSONObject infosMed = new JSONObject()
-						.put("noms", entiteM.getNoms())
-						.put("forme", entiteM.getForme())
-						.put("marque", entiteM.getMarque())
-						.put("autorisation", entiteM.getAutorisation())
-						.put("substances", substances);
-					corpsReponse.put(entiteM.getRowKey(), infosMed);
+					corpsReponse.put(entiteM.getRowKey(), medicamentEnJson(entiteM, logger));
 					codeHttp = HttpStatus.OK;
 				} 
 				else {
@@ -255,7 +282,7 @@ public final class PublicTriggers {
 			corpsReponse.put(CLE_CAUSE, e.getMessage());
 		}
 		catch (StorageException | URISyntaxException | InvalidKeyException e) {
-			Utils.logErreur(e, context.getLogger());
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
 		return construireReponse(codeHttp, corpsReponse, request);
@@ -364,4 +391,31 @@ public final class PublicTriggers {
 		}
 		throw new IllegalArgumentException("Heure incorrecte");
 	}
+
+	private JSONObject medicamentEnJson (EntiteMedicament entiteM, Logger logger)
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		JSONArray codesSub = entiteM.obtenirSubstancesActivesJArray();
+		JSONObject substances = new JSONObject();
+		StreamSupport.stream(codesSub.spliterator(), true)
+			.map(o -> ((Integer) o).longValue())
+			.map((code) -> {
+				try { return EntiteSubstance.obtenirEntite(code).get(); }
+				catch (StorageException | URISyntaxException | InvalidKeyException e) {
+					Utils.logErreur(e, logger);
+					return null;
+				}
+			})
+			.forEach((e) -> { 
+				if (e != null) { substances.put(e.getRowKey(), e.obtenirNomsJArray()); }
+			});
+		return new JSONObject()
+			.put("noms", entiteM.getNoms())
+			.put("forme", entiteM.getForme())
+			.put("marque", entiteM.getMarque())
+			.put("autorisation", entiteM.getAutorisation())
+			.put("codecis", entiteM.getRowKey())
+			.put("substances", substances);
+	}
+
 }

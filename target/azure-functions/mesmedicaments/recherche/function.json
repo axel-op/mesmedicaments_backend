@@ -1,11 +1,11 @@
 {
   "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
-  "entryPoint" : "app.mesmedicaments.PublicTriggers.dmp",
+  "entryPoint" : "app.mesmedicaments.PublicTriggers.recherche",
   "bindings" : [ {
     "type" : "httpTrigger",
     "direction" : "in",
-    "name" : "utilisateurTrigger",
-    "route" : "utilisateur/{categorie:alpha}",
+    "name" : "rechercheTrigger",
+    "route" : "recherche/{recherche:alpha}",
     "methods" : [ "GET" ],
     "authLevel" : "ANONYMOUS"
   }, {

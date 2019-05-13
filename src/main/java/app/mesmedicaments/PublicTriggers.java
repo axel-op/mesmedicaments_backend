@@ -74,14 +74,6 @@ public final class PublicTriggers {
 					resultats.put(medicamentEnJson(entite, logger));
 				}
 			}
-			/*Object[] trouves = StreamSupport
-				.stream(entitesMedicaments.spliterator(), true)
-				.filter((e) -> e.getNoms().toLowerCase().contains(recherche))
-				.toArray();
-			for (Object obj : trouves) {
-				resultats.put(medicamentEnJson((EntiteMedicament) obj, logger));
-			}*/
-				//.forEach((e) -> resultats.put(medicamentEnJson(e)));
 			corpsReponse.put("resultats", resultats);
 			logger.info("Recherche de \"" + recherche + "\" : " + resultats.length() + " résultats trouvés");
 		}

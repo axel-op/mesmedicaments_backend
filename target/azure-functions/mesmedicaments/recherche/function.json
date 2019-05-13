@@ -9,6 +9,12 @@
     "methods" : [ "GET" ],
     "authLevel" : "ANONYMOUS"
   }, {
+    "type" : "queue",
+    "direction" : "out",
+    "name" : "rechercheQueueOutput",
+    "queueName" : "cache-recherche",
+    "connection" : "AzureWebJobsStorage"
+  }, {
     "type" : "http",
     "direction" : "out",
     "name" : "$return"

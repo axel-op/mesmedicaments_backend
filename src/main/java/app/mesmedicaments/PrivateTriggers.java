@@ -22,6 +22,7 @@ import com.microsoft.azure.storage.StorageException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.DMP;
+import app.mesmedicaments.entitestables.EntiteCacheRecherche;
 import app.mesmedicaments.entitestables.EntiteConnexion;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
@@ -29,6 +30,32 @@ import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
 import app.mesmedicaments.misesajour.MiseAJourInteractions;
 
 public class PrivateTriggers {
+
+	@FunctionName("cacheRecherche")
+	public void cacheRecherche (
+		@QueueTrigger(
+			name = "cacheRechercheTrigger",
+			connection = "AzureWebJobsStorage",
+			queueName = "cache-recherche"
+		) final String message,
+		final ExecutionContext context
+	) {
+		Logger logger = context.getLogger();
+		JSONObject jsonObj = new JSONObject(message);
+		String recherche = jsonObj.getString("recherche");
+		String resultats = jsonObj.getJSONArray("resultats").toString();
+		try {
+			EntiteCacheRecherche entite = new EntiteCacheRecherche(recherche);
+			entite.setResultats(resultats);
+			entite.creerEntite();
+		}
+		catch (StorageException | URISyntaxException | InvalidKeyException e) {
+			logger.warning("Impossible de mettre en cache les résultats de la recherche : " + recherche
+				+ "\n (résultats : " + resultats + ")"
+			);
+			Utils.logErreur(e, logger);
+		}
+	}
 
 	@FunctionName("nettoyageConnexions")
 	public void nettoyageConnexions (

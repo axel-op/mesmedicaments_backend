@@ -1,0 +1,11 @@
+{
+  "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
+  "entryPoint" : "app.mesmedicaments.PrivateTriggers.cacheRecherche",
+  "bindings" : [ {
+    "type" : "queueTrigger",
+    "direction" : "in",
+    "name" : "cacheRechercheTrigger",
+    "queueName" : "cache-recherche",
+    "connection" : "AzureWebJobsStorage"
+  } ]
+}

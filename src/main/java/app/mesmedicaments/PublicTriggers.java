@@ -33,6 +33,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.Authentification;
+import app.mesmedicaments.entitestables.EntiteCacheRecherche;
 import app.mesmedicaments.entitestables.EntiteInteraction;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteSubstance;
@@ -57,6 +58,11 @@ public final class PublicTriggers {
 			methods = {HttpMethod.GET},
 			route = "recherche/{recherche:alpha}"
 		) final HttpRequestMessage<Optional<String>> request,
+		@QueueOutput(
+			name = "rechercheQueueOutput",
+			connection = "AzureWebJobsStorage",
+			queueName = "cache-recherche"
+		) final OutputBinding<String> queue,
 		@BindingName("recherche") String recherche,
 		final ExecutionContext context
 	) {
@@ -64,15 +70,25 @@ public final class PublicTriggers {
 		HttpStatus codeHttp = HttpStatus.OK;
 		JSONObject corpsReponse = new JSONObject();
 		try {
-			if (entitesMedicaments == null) { entitesMedicaments = EntiteMedicament.obtenirToutesLesEntites(); }
-			if (recherche.length() > 100) { throw new IllegalArgumentException(); }
+			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			JSONArray resultats = new JSONArray();
-			Iterator<EntiteMedicament> iter = entitesMedicaments.iterator();
-			while (resultats.length() < 10 && iter.hasNext()) {
-				EntiteMedicament entite = iter.next();
-				if (Utils.normaliser(entite.getNoms()).toLowerCase().contains(recherche)) {
-					resultats.put(medicamentEnJson(entite, logger));
+			Optional<EntiteCacheRecherche> cache = EntiteCacheRecherche.obtenirEntite(recherche);
+			if (cache.isPresent()) { resultats = cache.get().obtenirResultatsJArray(); }
+			else {
+				if (entitesMedicaments == null) { entitesMedicaments = EntiteMedicament.obtenirToutesLesEntites(); }
+				if (recherche.length() > 100) { throw new IllegalArgumentException(); }
+				Iterator<EntiteMedicament> iter = entitesMedicaments.iterator();
+				while (resultats.length() < 10 && iter.hasNext()) {
+					EntiteMedicament entite = iter.next();
+					if (Utils.normaliser(entite.getNoms()).toLowerCase().contains(recherche)) {
+						resultats.put(medicamentEnJson(entite, logger));
+					}
 				}
+				queue.setValue(new JSONObject()
+					.put("recherche", recherche)
+					.put("resultats", resultats)
+					.toString()
+				);
 			}
 			corpsReponse.put("resultats", resultats);
 			logger.info("Recherche de \"" + recherche + "\" : " + resultats.length() + " résultats trouvés");

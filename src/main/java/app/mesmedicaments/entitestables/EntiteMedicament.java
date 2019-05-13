@@ -46,9 +46,15 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     public String getForme () { return forme; }
     public String getAutorisation () { return autorisation; }
     public String getMarque () { return marque; }
-    public JSONArray obtenirNomsJArray () { return new JSONArray(noms); }
+    public JSONArray obtenirNomsJArray () { 
+        if (noms == null) { return new JSONArray(); }
+        return new JSONArray(noms); 
+    }
     public String getSubstancesActives () { return substancesActives; }
-    public JSONArray obtenirSubstancesActivesJArray () { return new JSONArray(substancesActives); }
+    public JSONArray obtenirSubstancesActivesJArray () {
+        if (substancesActives == null) { return new JSONArray(); } 
+        return new JSONArray(substancesActives); 
+    }
 
     /* Setters */
 

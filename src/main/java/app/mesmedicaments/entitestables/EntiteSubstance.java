@@ -37,6 +37,7 @@ public class EntiteSubstance extends AbstractEntiteProduit {
 	public String getNoms () { return noms; }
 
 	public JSONArray obtenirNomsJArray () {
+		if (noms == null) { return new JSONArray(); }
         return new JSONArray(noms);
     }
 

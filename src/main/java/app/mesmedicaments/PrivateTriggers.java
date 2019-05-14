@@ -43,7 +43,7 @@ public class PrivateTriggers {
 		@QueueTrigger(
 			name = "indexationAutomatiqueTrigger",
 			connection = connectionStorage,
-			queueName = "indexation_automatique"
+			queueName = "indexation-automatique"
 		) final String message,
 		@QueueOutput(
 			name = "indexationAutomatiqueQueueOutput",

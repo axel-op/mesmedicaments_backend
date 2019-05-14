@@ -3,7 +3,13 @@ package app.mesmedicaments;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import com.microsoft.azure.functions.ExecutionContext;
@@ -11,19 +17,23 @@ import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
+import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import com.microsoft.azure.functions.annotation.QueueOutput;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
 import com.microsoft.azure.functions.annotation.TimerTrigger;
 import com.microsoft.azure.storage.StorageException;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.DMP;
 import app.mesmedicaments.entitestables.EntiteCacheRecherche;
 import app.mesmedicaments.entitestables.EntiteConnexion;
+import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
@@ -137,6 +147,11 @@ public class PrivateTriggers {
 			methods = {HttpMethod.GET},
 			route = "mettreAJourBases/{etape:int}")
 		final HttpRequestMessage<Optional<String>> request,
+		@QueueOutput(
+			name = "mettreAJourBasesQueueOutput",
+			connection = "AzureWebJobsStorage",
+			queueName = "cache-recherche"
+		) final OutputBinding<String> queue,
 		@BindingName("etape") int etape,
 		final ExecutionContext context
 	) {
@@ -169,6 +184,12 @@ public class PrivateTriggers {
 					corps = "Mise à jour des interactions terminée.";
 				}
 				break;
+			case 5:
+				if (mettreAJourCache(queue, logger)) {
+					codeHttp = HttpStatus.OK;
+					corps = "Mise à jour du cache pour la recherche terminée.";
+				}
+				break;
 			default:
 				codeHttp = HttpStatus.BAD_REQUEST;
 				corps = "Le paramètre maj de la requête n'est pas reconnu.";
@@ -179,6 +200,62 @@ public class PrivateTriggers {
 				+ String.valueOf(System.currentTimeMillis() - startTime) 
 				+ " ms")
 			.build();
+	}
+
+	private boolean mettreAJourCache (OutputBinding<String> queue, Logger logger) {
+		logger.info("Mise à jour du cache pour la recherche");
+		try {
+			Set<String> noms = new HashSet<>();
+			for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
+				for (Object object : entite.obtenirNomsJArray()) {
+					String nom = ((String) object).split(" ")[0];
+					//if (!EntiteCacheRecherche.obtenirEntite(nom).isPresent()) {
+						noms.add(Utils.normaliser(nom)
+							.toLowerCase()
+							.replaceAll("^\\p{IsAlphabetic}", "")
+						);
+					//}
+				}
+			}
+			int total = noms.size();
+			logger.info(total + " termes à mettre en cache");
+			Map<String, Set<EntiteMedicament>> aCacher = new HashMap<>();
+			for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
+				for (String nom : noms) {
+					if (Utils.normaliser(entite.getNoms() + " " + entite.getForme())
+						.toLowerCase()
+						.contains(nom)
+					) {
+						Set<EntiteMedicament> set = aCacher.computeIfAbsent(nom, k -> new HashSet<>());
+						if (set.size() < 10) { set.add(entite); }
+					}
+				}
+			}
+			AtomicInteger compteur = new AtomicInteger(1);
+			aCacher.entrySet().stream().parallel()
+				.forEach((entree) -> {
+					try {
+						JSONArray resultats = new JSONArray();
+						for (EntiteMedicament entite : entree.getValue()) {
+							resultats.put(Utils.medicamentEnJson(entite, logger));
+						}
+						logger.info(compteur + "/" + total);
+						EntiteCacheRecherche eC = new EntiteCacheRecherche(entree.getKey());
+						eC.setResultats(resultats.toString());
+						eC.creerEntite();
+						compteur.incrementAndGet();
+					}
+					catch (StorageException | URISyntaxException | InvalidKeyException e) {
+						Utils.logErreur(e, logger);
+						throw new RuntimeException();
+					}
+			});
+			return true;
+		}
+		catch (StorageException | URISyntaxException | InvalidKeyException e) {
+			Utils.logErreur(e, logger);
+			return false;
+		}
 	}
     
 }

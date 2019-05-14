@@ -9,6 +9,12 @@
     "methods" : [ "GET" ],
     "dataType" : "string"
   }, {
+    "type" : "queue",
+    "direction" : "out",
+    "name" : "mettreAJourBasesQueueOutput",
+    "queueName" : "cache-recherche",
+    "connection" : "AzureWebJobsStorage"
+  }, {
     "type" : "http",
     "direction" : "out",
     "name" : "$return"

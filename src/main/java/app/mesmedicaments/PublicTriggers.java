@@ -13,7 +13,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
@@ -91,7 +90,7 @@ public final class PublicTriggers {
 			trouvees.stream()
 				.sequential()
 				.forEach((entite) -> {
-					try { resultats.put(medicamentEnJson(entite, logger)); }
+					try { resultats.put(Utils.medicamentEnJson(entite, logger)); }
 					catch (StorageException | URISyntaxException | InvalidKeyException e) {
 						Utils.logErreur(e, logger);
 						throw new RuntimeException();
@@ -279,7 +278,7 @@ public final class PublicTriggers {
 					EntiteMedicament entiteM = EntiteMedicament
 						.obtenirEntite(Long.parseLong(codeProduit))
 						.get();
-					corpsReponse.put(entiteM.getRowKey(), medicamentEnJson(entiteM, logger));
+					corpsReponse.put(entiteM.getRowKey(), Utils.medicamentEnJson(entiteM, logger));
 					codeHttp = HttpStatus.OK;
 				} 
 				else {
@@ -415,31 +414,4 @@ public final class PublicTriggers {
 		}
 		throw new IllegalArgumentException("Heure incorrecte");
 	}
-
-	private JSONObject medicamentEnJson (EntiteMedicament entiteM, Logger logger)
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		JSONArray codesSub = entiteM.obtenirSubstancesActivesJArray();
-		JSONObject substances = new JSONObject();
-		StreamSupport.stream(codesSub.spliterator(), true)
-			.map(o -> ((Integer) o).longValue())
-			.map((code) -> {
-				try { return EntiteSubstance.obtenirEntite(code).get(); }
-				catch (StorageException | URISyntaxException | InvalidKeyException e) {
-					Utils.logErreur(e, logger);
-					return null;
-				}
-			})
-			.forEach((e) -> { 
-				if (e != null) { substances.put(e.getRowKey(), e.obtenirNomsJArray()); }
-			});
-		return new JSONObject()
-			.put("noms", entiteM.getNoms())
-			.put("forme", entiteM.getForme())
-			.put("marque", entiteM.getMarque())
-			.put("autorisation", entiteM.getAutorisation())
-			.put("codecis", entiteM.getRowKey())
-			.put("substances", substances);
-	}
-
 }

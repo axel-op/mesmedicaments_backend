@@ -59,6 +59,7 @@ public class PrivateTriggers {
 		try {
 			message = message.replaceAll("[^\\p{IsAlphabetic}]", " ");
 			for (String terme : message.split(" ")) {
+				terme = Utils.normaliser(terme).toLowerCase();
 				Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(terme);
 				if (!optCache.isPresent() || optCache.get().obtenirResultatsJArray().length() < 10) {
 					JSONArray resultats = Recherche.rechercher(terme, logger);

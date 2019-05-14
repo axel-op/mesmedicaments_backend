@@ -57,7 +57,7 @@ public class PrivateTriggers {
 		try {
 			Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(message);
 			if (!optCache.isPresent() || optCache.get().obtenirResultatsJArray().length() < 10) {
-				message = message.replaceAll("[^\\p{IsAlphabetic}", " ");
+				message = message.replaceAll("[^\\p{IsAlphabetic}]", " ");
 				for (String terme : message.split(" ")) {
 					JSONArray resultats = Recherche.rechercher(terme, logger);
 					queueCache.setValue(new JSONObject()

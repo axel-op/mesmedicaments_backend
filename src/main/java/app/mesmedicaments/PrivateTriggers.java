@@ -62,7 +62,7 @@ public class PrivateTriggers {
 					JSONArray resultats = Recherche.rechercher(terme, logger);
 					queueCache.setValue(new JSONObject()
 						.put("recherche", terme)
-						.put("resultats", resultats.toString())
+						.put("resultats", resultats)
 						.toString()
 					);
 				}
@@ -83,6 +83,7 @@ public class PrivateTriggers {
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
+		logger.info("Mise en cache de " + message);
 		JSONObject jsonObj = new JSONObject(message);
 		String recherche = jsonObj.getString("recherche");
 		String resultats = jsonObj.getJSONArray("resultats").toString();

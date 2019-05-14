@@ -71,12 +71,13 @@ public final class PublicTriggers {
 		JSONObject corpsReponse = new JSONObject();
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			if (recherche.length() > 100) { throw new IllegalArgumentException(); }
+			recherche = Utils.normaliser(recherche).toLowerCase();
 			JSONArray resultats = new JSONArray();
 			Optional<EntiteCacheRecherche> cache = EntiteCacheRecherche.obtenirEntite(recherche);
 			if (cache.isPresent()) { resultats = cache.get().obtenirResultatsJArray(); }
 			else {
 				if (entitesMedicaments == null) { entitesMedicaments = EntiteMedicament.obtenirToutesLesEntites(); }
-				if (recherche.length() > 100) { throw new IllegalArgumentException(); }
 				Iterator<EntiteMedicament> iter = entitesMedicaments.iterator();
 				while (resultats.length() < 10 && iter.hasNext()) {
 					EntiteMedicament entite = iter.next();

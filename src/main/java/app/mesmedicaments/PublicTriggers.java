@@ -85,7 +85,7 @@ public final class PublicTriggers {
 				List<EntiteMedicament> entitesMedicaments = Lists.newArrayList(EntiteMedicament.obtenirToutesLesEntites()); 
 				if (entitesMedicaments.size() == 0) { throw new RuntimeException("La liste de médicaments récupérée est vide"); }
 				for (EntiteMedicament entite : entitesMedicaments) {
-					if (resultats.length() >= 10) { break; }
+					if (trouvees.size() >= 10) { break; }
 					if (Utils.normaliser(entite.getNoms() + " " + entite.getForme())
 						.toLowerCase()
 						.contains(recherche)

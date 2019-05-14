@@ -6,7 +6,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -16,7 +15,6 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import com.google.common.collect.Lists;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -91,7 +89,7 @@ public final class PublicTriggers {
 				}
 			}
 			trouvees.stream()
-				.parallel()
+				.sequential()
 				.forEach((entite) -> {
 					try { resultats.put(medicamentEnJson(entite, logger)); }
 					catch (StorageException | URISyntaxException | InvalidKeyException e) {

@@ -7,13 +7,12 @@ import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.InvalidKeyException;
+import java.util.Collection;
 import java.util.Map.Entry;
-import java.util.List;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.logging.Logger;
 
-import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
@@ -98,7 +97,7 @@ public final class MiseAJourBDPM {
 		return true;
     }
 
-    public static boolean majMedicaments (Logger logger, OutputBinding<List<String>> queueIndex) {
+    public static boolean majMedicaments (Logger logger, Collection<String> queueIndex) {
 		MiseAJourBDPM.logger = logger;
 		logger.info("Début de la mise à jour des médicaments");
 		/**** A revoir 
@@ -126,9 +125,9 @@ public final class MiseAJourBDPM {
 				}
 				nomsMed.get(codecis).add(nom);
 				caracMed.put(codecis, new String[]{forme, autorisation, marque});
-				queueIndex.getValue().add(nom);
-				queueIndex.getValue().add(forme);
-				queueIndex.getValue().add(marque);
+				queueIndex.add(nom);
+				queueIndex.add(forme);
+				queueIndex.add(marque);
 			}
 			double total = nomsMed.size();
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 

@@ -4,8 +4,10 @@ import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import com.microsoft.azure.functions.ExecutionContext;
@@ -55,10 +57,10 @@ public class PrivateTriggers {
 		Logger logger = context.getLogger();
 		logger.info("Indexation de \"" + message + "\"");
 		try {
-			Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(message);
-			if (!optCache.isPresent() || optCache.get().obtenirResultatsJArray().length() < 10) {
-				message = message.replaceAll("[^\\p{IsAlphabetic}]", " ");
-				for (String terme : message.split(" ")) {
+			message = message.replaceAll("[^\\p{IsAlphabetic}]", " ");
+			for (String terme : message.split(" ")) {
+				Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(terme);
+				if (!optCache.isPresent() || optCache.get().obtenirResultatsJArray().length() < 10) {
 					JSONArray resultats = Recherche.rechercher(terme, logger);
 					queueCache.setValue(new JSONObject()
 						.put("recherche", terme)
@@ -192,7 +194,8 @@ public class PrivateTriggers {
 		HttpStatus codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		String corps = "";
 		Logger logger = context.getLogger();
-		queue.setValue(new ArrayList<>());
+		Set<String> pourFile = new HashSet<>();
+		//queue.setValue(new ArrayList<>());
 		switch (etape) {
 			case 1:
 				if (MiseAJourBDPM.majSubstances(logger)) {
@@ -201,7 +204,8 @@ public class PrivateTriggers {
 				}
 				break;
 			case 2:
-				if (MiseAJourBDPM.majMedicaments(logger, queue)) {
+				if (MiseAJourBDPM.majMedicaments(logger, pourFile)) {
+					queue.setValue(new ArrayList<>(pourFile));
 					codeHttp = HttpStatus.OK;
 					corps = "Mise à jour des médicaments terminée.";
 				}

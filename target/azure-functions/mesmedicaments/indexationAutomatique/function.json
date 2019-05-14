@@ -1,0 +1,17 @@
+{
+  "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
+  "entryPoint" : "app.mesmedicaments.PrivateTriggers.indexationAutomatique",
+  "bindings" : [ {
+    "type" : "queueTrigger",
+    "direction" : "in",
+    "name" : "indexationAutomatiqueTrigger",
+    "queueName" : "indexation_automatique",
+    "connection" : "AzureWebJobsStorage"
+  }, {
+    "type" : "queue",
+    "direction" : "out",
+    "name" : "indexationAutomatiqueQueueOutput",
+    "queueName" : "cache-recherche",
+    "connection" : "AzureWebJobsStorage"
+  } ]
+}

@@ -5,7 +5,6 @@ import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
-import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -72,35 +71,17 @@ public final class PublicTriggers {
 			if (recherche.length() > 100) { throw new IllegalArgumentException(); }
 			recherche = Utils.normaliser(recherche).toLowerCase();
 			logger.info("Recherche de \"" + recherche + "\"");
-			final JSONArray resultats = new JSONArray();
-			Set<EntiteMedicament> trouvees = new HashSet<>();
+			JSONArray resultats = new JSONArray();
 			Optional<EntiteCacheRecherche> cache = EntiteCacheRecherche.obtenirEntite(recherche);
-			if (cache.isPresent()) { 
-				cache.get().obtenirResultatsJArray().forEach((o) -> resultats.put(o)); 
+			if (cache.isPresent()) { resultats = cache.get().obtenirResultatsJArray(); }
+			else { 
+				resultats = Recherche.rechercher(recherche, logger); 
+				queue.setValue(new JSONObject()
+					.put("recherche", recherche)
+					.put("resultats", resultats)
+					.toString()
+				);
 			}
-			else {
-				for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
-					if (trouvees.size() >= 10) { break; }
-					if (Utils.normaliser(entite.getNoms() + " " + entite.getForme())
-						.toLowerCase()
-						.contains(recherche)
-					) { trouvees.add(entite); }
-				}
-			}
-			trouvees.stream()
-				.sequential()
-				.forEach((entite) -> {
-					try { resultats.put(Utils.medicamentEnJson(entite, logger)); }
-					catch (StorageException | URISyntaxException | InvalidKeyException e) {
-						Utils.logErreur(e, logger);
-						throw new RuntimeException();
-					}
-				});
-			queue.setValue(new JSONObject()
-				.put("recherche", recherche)
-				.put("resultats", resultats)
-				.toString()
-			);
 			corpsReponse.put("resultats", resultats);
 			logger.info(resultats.length() + " résultats trouvés");
 		}

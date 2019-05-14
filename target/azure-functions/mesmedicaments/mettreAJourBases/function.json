@@ -12,7 +12,7 @@
     "type" : "queue",
     "direction" : "out",
     "name" : "mettreAJourBasesQueueOutput",
-    "queueName" : "cache-recherche",
+    "queueName" : "indexation-automatique",
     "connection" : "AzureWebJobsStorage"
   }, {
     "type" : "http",

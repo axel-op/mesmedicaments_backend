@@ -3,13 +3,9 @@ package app.mesmedicaments;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import com.microsoft.azure.functions.ExecutionContext;
@@ -33,7 +29,6 @@ import org.json.JSONObject;
 import app.mesmedicaments.connexion.DMP;
 import app.mesmedicaments.entitestables.EntiteCacheRecherche;
 import app.mesmedicaments.entitestables.EntiteConnexion;
-import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
@@ -41,11 +36,45 @@ import app.mesmedicaments.misesajour.MiseAJourInteractions;
 
 public class PrivateTriggers {
 
+	private static final String connectionStorage = "AzureWebJobsStorage";
+
+	@FunctionName("indexationAutomatique")
+	public void indexationAutomatique (
+		@QueueTrigger(
+			name = "indexationAutomatiqueTrigger",
+			connection = connectionStorage,
+			queueName = "indexation_automatique"
+		) final String message,
+		@QueueOutput(
+			name = "indexationAutomatiqueQueueOutput",
+			connection = connectionStorage,
+			queueName = "cache-recherche"
+		) final OutputBinding<String> queueCache,
+		final ExecutionContext context
+	) {
+		Logger logger = context.getLogger();
+		logger.info("Indexation de \"" + message + "\"");
+		try {
+			Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(message);
+			if (!optCache.isPresent() || optCache.get().obtenirResultatsJArray().length() < 10) {
+				JSONArray resultats = Recherche.rechercher(message, logger);
+				queueCache.setValue(new JSONObject()
+					.put("recherche", message)
+					.put("resultats", resultats.toString())
+					.toString()
+				);
+			}
+		}
+		catch (StorageException | URISyntaxException | InvalidKeyException e) {
+			Utils.logErreur(e, logger);
+		}
+	}
+
 	@FunctionName("cacheRecherche")
 	public void cacheRecherche (
 		@QueueTrigger(
 			name = "cacheRechercheTrigger",
-			connection = "AzureWebJobsStorage",
+			connection = connectionStorage,
 			queueName = "cache-recherche"
 		) final String message,
 		final ExecutionContext context
@@ -103,7 +132,7 @@ public class PrivateTriggers {
 		@QueueTrigger(
 			name = "nouvelleConnexionTrigger",
 			queueName = "nouvelles-connexions",
-			connection = "AzureWebJobsStorage"
+			connection = connectionStorage
 		) final String message,
 		final ExecutionContext context
 	) {
@@ -149,9 +178,9 @@ public class PrivateTriggers {
 		final HttpRequestMessage<Optional<String>> request,
 		@QueueOutput(
 			name = "mettreAJourBasesQueueOutput",
-			connection = "AzureWebJobsStorage",
-			queueName = "cache-recherche"
-		) final OutputBinding<String> queue,
+			connection = connectionStorage,
+			queueName = "indexation-automatique"
+		) final OutputBinding<List<String>> queue,
 		@BindingName("etape") int etape,
 		final ExecutionContext context
 	) {
@@ -159,6 +188,7 @@ public class PrivateTriggers {
 		HttpStatus codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		String corps = "";
 		Logger logger = context.getLogger();
+		queue.setValue(new ArrayList<>());
 		switch (etape) {
 			case 1:
 				if (MiseAJourBDPM.majSubstances(logger)) {
@@ -167,7 +197,7 @@ public class PrivateTriggers {
 				}
 				break;
 			case 2:
-				if (MiseAJourBDPM.majMedicaments(logger)) {
+				if (MiseAJourBDPM.majMedicaments(logger, queue)) {
 					codeHttp = HttpStatus.OK;
 					corps = "Mise à jour des médicaments terminée.";
 				}
@@ -184,12 +214,12 @@ public class PrivateTriggers {
 					corps = "Mise à jour des interactions terminée.";
 				}
 				break;
-			case 5:
+			/*case 5:
 				if (mettreAJourCache(queue, logger)) {
 					codeHttp = HttpStatus.OK;
 					corps = "Mise à jour du cache pour la recherche terminée.";
 				}
-				break;
+				break;*/
 			default:
 				codeHttp = HttpStatus.BAD_REQUEST;
 				corps = "Le paramètre maj de la requête n'est pas reconnu.";
@@ -202,7 +232,8 @@ public class PrivateTriggers {
 			.build();
 	}
 
-	private boolean mettreAJourCache (OutputBinding<String> queue, Logger logger) {
+	/*
+	private boolean mettreAJourCache (Logger logger) {
 		logger.info("Mise à jour du cache pour la recherche");
 		try {
 			Set<String> noms = new HashSet<>();
@@ -257,5 +288,5 @@ public class PrivateTriggers {
 			return false;
 		}
 	}
-    
+    */
 }

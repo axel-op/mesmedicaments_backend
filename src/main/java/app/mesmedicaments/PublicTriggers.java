@@ -82,9 +82,7 @@ public final class PublicTriggers {
 				cache.get().obtenirResultatsJArray().forEach((o) -> resultats.put(o)); 
 			}
 			else {
-				List<EntiteMedicament> entitesMedicaments = Lists.newArrayList(EntiteMedicament.obtenirToutesLesEntites()); 
-				if (entitesMedicaments.size() == 0) { throw new RuntimeException("La liste de médicaments récupérée est vide"); }
-				for (EntiteMedicament entite : entitesMedicaments) {
+				for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
 					if (trouvees.size() >= 10) { break; }
 					if (Utils.normaliser(entite.getNoms() + " " + entite.getForme())
 						.toLowerCase()

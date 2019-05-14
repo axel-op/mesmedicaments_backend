@@ -44,7 +44,13 @@ public class DMP {
 		for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
 			entite.obtenirNomsJArray().forEach(
 				nom -> nomsMed
-					.computeIfAbsent(Utils.normaliser(nom.toString()).toLowerCase(), cle -> new TreeSet<>())
+					.computeIfAbsent(
+						Utils.normaliser(nom.toString())
+						.replaceAll("  ", " ")
+						.toLowerCase()
+						.trim(), 
+						cle -> new TreeSet<>()
+					)
 					.add(Long.parseLong(entite.getRowKey()))
 			);
 		}
@@ -63,7 +69,10 @@ public class DMP {
 			nomsMedicamentsNormalisesMin = importerNomsMedicamentsNormalisesMin(); 
 		}
 		return cacheRecherche.computeIfAbsent(recherche, exp -> {
-			final String expNorm = Utils.normaliser(exp).toLowerCase();
+			final String expNorm = Utils.normaliser(exp)
+				.replaceAll("  ", " ")
+				.toLowerCase()
+				.trim();
 			final String[] mots = expNorm.split(" ");
 			return nomsMedicamentsNormalisesMin.keySet().stream()
 				.filter(nom -> {

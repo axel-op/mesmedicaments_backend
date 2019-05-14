@@ -58,9 +58,7 @@ public final class Utils {
 
 	private static final Function<String, String> normaliser = original ->
 		Normalizer.normalize(original, Normalizer.Form.NFD)
-			.replaceAll("[\\p{InCombiningDiacriticalMarks}]", "")
-			.trim()
-			.replaceAll("  ", " ");
+			.replaceAll("[\\p{InCombiningDiacriticalMarks}]", "");
 
 	public static String normaliser (String original) {
 		return cacheNormalisation.computeIfAbsent(original, cle -> normaliser.apply(cle));

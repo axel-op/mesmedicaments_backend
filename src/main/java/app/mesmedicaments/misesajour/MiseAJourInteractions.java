@@ -523,7 +523,7 @@ public final class MiseAJourInteractions {
 
 		protected static Function<String, String> normaliser = original ->
 			cacheNormalisation.computeIfAbsent(original, mot -> {
-				mot = Utils.normaliser(mot);
+				mot = Utils.normaliser(mot).replaceAll("  ", " ").trim();
 				byte[] ancien = mot.getBytes(CHARSET_1252);
 				byte[] nouveau = new byte[ancien.length];
 				for (int i = 0; i < ancien.length; i++) {

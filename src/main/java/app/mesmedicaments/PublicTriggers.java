@@ -5,16 +5,19 @@ import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
-import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import com.google.common.collect.Lists;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -48,7 +51,7 @@ public final class PublicTriggers {
 	private static final String CLE_ENVOI_CODE = Authentification.CLE_ENVOI_CODE;
 	private static final String ERR_INTERNE = Authentification.ERR_INTERNE;
 	private static final String HEADER_AUTHORIZATION = "jwt";
-	private static Iterable<EntiteMedicament> entitesMedicaments;
+	private static List<EntiteMedicament> entitesMedicaments;
 
 	@FunctionName("recherche")
 	public HttpResponseMessage recherche (
@@ -73,17 +76,36 @@ public final class PublicTriggers {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			if (recherche.length() > 100) { throw new IllegalArgumentException(); }
 			recherche = Utils.normaliser(recherche).toLowerCase();
-			JSONArray resultats = new JSONArray();
+			logger.info("Recherche de \"" + recherche + "\"");
+			final JSONArray resultats = new JSONArray();
 			Optional<EntiteCacheRecherche> cache = EntiteCacheRecherche.obtenirEntite(recherche);
-			if (cache.isPresent()) { resultats = cache.get().obtenirResultatsJArray(); }
+			if (cache.isPresent()) { 
+				cache.get().obtenirResultatsJArray().forEach((o) -> resultats.put(o)); 
+			}
 			else {
-				if (entitesMedicaments == null) { entitesMedicaments = EntiteMedicament.obtenirToutesLesEntites(); }
-				Iterator<EntiteMedicament> iter = entitesMedicaments.iterator();
-				while (resultats.length() < 10 && iter.hasNext()) {
-					EntiteMedicament entite = iter.next();
-					if (Utils.normaliser(entite.getNoms()).toLowerCase().contains(recherche)) {
-						resultats.put(medicamentEnJson(entite, logger));
+				if (entitesMedicaments == null || entitesMedicaments.size() == 0) { 
+					entitesMedicaments = Lists.newArrayList(EntiteMedicament.obtenirToutesLesEntites()); 
+				}
+				if (entitesMedicaments.size() == 0) { throw new RuntimeException("La liste de médicaments récupérée est vide"); }
+				ExecutorService es = Executors.newCachedThreadPool();
+				for (EntiteMedicament entite : entitesMedicaments) {
+					if (resultats.length() >= 10) { break; }
+					if (Utils.normaliser(entite.getNoms() + " " + entite.getForme())
+						.toLowerCase()
+						.contains(recherche)
+					) {
+						es.execute(() -> {
+							try { resultats.put(medicamentEnJson(entite, logger)); }
+							catch (StorageException | URISyntaxException | InvalidKeyException e) {
+								Utils.logErreur(e, logger);
+								throw new RuntimeException();
+							}
+						});
 					}
+				}
+				es.shutdown();
+				if (!es.awaitTermination(5, TimeUnit.SECONDS)) {
+					throw new RuntimeException("Tous les threads ne se sont pas terminés à temps");
 				}
 			}
 			queue.setValue(new JSONObject()
@@ -92,14 +114,19 @@ public final class PublicTriggers {
 				.toString()
 			);
 			corpsReponse.put("resultats", resultats);
-			logger.info("Recherche de \"" + recherche + "\" : " + resultats.length() + " résultats trouvés");
+			logger.info(resultats.length() + " résultats trouvés");
 		}
-		catch (StorageException | URISyntaxException | InvalidKeyException e) {
-			Utils.logErreur(e, logger);
-			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
-		}
+		
 		catch (IllegalArgumentException e) {
 			codeHttp = HttpStatus.BAD_REQUEST;
+		}
+		catch (StorageException 
+			| URISyntaxException 
+			| InvalidKeyException 
+			| RuntimeException
+			| InterruptedException e) {
+			Utils.logErreur(e, logger);
+			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
 		return construireReponse(codeHttp, corpsReponse, request);
 		

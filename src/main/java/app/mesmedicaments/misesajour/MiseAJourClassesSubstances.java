@@ -133,7 +133,10 @@ public final class MiseAJourClassesSubstances {
 	}
 
 	private static Set<Long> rechercherSubstances (String recherche) {
-		final String rechercheNorm = Utils.normaliser(recherche).toLowerCase();
+		final String rechercheNorm = Utils.normaliser(recherche)
+			.replaceAll("  ", " ")
+			.toLowerCase()
+			.trim();
 		Set<Long> resultats = Optional
 			.ofNullable(cacheRecherche.get(recherche))
 			.orElseGet(HashSet::new);

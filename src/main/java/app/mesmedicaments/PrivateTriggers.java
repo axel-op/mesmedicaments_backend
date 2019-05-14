@@ -44,7 +44,7 @@ public class PrivateTriggers {
 			name = "indexationAutomatiqueTrigger",
 			connection = connectionStorage,
 			queueName = "indexation-automatique"
-		) final String message,
+		) String message,
 		@QueueOutput(
 			name = "indexationAutomatiqueQueueOutput",
 			connection = connectionStorage,
@@ -57,12 +57,15 @@ public class PrivateTriggers {
 		try {
 			Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(message);
 			if (!optCache.isPresent() || optCache.get().obtenirResultatsJArray().length() < 10) {
-				JSONArray resultats = Recherche.rechercher(message, logger);
-				queueCache.setValue(new JSONObject()
-					.put("recherche", message)
-					.put("resultats", resultats.toString())
-					.toString()
-				);
+				message = message.replaceAll("[^\\p{IsAlphabetic}", " ");
+				for (String terme : message.split(" ")) {
+					JSONArray resultats = Recherche.rechercher(terme, logger);
+					queueCache.setValue(new JSONObject()
+						.put("recherche", terme)
+						.put("resultats", resultats.toString())
+						.toString()
+					);
+				}
 			}
 		}
 		catch (StorageException | URISyntaxException | InvalidKeyException e) {

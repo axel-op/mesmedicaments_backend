@@ -57,17 +57,20 @@ public class PrivateTriggers {
 		Logger logger = context.getLogger();
 		logger.info("Indexation de \"" + message + "\"");
 		try {
-			message = message.replaceAll("[^\\p{IsAlphabetic}]", " ");
+			message = Utils.normaliser(message)
+				.replaceAll("[^\\p{IsAlphabetic}]", " ")
+				.toLowerCase();
 			for (String terme : message.split(" ")) {
-				terme = Utils.normaliser(terme).toLowerCase();
 				Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(terme);
 				if (!optCache.isPresent() || optCache.get().obtenirResultatsJArray().length() < 10) {
 					JSONArray resultats = Recherche.rechercher(terme, logger);
-					queueCache.setValue(new JSONObject()
-						.put("recherche", terme)
-						.put("resultats", resultats)
-						.toString()
-					);
+					if (resultats.length() > 0) {
+						queueCache.setValue(new JSONObject()
+							.put("recherche", terme)
+							.put("resultats", resultats)
+							.toString()
+						);
+					}
 				}
 			}
 		}

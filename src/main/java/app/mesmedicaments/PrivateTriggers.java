@@ -92,7 +92,7 @@ public class PrivateTriggers {
 			name = "cacheRechercheQueueOutput",
 			connection = connectionStorage,
 			queueName = "indexation-automatique"
-		) final OutputBinding<List<String>> queueCache,
+		) final OutputBinding<String> queueCache,
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
@@ -117,7 +117,7 @@ public class PrivateTriggers {
 		for (int i = 0; i <= recherche.length(); i++) {
 			sousMots.add(recherche.substring(0, i));
 		}
-		queueCache.setValue(new ArrayList<>(sousMots));
+		queueCache.setValue(String.join(" ", sousMots));
 	}
 
 	@FunctionName("nettoyageConnexions")

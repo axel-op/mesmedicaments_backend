@@ -57,6 +57,7 @@ public class PrivateTriggers {
 	) {
 		Logger logger = context.getLogger();
 		logger.info("Indexation de \"" + message + "\"");
+		queueCache.setValue(new ArrayList<>());
 		try {
 			message = Utils.normaliser(message)
 				.replaceAll("[^\\p{IsAlphabetic}0-9]", " ")

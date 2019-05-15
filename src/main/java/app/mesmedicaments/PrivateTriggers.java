@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import com.google.common.collect.Sets;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -56,26 +57,19 @@ public class PrivateTriggers {
 	) {
 		Logger logger = context.getLogger();
 		logger.info("Indexation de \"" + message + "\"");
-		Set<String> dejaRecherches = new HashSet<>();
 		try {
 			message = Utils.normaliser(message)
 				.replaceAll("[^\\p{IsAlphabetic}0-9]", " ")
 				.toLowerCase();
-			for (String terme : message.split(" ")) {
-				for (int i = 0; i < terme.length(); i++) {
-					String sousMot = terme.substring(0, i);
-					if (!dejaRecherches.contains(sousMot)) {
-						Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(sousMot);
-						if (!optCache.isPresent()) {
-							JSONArray resultats = Recherche.rechercher(sousMot, logger);
-							queueCache.getValue().add(new JSONObject()
-								.put("recherche", sousMot)
-								.put("resultats", resultats)
-								.toString()
-							);
-							dejaRecherches.add(sousMot);
-						}
-					}
+			for (String terme : Sets.newHashSet(message.split(" "))) {
+				Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(terme);
+				if (!optCache.isPresent()) {
+					JSONArray resultats = Recherche.rechercher(terme, logger);
+					queueCache.getValue().add(new JSONObject()
+						.put("recherche", terme)
+						.put("resultats", resultats)
+						.toString()
+					);
 				}
 			}
 		}
@@ -91,6 +85,11 @@ public class PrivateTriggers {
 			connection = connectionStorage,
 			queueName = "cache-recherche"
 		) final String message,
+		@QueueOutput(
+			name = "cacheRechercheQueueOutput",
+			connection = connectionStorage,
+			queueName = "indexation-automatique"
+		) final OutputBinding<List<String>> queueCache,
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
@@ -111,6 +110,11 @@ public class PrivateTriggers {
 			);
 			Utils.logErreur(e, logger);
 		}
+		Set<String> sousMots = new HashSet<>();
+		for (int i = 0; i <= recherche.length(); i++) {
+			sousMots.add(recherche.substring(0, i));
+		}
+		queueCache.setValue(new ArrayList<>(sousMots));
 	}
 
 	@FunctionName("nettoyageConnexions")

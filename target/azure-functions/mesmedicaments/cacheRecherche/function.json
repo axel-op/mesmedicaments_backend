@@ -7,5 +7,11 @@
     "name" : "cacheRechercheTrigger",
     "queueName" : "cache-recherche",
     "connection" : "AzureWebJobsStorage"
+  }, {
+    "type" : "queue",
+    "direction" : "out",
+    "name" : "cacheRechercheQueueOutput",
+    "queueName" : "indexation-automatique",
+    "connection" : "AzureWebJobsStorage"
   } ]
 }

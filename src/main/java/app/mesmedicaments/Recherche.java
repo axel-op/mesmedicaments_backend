@@ -13,11 +13,22 @@ import com.microsoft.azure.storage.StorageException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import app.mesmedicaments.entitestables.EntiteCacheRecherche;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 
 class Recherche {
 
     private Recherche () {}
+
+    protected static void mettreEnCache (String terme, String resultats) 
+        throws StorageException, URISyntaxException, InvalidKeyException
+    {
+        EntiteCacheRecherche entite = EntiteCacheRecherche.obtenirEntite(terme)
+            .orElse(new EntiteCacheRecherche(terme));
+        entite.setNombre(entite.getNombre() + 1);
+        entite.setResultats(resultats);
+        entite.mettreAJourEntite();
+    }
 
     protected static JSONArray rechercher (String terme, Logger logger) 
         throws StorageException, URISyntaxException, InvalidKeyException  

@@ -69,16 +69,23 @@ public class PrivateTriggers {
 				if (!optCache.isPresent()) { aChercher.add(terme); }
 			}
 			for (Entry<String, JSONArray> resultat : Recherche.rechercher(aChercher, logger).entrySet()) {
-				queueCache.getValue().add(new JSONObject()
+				String messCache = new JSONObject()
 					.put("recherche", resultat.getKey())
 					.put("resultats", resultat.getValue())
-					.toString()
-				);
+					.toString();
+				if (messCache.getBytes().length > 65536) {
+					Recherche.mettreEnCache(resultat.getKey(), resultat.getValue().toString());
+				}
+				else {
+					queueCache.getValue().add(new JSONObject()
+						.put("recherche", resultat.getKey())
+						.put("resultats", resultat.getValue())
+						.toString()
+					);
+				}
 			}
 		}
-		catch (StorageException | URISyntaxException | InvalidKeyException e) {
-			Utils.logErreur(e, logger);
-		}
+		catch (Exception e) { Utils.logErreur(e, logger); }
 	}
 
 	@FunctionName("cacheRecherche")
@@ -92,7 +99,7 @@ public class PrivateTriggers {
 			name = "cacheRechercheQueueOutput",
 			connection = connectionStorage,
 			queueName = "indexation-automatique"
-		) final OutputBinding<String> queueCache,
+		) final OutputBinding<String> queueIndex,
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
@@ -100,13 +107,7 @@ public class PrivateTriggers {
 		JSONObject jsonObj = new JSONObject(message);
 		String recherche = jsonObj.getString("recherche");
 		String resultats = jsonObj.getJSONArray("resultats").toString();
-		try {
-			EntiteCacheRecherche entite = EntiteCacheRecherche.obtenirEntite(recherche)
-				.orElse(new EntiteCacheRecherche(recherche));
-			entite.setNombre(entite.getNombre() + 1);
-			entite.setResultats(resultats);
-			entite.mettreAJourEntite();
-		}
+		try { Recherche.mettreEnCache(recherche, resultats); }
 		catch (StorageException | URISyntaxException | InvalidKeyException e) {
 			logger.warning("Impossible de mettre en cache les résultats de la recherche : " + recherche
 				+ "\n (résultats : " + resultats + ")"
@@ -117,7 +118,7 @@ public class PrivateTriggers {
 		for (int i = 0; i <= recherche.length(); i++) {
 			sousMots.add(recherche.substring(0, i));
 		}
-		queueCache.setValue(String.join(" ", sousMots));
+		queueIndex.setValue(String.join(" ", sousMots));
 	}
 
 	@FunctionName("nettoyageConnexions")

@@ -24,13 +24,13 @@ class Recherche {
         int compteur = 0;
         for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
             compteur += 1;
-            if (trouvees.size() >= 10) { break; }
+            //if (trouvees.size() >= 10) { break; }
             if (Utils.normaliser(entite.getNoms() + " " + entite.getForme())
                 .toLowerCase()
                 .contains(recherche)
             ) { trouvees.add(entite); }
         }
-        if (trouvees.size() < 10 && compteur < 14000) { 
+        if (compteur < 14000) { 
             throw new RuntimeException("Erreur lors de la récupération des entités Medicament");
         }
         trouvees.stream()

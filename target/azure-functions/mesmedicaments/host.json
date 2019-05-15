@@ -1,7 +1,4 @@
 {
   "version": "2.0",
-  "functionTimeout": "00:10:00",
-  "http": {
-    "maxConcurrentRequests": 1
-  }
+  "functionTimeout": "00:10:00"
 }

@@ -51,25 +51,30 @@ public class PrivateTriggers {
 			name = "indexationAutomatiqueQueueOutput",
 			connection = connectionStorage,
 			queueName = "cache-recherche"
-		) final OutputBinding<String> queueCache,
+		) final OutputBinding<List<String>> queueCache,
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
 		logger.info("Indexation de \"" + message + "\"");
+		Set<String> dejaRecherches = new HashSet<>();
 		try {
 			message = Utils.normaliser(message)
 				.replaceAll("[^\\p{IsAlphabetic}0-9]", " ")
 				.toLowerCase();
 			for (String terme : message.split(" ")) {
-				Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(terme);
-				if (!optCache.isPresent() || optCache.get().obtenirResultatsJArray().length() < 10) {
-					JSONArray resultats = Recherche.rechercher(terme, logger);
-					if (resultats.length() > 0) {
-						queueCache.setValue(new JSONObject()
-							.put("recherche", terme)
-							.put("resultats", resultats)
-							.toString()
-						);
+				for (int i = 0; i < terme.length(); i++) {
+					String sousMot = terme.substring(0, i);
+					if (!dejaRecherches.contains(sousMot)) {
+						Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(sousMot);
+						if (!optCache.isPresent()) {
+							JSONArray resultats = Recherche.rechercher(sousMot, logger);
+							queueCache.getValue().add(new JSONObject()
+								.put("recherche", sousMot)
+								.put("resultats", resultats)
+								.toString()
+							);
+							dejaRecherches.add(sousMot);
+						}
 					}
 				}
 			}

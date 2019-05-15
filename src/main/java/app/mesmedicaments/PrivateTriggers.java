@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.logging.Logger;
 
 import com.google.common.collect.Sets;
@@ -62,18 +63,17 @@ public class PrivateTriggers {
 			message = Utils.normaliser(message)
 				.replaceAll("[^\\p{IsAlphabetic}0-9]", " ")
 				.toLowerCase();
+			Set<String> aChercher = new HashSet<>();
 			for (String terme : Sets.newHashSet(message.split(" "))) {
-				if (terme.length() > 1) {
-					Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(terme);
-					if (!optCache.isPresent()) {
-						JSONArray resultats = Recherche.rechercher(terme, logger);
-						queueCache.getValue().add(new JSONObject()
-							.put("recherche", terme)
-							.put("resultats", resultats)
-							.toString()
-						);
-					}
-				}
+				Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(terme);
+				if (!optCache.isPresent()) { aChercher.add(terme); }
+			}
+			for (Entry<String, JSONArray> resultat : Recherche.rechercher(aChercher, logger).entrySet()) {
+				queueCache.getValue().add(new JSONObject()
+					.put("recherche", resultat.getKey())
+					.put("resultats", resultat.getValue())
+					.toString()
+				);
 			}
 		}
 		catch (StorageException | URISyntaxException | InvalidKeyException e) {

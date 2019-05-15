@@ -63,14 +63,16 @@ public class PrivateTriggers {
 				.replaceAll("[^\\p{IsAlphabetic}0-9]", " ")
 				.toLowerCase();
 			for (String terme : Sets.newHashSet(message.split(" "))) {
-				Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(terme);
-				if (!optCache.isPresent()) {
-					JSONArray resultats = Recherche.rechercher(terme, logger);
-					queueCache.getValue().add(new JSONObject()
-						.put("recherche", terme)
-						.put("resultats", resultats)
-						.toString()
-					);
+				if (terme.length() > 1) {
+					Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(terme);
+					if (!optCache.isPresent()) {
+						JSONArray resultats = Recherche.rechercher(terme, logger);
+						queueCache.getValue().add(new JSONObject()
+							.put("recherche", terme)
+							.put("resultats", resultats)
+							.toString()
+						);
+					}
 				}
 			}
 		}

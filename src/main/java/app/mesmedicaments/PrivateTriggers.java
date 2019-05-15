@@ -58,7 +58,7 @@ public class PrivateTriggers {
 		logger.info("Indexation de \"" + message + "\"");
 		try {
 			message = Utils.normaliser(message)
-				.replaceAll("[^\\p{IsAlphabetic}]", " ")
+				.replaceAll("[^\\p{IsAlphabetic}0-9]", " ")
 				.toLowerCase();
 			for (String terme : message.split(" ")) {
 				Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(terme);

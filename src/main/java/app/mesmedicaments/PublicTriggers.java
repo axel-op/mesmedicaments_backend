@@ -53,7 +53,7 @@ public final class PublicTriggers {
 			name = "rechercheTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "recherche/{recherche:alpha}"
+			route = "recherche/{recherche}"
 		) final HttpRequestMessage<Optional<String>> request,
 		@QueueOutput(
 			name = "rechercheQueueOutput",

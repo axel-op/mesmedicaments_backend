@@ -12,6 +12,7 @@ import com.microsoft.azure.storage.table.TableOperation;
 public class EntiteInteraction extends AbstractEntite {
 
     private static final String TABLE = System.getenv("tableazure_interactions");
+    private static CloudTable cloudTable;
 
     public static EntiteInteraction obtenirEntite (long codeSubstance1, long codeSubstance2) 
         throws URISyntaxException, InvalidKeyException
@@ -41,7 +42,7 @@ public class EntiteInteraction extends AbstractEntite {
         throws StorageException, URISyntaxException, InvalidKeyException
     {
         final String clePartition = entites.iterator().next().getPartitionKey();
-        CloudTable cloudTable = obtenirCloudTable(TABLE);
+        if (cloudTable == null) { cloudTable = obtenirCloudTable(TABLE); }
         TableBatchOperation batchOperation = new TableBatchOperation();
         for (EntiteInteraction entite : entites) { 
             if (!entite.getPartitionKey().equals(clePartition)) {

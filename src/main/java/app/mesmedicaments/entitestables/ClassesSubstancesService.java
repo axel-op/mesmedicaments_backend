@@ -13,6 +13,7 @@ import com.microsoft.azure.storage.table.TableQuery;
 public class ClassesSubstancesService {
 
 	private static final String TABLE = System.getenv("tableazure_classes");
+	private static CloudTable cloudTable;
 
 	public static Collection<String> obtenirToutesLesClasses () 
 		throws StorageException, URISyntaxException, InvalidKeyException
@@ -27,7 +28,7 @@ public class ClassesSubstancesService {
 	public static void mettreAJourClasseBatch (String classe, Iterable<Long> codesSubstances) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		CloudTable cloudTable = AbstractEntite.obtenirCloudTable(TABLE);
+		if (cloudTable == null) { cloudTable = AbstractEntite.obtenirCloudTable(TABLE); }
 		TableBatchOperation batchOperation = new TableBatchOperation();
 		for (long code : codesSubstances) {
 			batchOperation.insertOrMerge(

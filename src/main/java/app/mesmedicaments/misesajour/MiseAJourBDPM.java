@@ -7,7 +7,6 @@ import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.InvalidKeyException;
-import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -97,7 +96,7 @@ public final class MiseAJourBDPM {
 		return true;
     }
 
-    public static boolean majMedicaments (Logger logger, Collection<String> queueIndex) {
+    public static boolean majMedicaments (Logger logger) {
 		MiseAJourBDPM.logger = logger;
 		logger.info("Début de la mise à jour des médicaments");
 		/**** A revoir 
@@ -125,9 +124,6 @@ public final class MiseAJourBDPM {
 				}
 				nomsMed.get(codecis).add(nom);
 				caracMed.put(codecis, new String[]{forme, autorisation, marque});
-				queueIndex.add(nom);
-				queueIndex.add(forme);
-				queueIndex.add(marque);
 			}
 			double total = nomsMed.size();
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 

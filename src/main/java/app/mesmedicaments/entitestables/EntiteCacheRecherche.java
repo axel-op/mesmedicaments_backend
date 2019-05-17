@@ -1,25 +1,76 @@
 package app.mesmedicaments.entitestables;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.table.CloudTable;
+import com.microsoft.azure.storage.table.TableBatchOperation;
 import com.microsoft.azure.storage.table.TableOperation;
 
 import org.json.JSONArray;
 
 public class EntiteCacheRecherche extends AbstractEntite {
 
-    private static final String TABLE = "cacheRecherche";
+	private static final String TABLE = "cacheRecherche";
+	private static CloudTable cloudTable;
 
-    public static Optional<EntiteCacheRecherche> obtenirEntite (String recherche)
+	public static JSONArray obtenirResultatsCache (String terme) 
+		throws StorageException, InvalidKeyException, URISyntaxException
+	{
+		String resultats = "";
+		Optional<EntiteCacheRecherche> optEntite;
+		int ligne = 1;
+		while ((optEntite = obtenirEntite(terme, ligne)).isPresent()) {
+			resultats += optEntite.get().getResultats();
+			if (ligne == 1) {
+				EntiteCacheRecherche entite = optEntite.get();
+				entite.setNombreRequetes(entite.getNombreRequetes() + 1);
+				entite.mettreAJourEntite();
+			}
+			ligne += 1;
+		}
+		if (resultats.equals("")) { return new JSONArray(); }
+		return new JSONArray(resultats);
+	}
+
+	public static void mettreEnCache (String terme, JSONArray resultats) 
+		throws UnsupportedEncodingException, StorageException, URISyntaxException, InvalidKeyException
+	{
+		mettreEnCache(terme, resultats.toString());
+	}
+	
+	public static void mettreEnCache (String terme, String resultats) 
+		throws UnsupportedEncodingException, StorageException, URISyntaxException, InvalidKeyException
+	{
+		int nbrLignes = resultats.getBytes("UTF-16").length / 64000 + 1;
+		int longRes = resultats.length();
+		if (cloudTable == null) { cloudTable = obtenirCloudTable(TABLE); }
+		TableBatchOperation batchOp = new TableBatchOperation();
+		for (int i = 1; i <= nbrLignes; i++) {
+			EntiteCacheRecherche entite = new EntiteCacheRecherche(terme, i);
+			entite.setResultats(resultats.substring(
+					longRes / nbrLignes * (i - 1),
+					i == nbrLignes ? longRes : longRes / nbrLignes * i
+				));
+			entite.mettreAJourEntite();
+			batchOp.insertOrMerge(entite);
+			if (i % 100 == 0 || i == nbrLignes) {
+				cloudTable.execute(batchOp);
+				if (i != nbrLignes) { batchOp.clear(); }
+			}
+		}
+	}
+
+    private static Optional<EntiteCacheRecherche> obtenirEntite (String terme, int ligne)
 		throws URISyntaxException, InvalidKeyException
 	{
 		try {
 			TableOperation operation = TableOperation.retrieve(
-				recherche.substring(0, Math.min(3, recherche.length())), 
-				recherche, 
+				terme, 
+				String.valueOf(ligne), 
 				EntiteCacheRecherche.class);
 			return Optional.ofNullable(
 				obtenirCloudTable(TABLE)
@@ -33,15 +84,15 @@ public class EntiteCacheRecherche extends AbstractEntite {
 	}
 	
 	String resultats;
-	int nombre;
+	int nombreRequetes;
     
-    public EntiteCacheRecherche (String recherche) 
+    public EntiteCacheRecherche (String terme, int ligne) 
 		throws StorageException, InvalidKeyException, URISyntaxException
 	{
 		super(
-			TABLE, 
-			recherche.substring(0, Math.min(3, recherche.length())), 
-			recherche
+			TABLE,
+			terme, 
+			String.valueOf(ligne)
 		);
 	}
 
@@ -57,9 +108,14 @@ public class EntiteCacheRecherche extends AbstractEntite {
 		super(TABLE);
 	}
 
+	// Setters
+
 	public void setResultats (String resultats) { this.resultats = resultats; }
-	public void setNombre (int nombre) { this.nombre = nombre; }
+	public void setNombreRequetes (int nombreRequetes) { this.nombreRequetes = nombreRequetes; }
+
+	// Getters
+
 	public String getResultats () { return this.resultats; }
-	public int getNombre () { return this.nombre; }
-	public JSONArray obtenirResultatsJArray () { return new JSONArray(resultats); }
+	public int getNombreRequetes () { return this.nombreRequetes; }
+
 }

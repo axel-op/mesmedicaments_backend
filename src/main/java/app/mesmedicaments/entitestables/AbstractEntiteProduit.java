@@ -14,6 +14,7 @@ import com.microsoft.azure.storage.table.TableQuery.QueryComparisons;
 public abstract class AbstractEntiteProduit extends AbstractEntite implements Comparable<AbstractEntiteProduit> {
 
 	private static final String TABLE = System.getenv("tableazure_produits"); 
+	private static CloudTable cloudTable;
 
 	protected static <E extends AbstractEntiteProduit> Optional<E> obtenirEntite (String typeProduit, long codeProduit, Class<E> clazzType)
 		throws URISyntaxException, InvalidKeyException, StorageException
@@ -45,7 +46,7 @@ public abstract class AbstractEntiteProduit extends AbstractEntite implements Co
 	public static <E extends AbstractEntiteProduit> void mettreAJourEntitesBatch (Iterable<E> entites) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		CloudTable cloudTable = obtenirCloudTable(TABLE);
+		if (cloudTable == null) { cloudTable = obtenirCloudTable(TABLE); }
 		TableBatchOperation batchOperation = new TableBatchOperation();
 		for (E entite : entites) { 
 			batchOperation.insertOrMerge(entite); 

@@ -55,11 +55,6 @@ public final class PublicTriggers {
 			methods = {HttpMethod.GET},
 			route = "recherche/{recherche}"
 		) final HttpRequestMessage<Optional<String>> request,
-		@QueueOutput(
-			name = "rechercheQueueOutput",
-			connection = "AzureWebJobsStorage",
-			queueName = "cache-recherche"
-		) final OutputBinding<String> queue,
 		@BindingName("recherche") String recherche,
 		final ExecutionContext context
 	) {
@@ -71,17 +66,7 @@ public final class PublicTriggers {
 			if (recherche.length() > 100) { throw new IllegalArgumentException(); }
 			recherche = Utils.normaliser(recherche).toLowerCase();
 			logger.info("Recherche de \"" + recherche + "\"");
-			JSONArray resultats = new JSONArray();
-			Optional<EntiteCacheRecherche> cache = EntiteCacheRecherche.obtenirEntite(recherche);
-			if (cache.isPresent()) { resultats = cache.get().obtenirResultatsJArray(); }
-			else { 
-				resultats = Recherche.rechercher(recherche, logger); 
-				queue.setValue(new JSONObject()
-					.put("recherche", recherche)
-					.put("resultats", resultats)
-					.toString()
-				);
-			}
+			JSONArray resultats = EntiteCacheRecherche.obtenirResultatsCache(recherche);
 			corpsReponse.put("resultats", resultats);
 			logger.info(resultats.length() + " résultats trouvés");
 		}

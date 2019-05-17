@@ -1,31 +1,39 @@
 package app.mesmedicaments;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.InputStreamReader;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
+import java.util.stream.StreamSupport;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
-import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
-import com.microsoft.azure.functions.annotation.QueueOutput;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
 import com.microsoft.azure.functions.annotation.TimerTrigger;
+import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.file.CloudFileShare;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -33,6 +41,7 @@ import org.json.JSONObject;
 import app.mesmedicaments.connexion.DMP;
 import app.mesmedicaments.entitestables.EntiteCacheRecherche;
 import app.mesmedicaments.entitestables.EntiteConnexion;
+import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
@@ -42,85 +51,112 @@ public class PrivateTriggers {
 
 	private static final String connectionStorage = "AzureWebJobsStorage";
 
-	@FunctionName("indexationAutomatique")
-	public void indexationAutomatique (
-		@QueueTrigger(
-			name = "indexationAutomatiqueTrigger",
-			connection = connectionStorage,
-			queueName = "indexation-automatique"
-		) String message,
-		@QueueOutput(
-			name = "indexationAutomatiqueQueueOutput",
-			connection = connectionStorage,
-			queueName = "cache-recherche"
-		) final OutputBinding<List<String>> queueCache,
+	@FunctionName("indexation")
+	public HttpResponseMessage indexation (
+		@HttpTrigger(
+			name = "indexationTrigger",
+			methods = {HttpMethod.GET},
+			authLevel = AuthorizationLevel.FUNCTION,
+			route = "indexation/{etape:int}"
+		) final HttpRequestMessage<Optional<String>> request,
+		@BindingName("etape") final int etape,
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
-		logger.info("Indexation de \"" + message + "\"");
-		queueCache.setValue(new ArrayList<>());
 		try {
-			message = Utils.normaliser(message)
-				.replaceAll("[^\\p{IsAlphabetic}0-9]", " ")
-				.toLowerCase();
-			Set<String> aChercher = new HashSet<>();
-			for (String terme : Sets.newHashSet(message.split(" "))) {
-				Optional<EntiteCacheRecherche> optCache = EntiteCacheRecherche.obtenirEntite(terme);
-				if (!optCache.isPresent()) { aChercher.add(terme); }
-			}
-			for (Entry<String, JSONArray> resultat : Recherche.rechercher(aChercher, logger).entrySet()) {
-				String messCache = new JSONObject()
-					.put("recherche", resultat.getKey())
-					.put("resultats", resultat.getValue())
-					.toString();
-				if (messCache.getBytes().length > 65536) {
-					Recherche.mettreEnCache(resultat.getKey(), resultat.getValue().toString());
+			CloudFileShare fileShare = CloudStorageAccount.parse(System.getenv(connectionStorage))
+				.createCloudFileClient()
+				.getShareReference("filesharejava");
+			fileShare.createIfNotExists();
+			final String nomFichier = "indexationRecherche";
+			if (etape == 1) {
+				ConcurrentMap<String, JSONArray> index = new ConcurrentHashMap<>();
+				Iterable<EntiteMedicament> entitesM = EntiteMedicament.obtenirToutesLesEntites();
+				final int total = Iterables.size(entitesM);
+				logger.info("Nombre d'entités : " + total);
+				//final AtomicInteger compteur = new AtomicInteger(0);
+				StreamSupport.stream(entitesM.spliterator(), true)
+					.forEach((entiteM) -> {
+						String entStr = entiteM.getNoms() + " " + entiteM.getForme() + " " + entiteM.getMarque();
+						entStr = Utils.normaliser(entStr)
+							.toLowerCase()
+							.replaceAll("[^\\p{IsAlphabetic}0-9]", " ");
+						try { 
+							JSONObject medJson = Utils.medicamentEnJson(entiteM, logger);
+							Sets.newHashSet(entStr.split(" ")).stream().parallel()
+								.flatMap((terme) -> {
+									Set<String> sousMots = new HashSet<>();
+									for (int i = 0; i <= terme.length(); i++) {
+										sousMots.add(terme.substring(0, i));
+									}
+									return sousMots.stream();
+								})
+								.forEach((sousMot) -> {
+									if (!sousMot.equals("")) {
+										index.computeIfAbsent(sousMot, k -> new JSONArray())
+											.put(medJson);
+									}
+								});
+						} catch (Exception e) { Utils.logErreur(e, logger); }
+						//logger.info("Entités analysées : " + compteur.incrementAndGet() + "/" + total);
+					});
+				File tempFile = File.createTempFile(nomFichier, null);
+				tempFile.deleteOnExit();
+				//int lignes = index.keySet().size();
+				//int c = 0;
+				try (BufferedWriter br = new BufferedWriter(new FileWriter(tempFile))) {
+					for (Entry<String, JSONArray> entree : index.entrySet()) {
+						br.write(entree.getKey() + "\t" + entree.getValue().toString());
+						br.newLine();
+						//c += 1;
+						//logger.info(c + "/" + lignes + " lignes écrites");
+					}
+					logger.info("Envoi du fichier...");
+					fileShare.getRootDirectoryReference()
+						.getFileReference(nomFichier)
+						.uploadFromFile(tempFile.getPath());
 				}
-				else {
-					queueCache.getValue().add(new JSONObject()
-						.put("recherche", resultat.getKey())
-						.put("resultats", resultat.getValue())
-						.toString()
-					);
+				catch (Exception e) {
+					logger.warning("Erreur lors de l'écriture du fichier");
 				}
 			}
+			else if (etape == 2) {
+				//ConcurrentMap<String, String> index = new ConcurrentHashMap<>();
+				Set<String> erreurs = ConcurrentHashMap.newKeySet();
+				final AtomicInteger compteur = new AtomicInteger(0);
+				new BufferedReader(
+					new InputStreamReader(
+						fileShare.getRootDirectoryReference()
+							.getFileReference(nomFichier)
+							.openRead()
+					)
+				).lines()
+					.parallel()
+					.forEach((ligne) -> {
+						//if (compteur.get() >= 25000) {
+						String[] entree = ligne.split("\t", 2);
+						try {
+							EntiteCacheRecherche.mettreEnCache(entree[0], entree[1]);
+						} catch (Exception e) { 
+							logger.warning("Erreur pour le terme " + entree[0]);
+							erreurs.add(entree[0]);
+							Utils.logErreur(e, logger); 
+						}
+						//}
+						logger.info(compteur.incrementAndGet() + " faits");
+					});
+				logger.info(erreurs.size() + " erreurs : ");
+				erreurs.forEach((t) -> logger.info("\t" + t));
+			}
+			else { return request.createResponseBuilder(HttpStatus.NOT_FOUND).build(); }
+			return request.createResponseBuilder(HttpStatus.OK).build();
 		}
-		catch (Exception e) { Utils.logErreur(e, logger); }
-	}
-
-	@FunctionName("cacheRecherche")
-	public void cacheRecherche (
-		@QueueTrigger(
-			name = "cacheRechercheTrigger",
-			connection = connectionStorage,
-			queueName = "cache-recherche"
-		) final String message,
-		@QueueOutput(
-			name = "cacheRechercheQueueOutput",
-			connection = connectionStorage,
-			queueName = "indexation-automatique"
-		) final OutputBinding<String> queueIndex,
-		final ExecutionContext context
-	) {
-		Logger logger = context.getLogger();
-		logger.info("Mise en cache de " + message);
-		JSONObject jsonObj = new JSONObject(message);
-		String recherche = jsonObj.getString("recherche");
-		String resultats = jsonObj.getJSONArray("resultats").toString();
-		try { Recherche.mettreEnCache(recherche, resultats); }
-		catch (StorageException | URISyntaxException | InvalidKeyException e) {
-			logger.warning("Impossible de mettre en cache les résultats de la recherche : " + recherche
-				+ "\n (résultats : " + resultats + ")"
-			);
+		catch (Exception e) {
 			Utils.logErreur(e, logger);
 		}
-		Set<String> sousMots = new HashSet<>();
-		for (int i = 0; i <= recherche.length(); i++) {
-			sousMots.add(recherche.substring(0, i));
-		}
-		queueIndex.setValue(String.join(" ", sousMots));
+		return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR).build();
 	}
-
+	
 	@FunctionName("nettoyageConnexions")
 	public void nettoyageConnexions (
 		@TimerTrigger(
@@ -199,11 +235,6 @@ public class PrivateTriggers {
 			methods = {HttpMethod.GET},
 			route = "mettreAJourBases/{etape:int}")
 		final HttpRequestMessage<Optional<String>> request,
-		@QueueOutput(
-			name = "mettreAJourBasesQueueOutput",
-			connection = connectionStorage,
-			queueName = "indexation-automatique"
-		) final OutputBinding<List<String>> queue,
 		@BindingName("etape") int etape,
 		final ExecutionContext context
 	) {
@@ -211,8 +242,6 @@ public class PrivateTriggers {
 		HttpStatus codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		String corps = "";
 		Logger logger = context.getLogger();
-		Set<String> pourFile = new HashSet<>();
-		//queue.setValue(new ArrayList<>());
 		switch (etape) {
 			case 1:
 				if (MiseAJourBDPM.majSubstances(logger)) {
@@ -221,8 +250,7 @@ public class PrivateTriggers {
 				}
 				break;
 			case 2:
-				if (MiseAJourBDPM.majMedicaments(logger, pourFile)) {
-					queue.setValue(new ArrayList<>(pourFile));
+				if (MiseAJourBDPM.majMedicaments(logger)) {
 					codeHttp = HttpStatus.OK;
 					corps = "Mise à jour des médicaments terminée.";
 				}
@@ -239,12 +267,6 @@ public class PrivateTriggers {
 					corps = "Mise à jour des interactions terminée.";
 				}
 				break;
-			/*case 5:
-				if (mettreAJourCache(queue, logger)) {
-					codeHttp = HttpStatus.OK;
-					corps = "Mise à jour du cache pour la recherche terminée.";
-				}
-				break;*/
 			default:
 				codeHttp = HttpStatus.BAD_REQUEST;
 				corps = "Le paramètre maj de la requête n'est pas reconnu.";
@@ -256,62 +278,4 @@ public class PrivateTriggers {
 				+ " ms")
 			.build();
 	}
-
-	/*
-	private boolean mettreAJourCache (Logger logger) {
-		logger.info("Mise à jour du cache pour la recherche");
-		try {
-			Set<String> noms = new HashSet<>();
-			for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
-				for (Object object : entite.obtenirNomsJArray()) {
-					String nom = ((String) object).split(" ")[0];
-					//if (!EntiteCacheRecherche.obtenirEntite(nom).isPresent()) {
-						noms.add(Utils.normaliser(nom)
-							.toLowerCase()
-							.replaceAll("^\\p{IsAlphabetic}", "")
-						);
-					//}
-				}
-			}
-			int total = noms.size();
-			logger.info(total + " termes à mettre en cache");
-			Map<String, Set<EntiteMedicament>> aCacher = new HashMap<>();
-			for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
-				for (String nom : noms) {
-					if (Utils.normaliser(entite.getNoms() + " " + entite.getForme())
-						.toLowerCase()
-						.contains(nom)
-					) {
-						Set<EntiteMedicament> set = aCacher.computeIfAbsent(nom, k -> new HashSet<>());
-						if (set.size() < 10) { set.add(entite); }
-					}
-				}
-			}
-			AtomicInteger compteur = new AtomicInteger(1);
-			aCacher.entrySet().stream().parallel()
-				.forEach((entree) -> {
-					try {
-						JSONArray resultats = new JSONArray();
-						for (EntiteMedicament entite : entree.getValue()) {
-							resultats.put(Utils.medicamentEnJson(entite, logger));
-						}
-						logger.info(compteur + "/" + total);
-						EntiteCacheRecherche eC = new EntiteCacheRecherche(entree.getKey());
-						eC.setResultats(resultats.toString());
-						eC.creerEntite();
-						compteur.incrementAndGet();
-					}
-					catch (StorageException | URISyntaxException | InvalidKeyException e) {
-						Utils.logErreur(e, logger);
-						throw new RuntimeException();
-					}
-			});
-			return true;
-		}
-		catch (StorageException | URISyntaxException | InvalidKeyException e) {
-			Utils.logErreur(e, logger);
-			return false;
-		}
-	}
-    */
 }

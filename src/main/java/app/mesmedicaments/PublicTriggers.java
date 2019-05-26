@@ -53,24 +53,29 @@ public final class PublicTriggers {
 			name = "rechercheTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "recherche/{recherche}"
+			route = "recherche/{recherche?}"
 		) final HttpRequestMessage<Optional<String>> request,
-		@BindingName("recherche") String recherche,
+		//@BindingName("recherche") String recherche,
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
 		HttpStatus codeHttp = HttpStatus.OK;
 		JSONObject corpsReponse = new JSONObject();
+		String[] parametres = request.getUri().getPath().split("/");
+		String recherche = null;
+		if (parametres.length > 3) recherche = parametres[3];
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			if (recherche.length() > 100) { throw new IllegalArgumentException(); }
-			recherche = Utils.normaliser(recherche).toLowerCase();
-			logger.info("Recherche de \"" + recherche + "\"");
-			JSONArray resultats = EntiteCacheRecherche.obtenirResultatsCache(recherche);
-			corpsReponse.put("resultats", resultats);
-			logger.info(resultats.length() + " résultats trouvés");
-		}
-		
+			if (recherche != null) {
+				if (recherche.length() > 100) throw new IllegalArgumentException();
+				recherche = Utils.normaliser(recherche).toLowerCase();
+				logger.info("Recherche de \"" + recherche + "\"");
+				JSONArray resultats = EntiteCacheRecherche.obtenirResultatsCache(recherche);
+				corpsReponse.put("resultats", resultats);
+				logger.info(resultats.length() + " résultats trouvés");
+			}
+			else corpsReponse.put("nombre", 14798);
+		}	
 		catch (IllegalArgumentException e) {
 			codeHttp = HttpStatus.BAD_REQUEST;
 		}
@@ -223,13 +228,11 @@ public final class PublicTriggers {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			if (parametres.length > 4) { 
 				codeProduit = parametres[4]; 
-				if (codeProduit.length() > 10) { 
-					throw new IllegalArgumentException("Code produit invalide"); 
-				}
+				if (codeProduit.length() > 10) throw new IllegalArgumentException("Code produit invalide"); 
 			}
-			if (categorie == null) { throw new IllegalArgumentException(); }
+			if (categorie == null) throw new IllegalArgumentException();
 			if (categorie.equals("substances")) {
-				if (codeProduit == null) { codeHttp = HttpStatus.FORBIDDEN; }
+				if (codeProduit == null) codeHttp = HttpStatus.FORBIDDEN;
 				else {
 					EntiteSubstance entite = EntiteSubstance
 						.obtenirEntite(Long.parseLong(codeProduit))
@@ -312,6 +315,9 @@ public final class PublicTriggers {
 				resultat = auth.connexionDMP(mdp);
 				if (!resultat.isNull(CLE_ERREUR_AUTH)) {
 					codeHttp = HttpStatus.CONFLICT;
+					if (resultat.get(CLE_ERREUR_AUTH).equals("interne")) {
+						codeHttp = HttpStatus.INTERNAL_SERVER_ERROR; // TODO à revoir
+					}
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
 				} else {
 					codeHttp = HttpStatus.OK;

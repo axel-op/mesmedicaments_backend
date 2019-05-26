@@ -32,7 +32,13 @@ public class EntiteCacheRecherche extends AbstractEntite {
 			}
 			ligne += 1;
 		}
-		if (resultats.equals("")) { return new JSONArray(); }
+		if (resultats.equals("")) {
+			EntiteCacheRecherche entite = new EntiteCacheRecherche(terme, 1);
+			entite.setResultats(new JSONArray().toString());
+			entite.setNombreRequetes(1);
+			entite.creerEntite();
+			resultats = entite.getResultats();
+		}
 		return new JSONArray(resultats);
 	}
 

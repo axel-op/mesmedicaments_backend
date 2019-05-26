@@ -77,7 +77,9 @@ public class PrivateTriggers {
 				//final AtomicInteger compteur = new AtomicInteger(0);
 				StreamSupport.stream(entitesM.spliterator(), true)
 					.forEach((entiteM) -> {
-						String entStr = entiteM.getNoms() + " " + entiteM.getForme() + " " + entiteM.getMarque();
+						String entStr = entiteM.obtenirNomsJArray().join(" ")
+							+ " " + entiteM.getForme() 
+							+ " " + entiteM.getMarque();
 						entStr = Utils.normaliser(entStr)
 							.toLowerCase()
 							.replaceAll("[^\\p{IsAlphabetic}0-9]", " ");

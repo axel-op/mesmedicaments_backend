@@ -53,28 +53,22 @@ public final class PublicTriggers {
 			name = "rechercheTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "recherche/{recherche?}"
+			route = "recherche/{recherche}"
 		) final HttpRequestMessage<Optional<String>> request,
-		//@BindingName("recherche") String recherche,
+		@BindingName("recherche") String recherche,
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
 		HttpStatus codeHttp = HttpStatus.OK;
 		JSONObject corpsReponse = new JSONObject();
-		String[] parametres = request.getUri().getPath().split("/");
-		String recherche = null;
-		if (parametres.length > 3) recherche = parametres[3];
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			if (recherche != null) {
-				if (recherche.length() > 100) throw new IllegalArgumentException();
-				recherche = Utils.normaliser(recherche).toLowerCase();
-				logger.info("Recherche de \"" + recherche + "\"");
-				JSONArray resultats = EntiteCacheRecherche.obtenirResultatsCache(recherche);
-				corpsReponse.put("resultats", resultats);
-				logger.info(resultats.length() + " résultats trouvés");
-			}
-			else corpsReponse.put("nombre", 14798);
+			if (recherche.length() > 100) throw new IllegalArgumentException();
+			recherche = Utils.normaliser(recherche).toLowerCase();
+			logger.info("Recherche de \"" + recherche + "\"");
+			JSONArray resultats = EntiteCacheRecherche.obtenirResultatsCache(recherche);
+			corpsReponse.put("resultats", resultats);
+			logger.info(resultats.length() + " résultats trouvés");
 		}	
 		catch (IllegalArgumentException e) {
 			codeHttp = HttpStatus.BAD_REQUEST;

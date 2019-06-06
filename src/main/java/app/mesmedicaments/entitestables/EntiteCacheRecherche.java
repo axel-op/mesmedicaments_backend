@@ -4,6 +4,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.Optional;
+import java.util.stream.StreamSupport;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.CloudTable;
@@ -31,6 +32,7 @@ public class EntiteCacheRecherche extends AbstractEntite {
 				entite.mettreAJourEntite();
 			}
 			ligne += 1;
+			System.out.println(entite.getRowKey());
 		}
 		if (resultats.equals("")) {
 			EntiteCacheRecherche entite = new EntiteCacheRecherche(terme, 1);
@@ -78,9 +80,14 @@ public class EntiteCacheRecherche extends AbstractEntite {
 			QueryComparisons.EQUAL, 
 			terme
 		);
-		return obtenirCloudTable(TABLE)
+		Iterable<EntiteCacheRecherche> resNonTries = obtenirCloudTable(TABLE)
 			.execute(new TableQuery<>(EntiteCacheRecherche.class)
 				.where(filtrePK));
+		return (Iterable<EntiteCacheRecherche>) () -> 
+			StreamSupport.stream(resNonTries.spliterator(), false)
+				.sorted((e1, e2) -> Integer.valueOf(e1.getRowKey()).compareTo(Integer.valueOf(e2.getRowKey())))
+				.map(EntiteCacheRecherche.class::cast)
+				.iterator();
 	}
 
     private static Optional<EntiteCacheRecherche> obtenirEntite (String terme, int ligne)

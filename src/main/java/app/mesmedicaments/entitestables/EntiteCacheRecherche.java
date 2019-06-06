@@ -9,6 +9,8 @@ import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.CloudTable;
 import com.microsoft.azure.storage.table.TableBatchOperation;
 import com.microsoft.azure.storage.table.TableOperation;
+import com.microsoft.azure.storage.table.TableQuery;
+import com.microsoft.azure.storage.table.TableQuery.QueryComparisons;
 
 import org.json.JSONArray;
 
@@ -21,12 +23,10 @@ public class EntiteCacheRecherche extends AbstractEntite {
 		throws StorageException, InvalidKeyException, URISyntaxException
 	{
 		String resultats = "";
-		Optional<EntiteCacheRecherche> optEntite;
 		int ligne = 1;
-		while ((optEntite = obtenirEntite(terme, ligne)).isPresent()) {
-			resultats += optEntite.get().getResultats();
+		for (EntiteCacheRecherche entite : obtenirEntites(terme)) {
+			resultats += entite.getResultats();
 			if (ligne == 1) {
-				EntiteCacheRecherche entite = optEntite.get();
 				entite.setNombreRequetes(entite.getNombreRequetes() + 1);
 				entite.mettreAJourEntite();
 			}
@@ -68,6 +68,19 @@ public class EntiteCacheRecherche extends AbstractEntite {
 				if (i != nbrLignes) { batchOp.clear(); }
 			}
 		}
+	}
+
+	private static Iterable<EntiteCacheRecherche> obtenirEntites (String terme)
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		String filtrePK = TableQuery.generateFilterCondition(
+			"PartitionKey", 
+			QueryComparisons.EQUAL, 
+			terme
+		);
+		return obtenirCloudTable(TABLE)
+			.execute(new TableQuery<>(EntiteCacheRecherche.class)
+				.where(filtrePK));
 	}
 
     private static Optional<EntiteCacheRecherche> obtenirEntite (String terme, int ligne)

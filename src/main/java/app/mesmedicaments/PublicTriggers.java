@@ -330,6 +330,7 @@ public final class PublicTriggers {
 					logger.info("Ajout de la connexion à la file nouvelles-connexions");
 					queue.setValue(new JSONObject().put("id", id).toString());
 					corpsReponse.put("accessToken", auth.createAccessToken());
+					if (resultat.has("genre")) corpsReponse.put("genre", resultat.get("genre"));
 					codeHttp = HttpStatus.OK;
 				}
 			} else { throw new IllegalArgumentException(); }

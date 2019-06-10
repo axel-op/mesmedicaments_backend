@@ -46,6 +46,7 @@ public final class Authentification {
 	private static final String URL_CONNEXION_DMP;
 	private static final String URL_POST_FORM_DMP;
 	private static final String URL_ENVOI_CODE;
+	private static final String URL_INFOS_DMP;
 	//private static final String ID_MSI;
 	private static SignatureAlgorithm JWT_SIGNING_ALG;
     private static String JWT_SIGNING_KEY;
@@ -62,6 +63,7 @@ public final class Authentification {
 		URL_CONNEXION_DMP = System.getenv("url_connexion_dmp");
 		URL_POST_FORM_DMP = System.getenv("url_post_form_dmp");
 		URL_ENVOI_CODE = System.getenv("url_post_envoi_code");
+		URL_INFOS_DMP = System.getenv("url_infos_dmp");
 		//ID_MSI = System.getenv("msi_auth");
 		CLE_ERREUR = "erreur";
 		CLE_ENVOI_CODE = "envoiCode";
@@ -220,6 +222,8 @@ public final class Authentification {
 				obtenirURLFichierRemboursements(cookies).orElse(null)
 			);
 			entiteConnexion.mettreAJourEntite();
+			try { retour.put("genre", obtenirGenre(cookies)); }
+			catch (IOException e) { logger.warning("Impossible de récupérer le genre"); }
 		}
 		catch (IOException 
 			| InvalidKeyException
@@ -265,5 +269,17 @@ public final class Authentification {
 		return page.getElementsByAttributeValue("name", "t:formdata")
 			.first()
 			.val();
+	}
+
+	private String obtenirGenre (Map<String, String> cookies) 
+		throws IOException
+	{
+		Connection connexion = Jsoup.connect(URL_INFOS_DMP);
+		connexion.method(Connection.Method.GET)
+			.userAgent(USERAGENT)
+			.cookies(cookies)
+			.execute();
+		Document pageInfos = connexion.response().parse();
+		return pageInfos.getElementById("genderValue").val();
 	}
 }

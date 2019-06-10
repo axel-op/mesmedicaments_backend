@@ -24,15 +24,12 @@ public class EntiteCacheRecherche extends AbstractEntite {
 		throws StorageException, InvalidKeyException, URISyntaxException
 	{
 		String resultats = "";
-		int ligne = 1;
 		for (EntiteCacheRecherche entite : obtenirEntites(terme)) {
 			resultats += entite.getResultats();
-			if (ligne == 1) {
+			/*if (ligne == 1) {
 				entite.setNombreRequetes(entite.getNombreRequetes() + 1);
 				entite.mettreAJourEntite();
-			}
-			ligne += 1;
-			System.out.println(entite.getRowKey());
+			}*/
 		}
 		if (resultats.equals("")) {
 			EntiteCacheRecherche entite = new EntiteCacheRecherche(terme, 1);

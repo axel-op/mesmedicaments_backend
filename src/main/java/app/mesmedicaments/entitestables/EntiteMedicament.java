@@ -2,12 +2,14 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class EntiteMedicament extends AbstractEntiteProduit {
 
@@ -31,6 +33,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     String autorisation;
     String marque;
     String substancesActives;
+    String prix;
 
     public EntiteMedicament (long codeCIS) 
         throws StorageException, InvalidKeyException, URISyntaxException 
@@ -55,6 +58,10 @@ public class EntiteMedicament extends AbstractEntiteProduit {
         if (substancesActives == null) { return new JSONArray(); } 
         return new JSONArray(substancesActives); 
     }
+    public String getPrix () { return prix; }
+    public JSONObject obtenirPrixJObject () {
+        return new JSONObject(prix);
+    }
 
     /* Setters */
 
@@ -62,6 +69,13 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     public void setForme (String forme) { this.forme = forme; }
     public void setAutorisation (String autorisation) { this.autorisation = autorisation; }
     public void setMarque (String marque) { this.marque = marque; }
+    public void setPrix (String prix) { this.prix = prix; }
+
+    public void definirPrixMap (Map<String, Double> map) {
+        prix = (map == null)
+            ? new JSONObject().toString()
+            : new JSONObject(map).toString();
+    }
 
     public void definirNomsJArray (JSONArray noms) {
         this.noms = noms.toString();

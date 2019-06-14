@@ -245,15 +245,15 @@ public final class PublicTriggers {
 					codeHttp = HttpStatus.OK;
 				} 
 				else {
-					JSONObject tousLesMeds = new JSONObject();
+					/*JSONObject tousLesMeds = new JSONObject();
 					int compteur = 0;
 					for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
 						tousLesMeds.put(entite.getRowKey(), entite.getNoms());
 						compteur++;
 					}
 					corpsReponse.put("medicaments", tousLesMeds);
-					corpsReponse.put("total", compteur);
-					codeHttp = HttpStatus.OK;
+					corpsReponse.put("total", compteur);*/
+					codeHttp = HttpStatus.FORBIDDEN;
 				}
 			}
 		}

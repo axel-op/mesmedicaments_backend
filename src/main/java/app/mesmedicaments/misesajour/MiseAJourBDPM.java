@@ -8,6 +8,9 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.InvalidKeyException;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.logging.Logger;
@@ -27,11 +30,13 @@ public final class MiseAJourBDPM {
 
 	private static final String URL_FICHIER_BDPM;
 	private static final String URL_FICHIER_COMPO;
+	private static final String URL_FICHIER_PRESENTATIONS;
 	private static Logger logger;
 
 	static {
 		URL_FICHIER_BDPM = System.getenv("url_cis_bdpm");
 		URL_FICHIER_COMPO = System.getenv("url_cis_compo_bdpm");
+		URL_FICHIER_PRESENTATIONS = System.getenv("url_cis_cip_bdpm"); // TODO
 	}
 
 	private MiseAJourBDPM () {}
@@ -115,10 +120,10 @@ public final class MiseAJourBDPM {
 			while ((ligne = listeMedicaments.readLine()) != null) {
 				String[] elements = ligne.split("\t");
 				long codecis = Long.parseLong(elements[0]);
-				String nom = elements[1];
-				String forme = elements[2];
-				String autorisation = elements[4];
-				String marque = elements[10];
+				String nom = elements[1].trim();
+				String forme = elements[2].trim();
+				String autorisation = elements[4].trim();
+				String marque = elements[10].trim();
 				if (nomsMed.get(codecis) == null) { 
 					nomsMed.put(codecis, new TreeSet<>()); 
 				}
@@ -129,6 +134,7 @@ public final class MiseAJourBDPM {
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 
 				+ ((int) total) + " médicaments trouvés."
 			);
+			Map<Long, Map<String, Double>> prix = obtenirPrixParPresentation(logger);
 			logger.info("Création des entités en cours...");
 			TreeSet<EntiteMedicament> entites = new TreeSet<>();
 			startTime = System.currentTimeMillis();
@@ -139,6 +145,8 @@ public final class MiseAJourBDPM {
 				entite.setForme(caracMed.get(codecis)[0]);
 				entite.setAutorisation(caracMed.get(codecis)[1]);
 				entite.setMarque(caracMed.get(codecis)[2]);
+				Map<String, Double> prixParPres = prix.get(codecis);
+				entite.definirPrixMap(prixParPres);
 				entites.add(entite);
 			}
 			logger.info(entites.size() + " entités créées en " + Utils.tempsDepuis(startTime) + " ms. "
@@ -158,7 +166,44 @@ public final class MiseAJourBDPM {
 			return false;
 		}
 		return true;
-    }
+	}
+	
+	/**
+	 * Pour chaque code CIS (clés de la Map) correspond différentes présentations (clés de la sous Map) associées à un prix (valeurs de la sous Map)
+	 * @param logger
+	 * @return
+	 */
+	private static Map<Long, Map<String, Double>> obtenirPrixParPresentation (Logger logger) {
+		ConcurrentMap<Long, Map<String, Double>> prix = new ConcurrentHashMap<>();
+		logger.info("Récupération des prix");
+		long startTime = System.currentTimeMillis();
+		importerFichier(URL_FICHIER_PRESENTATIONS)
+			.lines()
+			.parallel()
+			.forEach((ligne) -> {
+				try {
+					String[] elements = ligne.split("\t");
+					if (elements.length >= 11) {
+						String presentation = elements[2];
+						Long codeCis = Long.parseLong(elements[0]);
+						String prixStr = elements[10];
+						if (prixStr.contains(",")) {
+							int virCents = prixStr.length() - 3;
+							prixStr = prixStr.substring(0, virCents) + "." + prixStr.substring(virCents);
+							prixStr = prixStr.replaceAll(",", "");
+						}
+						Double prixMed = null;
+						if (!prixStr.equals("")) prixMed = Double.parseDouble(prixStr);
+						prix.computeIfAbsent(codeCis, (k) -> new ConcurrentHashMap<>())
+							.put(presentation, prixMed);
+					}
+				} catch (NullPointerException | NumberFormatException e) {
+					logger.info("Erreur de parsing du prix dans la ligne suivante : \n" + ligne);
+				}
+			});
+		logger.info("Prix récupérés en " + Utils.tempsDepuis(startTime) + " ms");
+		return prix;
+	}
 
     private static BufferedReader importerFichier (String url) {
         BufferedReader br = null;

@@ -36,7 +36,7 @@ public final class MiseAJourBDPM {
 	static {
 		URL_FICHIER_BDPM = System.getenv("url_cis_bdpm");
 		URL_FICHIER_COMPO = System.getenv("url_cis_compo_bdpm");
-		URL_FICHIER_PRESENTATIONS = System.getenv("url_cis_cip_bdpm"); // TODO
+		URL_FICHIER_PRESENTATIONS = System.getenv("url_cis_cip_bdpm");
 	}
 
 	private MiseAJourBDPM () {}

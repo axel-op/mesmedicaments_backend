@@ -109,7 +109,7 @@ public final class MiseAJourBDPM {
 		TreeMap<Long, TreeSet<String>> nomsMed = new TreeMap<>();
 		TreeMap<Long, String[]> caracMed = new TreeMap<>();
 		try {
-			logger.info("Parsing en cours et ajout pour l'indexation...");
+			logger.info("Parsing en cours...");
 			String ligne;
 			long startTime = System.currentTimeMillis();
 			while ((ligne = listeMedicaments.readLine()) != null) {

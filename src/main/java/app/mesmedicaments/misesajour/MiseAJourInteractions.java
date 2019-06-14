@@ -44,8 +44,13 @@ public final class MiseAJourInteractions {
 	private static final Map<String, Set<Long>> correspondancesSubstances;
 	private static final Map<String, Set<String>> classesSubstances;
 	private static final Map<Long, Set<EntiteInteraction>> entitesInteractionsParPartition;
+	private static final String REGEX_RISQUE1 = "((?i:((a|à) prendre en compte))|(.*APEC))";
+	private static final String REGEX_RISQUE2 = "((?i:pr(e|é)caution d'emploi)|(.*PE))";
+	private static final String REGEX_RISQUE3 = "((?i:(association d(e|é)conseill(e|é)e))|(.*ASDEC))";
+	private static final String REGEX_RISQUE4 = "((?i:(contre(-| )indication))|(.*CI))";
+	private static final String[] regexRisques = new String[] { REGEX_RISQUE1, REGEX_RISQUE2, REGEX_RISQUE3, REGEX_RISQUE4 };
 	private static Logger logger;
-    private static Map<String, Set<Long>> substances;
+	private static Map<String, Set<Long>> substances;
 
     private boolean ignorerLigne;
 	private String ajoutSubstances;
@@ -148,11 +153,7 @@ public final class MiseAJourInteractions {
 	private void analyseLigne (String texte, List<TextPosition> textPositions) {
 		Float taille = textPositions.get(0).getFontSize();
 		Float tailleInPt = textPositions.get(0).getFontSizeInPt();
-		String risque1 = "((?i:((a|à) prendre en compte))|(.*APEC))";
-		String risque2 = "((?i:pr(e|é)caution d'emploi)|(.*PE))";
-		String risque3 = "((?i:(association d(e|é)conseill(e|é)e))|(.*ASDEC))";
-		String risque4 = "((?i:(contre(-| )indication))|(.*CI))";
-		String[] regexRisques = new String[]{risque1, risque2, risque3, risque4};
+		
 		try {
 			if (!ignorerLigne) {
 				String ligne = Texte.normaliser.apply(texte);
@@ -392,10 +393,12 @@ public final class MiseAJourInteractions {
 		logger.info(supprimes.size() + " doublons supprimés en " + Utils.tempsDepuis(startTime) + " ms");
 		logger.info("Mise à jour de la base de données en cours...");
 		startTime = System.currentTimeMillis();
+		int total = 0;
 		for (Collection<EntiteInteraction> entites : entitesRegroupees.values()) {
+			total += entites.size();
 			EntiteInteraction.mettreAJourEntitesBatch(entites);
 		}
-		logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms");
+		logger.info(total + " entités mises à jour en " + Utils.tempsDepuis(startTime) + " ms");
 	}
 
 	private static class Recherche {

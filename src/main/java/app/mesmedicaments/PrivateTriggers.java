@@ -163,7 +163,7 @@ public class PrivateTriggers {
 	public void nettoyageConnexions (
 		@TimerTrigger(
 			name = "nettoyageConnexionsTrigger",
-			schedule = "0 */10 * * * *"
+			schedule = "0 0 */1 * * *"
 		) final String timerInfo,
 		final ExecutionContext context
 	) {

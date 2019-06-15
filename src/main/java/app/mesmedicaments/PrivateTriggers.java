@@ -1,25 +1,11 @@
 package app.mesmedicaments;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.InputStreamReader;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
-import java.util.stream.StreamSupport;
 
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -31,17 +17,12 @@ import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
 import com.microsoft.azure.functions.annotation.TimerTrigger;
-import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.file.CloudFileShare;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.DMP;
-import app.mesmedicaments.entitestables.EntiteCacheRecherche;
 import app.mesmedicaments.entitestables.EntiteConnexion;
-import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
@@ -51,6 +32,7 @@ public class PrivateTriggers {
 
 	private static final String connectionStorage = "AzureWebJobsStorage";
 
+	/*
 	@FunctionName("indexation")
 	public HttpResponseMessage indexation (
 		@HttpTrigger(
@@ -74,17 +56,22 @@ public class PrivateTriggers {
 				Iterable<EntiteMedicament> entitesM = EntiteMedicament.obtenirToutesLesEntites();
 				final int total = Iterables.size(entitesM);
 				logger.info("Nombre d'entités : " + total);
-				//final AtomicInteger compteur = new AtomicInteger(0);
+				final AtomicInteger compteur = new AtomicInteger(0);
 				StreamSupport.stream(entitesM.spliterator(), true)
 					.forEach((entiteM) -> {
-						String entStr = entiteM.obtenirNomsJArray().join(" ")
-							+ " " + entiteM.getForme() 
-							+ " " + entiteM.getMarque();
-						entStr = Utils.normaliser(entStr)
-							.toLowerCase()
-							.replaceAll("[^\\p{IsAlphabetic}0-9]", " ");
 						try { 
 							JSONObject medJson = Utils.medicamentEnJson(entiteM, logger);
+							String entStr = entiteM
+								.obtenirNomsJArray().join(" ") + " " 
+								+ entiteM.getForme() + " "
+								+ entiteM.getMarque();
+							JSONObject substances = medJson.getJSONObject("substances");
+							for (String key : substances.keySet()) {
+								entStr += " " + substances.getJSONArray(key).join(" ");
+							}
+							entStr = Utils.normaliser(entStr)
+								.toLowerCase()
+								.replaceAll("[^\\p{IsAlphabetic}0-9]", " ");
 							Sets.newHashSet(entStr.split(" ")).stream().parallel()
 								.flatMap((terme) -> {
 									Set<String> sousMots = new HashSet<>();
@@ -100,17 +87,17 @@ public class PrivateTriggers {
 									}
 								});
 						} catch (Exception e) { Utils.logErreur(e, logger); }
-						//logger.info("Entités analysées : " + compteur.incrementAndGet() + "/" + total);
+						logger.info("Entités analysées : " + compteur.incrementAndGet() + "/" + total);
 					});
 				File tempFile = File.createTempFile(nomFichier, null);
-				tempFile.deleteOnExit();
+				//tempFile.deleteOnExit();
 				//int lignes = index.keySet().size();
-				//int c = 0;
+				int c = 0;
 				try (BufferedWriter br = new BufferedWriter(new FileWriter(tempFile))) {
 					for (Entry<String, JSONArray> entree : index.entrySet()) {
-						br.write(entree.getKey() + "\t" + entree.getValue().toString());
+						br.write(c + "\t" + entree.getKey() + "\t" + entree.getValue().toString());
 						br.newLine();
-						//c += 1;
+						c += 1;
 						//logger.info(c + "/" + lignes + " lignes écrites");
 					}
 					logger.info("Envoi du fichier...");
@@ -123,32 +110,40 @@ public class PrivateTriggers {
 				}
 			}
 			else if (etape == 2) {
-				//ConcurrentMap<String, String> index = new ConcurrentHashMap<>();
 				Set<String> erreurs = ConcurrentHashMap.newKeySet();
 				final AtomicInteger compteur = new AtomicInteger(0);
+				final ConcurrentMap<String, String> index = new ConcurrentHashMap<>();
 				new BufferedReader(
 					new InputStreamReader(
-						fileShare.getRootDirectoryReference()
-							.getFileReference(nomFichier)
-							.openRead()
+						new FileInputStream(
+							new File("C:\\Users\\axelp\\AppData\\Local\\Temp\\indexationRecherche")
+						)
+						// fileShare.getRootDirectoryReference()
+						//	.getFileReference(nomFichier)
+						//	.openRead()
 					)
 				).lines()
 					.parallel()
 					.forEach((ligne) -> {
-						//if (compteur.get() >= 25000) {
-						String[] entree = ligne.split("\t", 2);
+						//if (compteur.get() <= 10000) {
+						//String[] entree = ligne.split("\t", 3);
+						Iterator<String> iter = Splitter.on("\t").limit(3).split(ligne).iterator();
+						iter.next();
+						String terme = iter.next();
 						try {
-							EntiteCacheRecherche.mettreEnCache(entree[0], entree[1]);
+							EntiteCacheRecherche.mettreEnCache(terme, iter.next());
+							//index.put(terme, entree[2]);
 						} catch (Exception e) { 
-							logger.warning("Erreur pour le terme " + entree[0]);
-							erreurs.add(entree[0]);
+							logger.warning("Erreur pour le terme " + terme);
+							erreurs.add(terme);
 							Utils.logErreur(e, logger); 
 						}
+						//logger.info("ligne " + entree[0] + " faite (" + compteur.incrementAndGet() + ")");
 						//}
-						logger.info(compteur.incrementAndGet() + " faits");
 					});
 				logger.info(erreurs.size() + " erreurs : ");
 				erreurs.forEach((t) -> logger.info("\t" + t));
+				//CloudFirestore.envoyerDocuments(index, logger);
 			}
 			else { return request.createResponseBuilder(HttpStatus.NOT_FOUND).build(); }
 			return request.createResponseBuilder(HttpStatus.OK).build();
@@ -158,6 +153,7 @@ public class PrivateTriggers {
 		}
 		return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR).build();
 	}
+	*/
 	
 	@FunctionName("nettoyageConnexions")
 	public void nettoyageConnexions (

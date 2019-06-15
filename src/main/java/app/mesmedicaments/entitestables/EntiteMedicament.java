@@ -60,6 +60,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     }
     public String getPrix () { return prix; }
     public JSONObject obtenirPrixJObject () {
+        if (prix == null) return new JSONObject();
         return new JSONObject(prix);
     }
 

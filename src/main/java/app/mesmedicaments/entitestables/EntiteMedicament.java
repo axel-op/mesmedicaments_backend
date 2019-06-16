@@ -2,7 +2,6 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
-import java.util.Map;
 import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
@@ -33,7 +32,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     String autorisation;
     String marque;
     String substancesActives;
-    String prix;
+    String presentations;
 
     public EntiteMedicament (long codeCIS) 
         throws StorageException, InvalidKeyException, URISyntaxException 
@@ -69,10 +68,10 @@ public class EntiteMedicament extends AbstractEntiteProduit {
             return jObject;
         }
     }
-    public String getPrix () { return prix; }
-    public JSONObject obtenirPrixJObject () {
-        if (prix == null) return new JSONObject();
-        return new JSONObject(prix);
+    public String getPresentations () { return presentations; }
+    public JSONObject obtenirPresentationsJObject () {
+        if (presentations == null) return new JSONObject();
+        return new JSONObject(presentations);
     }
 
     /* Setters */
@@ -81,12 +80,11 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     public void setForme (String forme) { this.forme = forme; }
     public void setAutorisation (String autorisation) { this.autorisation = autorisation; }
     public void setMarque (String marque) { this.marque = marque; }
-    public void setPrix (String prix) { this.prix = prix; }
+    public void setPresentations (String presentations) { this.presentations = presentations; }
 
-    public void definirPrixMap (Map<String, Double> map) {
-        prix = (map == null)
-            ? new JSONObject().toString()
-            : new JSONObject(map).toString();
+    public void definirPresentationsJObject (JSONObject presentations) {
+        if (presentations == null) this.presentations = new JSONObject().toString();
+        else this.presentations = presentations.toString();
     }
 
     public void definirNomsJArray (JSONArray noms) {

@@ -139,7 +139,7 @@ public final class MiseAJourBDPM {
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 
 				+ ((int) total) + " médicaments trouvés."
 			);
-			Map<Long, Map<String, Double>> prix = obtenirPrixParPresentation(logger);
+			Map<Long, JSONObject> presentations = obtenirPresentations(logger);
 			logger.info("Création des entités en cours...");
 			TreeSet<EntiteMedicament> entites = new TreeSet<>();
 			startTime = System.currentTimeMillis();
@@ -150,8 +150,8 @@ public final class MiseAJourBDPM {
 				entite.setForme(caracMed.get(codecis)[0]);
 				entite.setAutorisation(caracMed.get(codecis)[1]);
 				entite.setMarque(caracMed.get(codecis)[2]);
-				Map<String, Double> prixParPres = prix.get(codecis);
-				entite.definirPrixMap(prixParPres);
+				JSONObject presMed = presentations.get(codecis);
+				entite.definirPresentationsJObject(presMed);
 				entites.add(entite);
 			}
 			logger.info(entites.size() + " entités créées en " + Utils.tempsDepuis(startTime) + " ms. "
@@ -174,14 +174,13 @@ public final class MiseAJourBDPM {
 	}
 	
 	/**
-	 * Pour chaque code CIS (clés de la Map) correspond différentes présentations (clés de la sous Map) associées à un prix (valeurs de la sous Map).
-	 * Si le prix == 0.0, alors il n'a pas été trouvé.
+	 * 
 	 * @param logger
-	 * @return
+	 * @return Map avec en clé les codes CIS, en valeur un JSONObject avec pour clés les présentations
 	 */
-	private static Map<Long, Map<String, Double>> obtenirPrixParPresentation (Logger logger) {
-		ConcurrentMap<Long, Map<String, Double>> prix = new ConcurrentHashMap<>();
-		logger.info("Récupération des prix");
+	private static Map<Long,JSONObject> obtenirPresentations (Logger logger) {
+		ConcurrentMap<Long, JSONObject> presentations = new ConcurrentHashMap<>();
+		logger.info("Récupération des presentations");
 		long startTime = System.currentTimeMillis();
 		importerFichier(URL_FICHIER_PRESENTATIONS)
 			.lines()
@@ -190,24 +189,40 @@ public final class MiseAJourBDPM {
 				String[] elements = ligne.split("\t");
 				Long codeCis = Long.parseLong(elements[0]);
 				String presentation = elements[2];
-				Double prixMed = null;
+				Double prixPres = null;
+				Double honoraires = null;
+				Integer tauxRbst = 0;
+				String conditions = "";
 				try {
-					String prixStr = elements[10];
-					if (prixStr.contains(",")) {
-						int virCents = prixStr.length() - 3;
-						prixStr = prixStr.substring(0, virCents) + "." + prixStr.substring(virCents);
-						prixStr = prixStr.replaceAll(",", "");
-					}
-					if (!prixStr.equals("")) prixMed = Double.parseDouble(prixStr);
+					tauxRbst = Integer.parseInt(elements[8].replaceFirst(" ?%", ""));
+					prixPres = formaterPrix(elements[10]);
+					honoraires = formaterPrix(elements[11]);
+					conditions = elements[12];
 				} catch (NullPointerException | NumberFormatException e) {
-					logger.info("Erreur de parsing du prix dans la ligne suivante : \n" + ligne);
-				}
-				if (prixMed == null) prixMed = 0.0;
-				prix.computeIfAbsent(codeCis, (k) -> new ConcurrentHashMap<>())
-					.put(presentation, prixMed);
+					System.out.println("NULL OU NUMBER " + ligne);
+				} catch (ArrayIndexOutOfBoundsException e) {}
+				if (prixPres == null) prixPres = 0.0;
+				if (honoraires == null) honoraires = 0.0;
+				presentations.computeIfAbsent(codeCis, (k) -> new JSONObject())
+					.put(presentation, new JSONObject()
+						.put("prix", prixPres)
+						.put("tauxRemboursement", tauxRbst)
+						.put("honorairesDispensation", honoraires)
+						.put("conditionsRemboursement", conditions)
+					);
 			});
-		logger.info("Prix récupérés en " + Utils.tempsDepuis(startTime) + " ms");
-		return prix;
+		logger.info("Présentations récupérées en " + Utils.tempsDepuis(startTime) + " ms");
+		return presentations;
+	}
+
+	private static Double formaterPrix (String prix) {
+		if (prix.contains(",")) {
+			int virCents = prix.length() - 3;
+			prix = prix.substring(0, virCents) + "." + prix.substring(virCents);
+			prix = prix.replaceAll(",", "");
+		}
+		if (!prix.equals("")) return Double.parseDouble(prix);
+		return null;
 	}
 
     private static BufferedReader importerFichier (String url) {

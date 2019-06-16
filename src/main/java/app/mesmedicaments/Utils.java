@@ -53,7 +53,7 @@ public final class Utils {
 			.put("autorisation", entiteM.getAutorisation())
 			.put("codecis", entiteM.getRowKey())
 			.put("substances", substances)
-			.put("prixParPresentation", entiteM.obtenirPrixJObject());
+			.put("presentations", entiteM.obtenirPresentationsJObject());
 	}
 
 

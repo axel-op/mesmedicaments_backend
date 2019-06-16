@@ -18,6 +18,7 @@ import java.util.logging.Logger;
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 import app.mesmedicaments.Utils;
 import app.mesmedicaments.entitestables.EntiteMedicament;
@@ -47,7 +48,7 @@ public final class MiseAJourBDPM {
 		BufferedReader listeSubstances = importerFichier(URL_FICHIER_COMPO);
 		if (listeSubstances == null) { return false; }
 		TreeMap<Long, TreeSet<String>> substances = new TreeMap<>();
-		TreeMap<Long, TreeSet<Long>> medSubstances = new TreeMap<>();
+		TreeMap<Long, JSONObject> medSubstances = new TreeMap<>();
 		try {
 			logger.info("Parsing en cours...");
 			String ligne;
@@ -55,12 +56,21 @@ public final class MiseAJourBDPM {
 			while ((ligne = listeSubstances.readLine()) != null) {
 				String[] elements = ligne.split("\t");
 				long codecis = Long.parseLong(elements[0]);
-				long codesubstance = Long.parseLong(elements[2]);
+				Long codesubstance = Long.parseLong(elements[2]);
 				String nom = elements[3].trim();
+				String dosage = "";
+				String refDosage = "";
+				try { 
+					dosage = elements[4];
+					refDosage = elements[5];
+				} catch (NullPointerException e) {}
 				substances.computeIfAbsent(codesubstance, cle -> new TreeSet<>())
 					.add(nom);
-				medSubstances.computeIfAbsent(codecis, cle -> new TreeSet<>())
-					.add(codesubstance);
+				medSubstances.computeIfAbsent(codecis, cle -> new JSONObject())
+					.put(codesubstance.toString(), new JSONObject()
+						.put("dosage", dosage)
+						.put("referenceDosage", refDosage)
+					);
 			}
 			double total = substances.size();
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 
@@ -75,9 +85,9 @@ public final class MiseAJourBDPM {
 				entite.definirNomsJArray(new JSONArray(entree.getValue()));
 				entitesSubstances.add(entite);
 			}
-			for (Entry<Long, TreeSet<Long>> entree : medSubstances.entrySet()) {
+			for (Entry<Long, JSONObject> entree : medSubstances.entrySet()) {
 				EntiteMedicament entite = new EntiteMedicament(entree.getKey());
-				entite.definirSubstancesActivesJArray(new JSONArray(entree.getValue()));
+				entite.definirSubstancesActivesJObject(entree.getValue());
 				entitesMedicaments.add(entite);
 			}
 			logger.info(entitesSubstances.size() + " entités Substance"
@@ -104,11 +114,6 @@ public final class MiseAJourBDPM {
     public static boolean majMedicaments (Logger logger) {
 		MiseAJourBDPM.logger = logger;
 		logger.info("Début de la mise à jour des médicaments");
-		/**** A revoir 
-		String tailleAvant1 = "Taille de la table medicaments avant la mise à jour : " 
-			+ obtenirTailleTable(TABLE_MEDICAMENTS);
-		String tailleAvant2 = "Taille de la table noms_medicaments avant la mise à jour : " 
-			+ obtenirTailleTable(TABLE_NOMS_MEDICAMENTS); */
 		BufferedReader listeMedicaments = importerFichier(URL_FICHIER_BDPM);
 		if (listeMedicaments == null) { return false; }
 		TreeMap<Long, TreeSet<String>> nomsMed = new TreeMap<>();
@@ -169,7 +174,8 @@ public final class MiseAJourBDPM {
 	}
 	
 	/**
-	 * Pour chaque code CIS (clés de la Map) correspond différentes présentations (clés de la sous Map) associées à un prix (valeurs de la sous Map)
+	 * Pour chaque code CIS (clés de la Map) correspond différentes présentations (clés de la sous Map) associées à un prix (valeurs de la sous Map).
+	 * Si le prix == 0.0, alors il n'a pas été trouvé.
 	 * @param logger
 	 * @return
 	 */
@@ -181,25 +187,24 @@ public final class MiseAJourBDPM {
 			.lines()
 			.parallel()
 			.forEach((ligne) -> {
+				String[] elements = ligne.split("\t");
+				Long codeCis = Long.parseLong(elements[0]);
+				String presentation = elements[2];
+				Double prixMed = null;
 				try {
-					String[] elements = ligne.split("\t");
-					if (elements.length >= 11) {
-						String presentation = elements[2];
-						Long codeCis = Long.parseLong(elements[0]);
-						String prixStr = elements[10];
-						if (prixStr.contains(",")) {
-							int virCents = prixStr.length() - 3;
-							prixStr = prixStr.substring(0, virCents) + "." + prixStr.substring(virCents);
-							prixStr = prixStr.replaceAll(",", "");
-						}
-						Double prixMed = null;
-						if (!prixStr.equals("")) prixMed = Double.parseDouble(prixStr);
-						prix.computeIfAbsent(codeCis, (k) -> new ConcurrentHashMap<>())
-							.put(presentation, prixMed);
+					String prixStr = elements[10];
+					if (prixStr.contains(",")) {
+						int virCents = prixStr.length() - 3;
+						prixStr = prixStr.substring(0, virCents) + "." + prixStr.substring(virCents);
+						prixStr = prixStr.replaceAll(",", "");
 					}
+					if (!prixStr.equals("")) prixMed = Double.parseDouble(prixStr);
 				} catch (NullPointerException | NumberFormatException e) {
 					logger.info("Erreur de parsing du prix dans la ligne suivante : \n" + ligne);
 				}
+				if (prixMed == null) prixMed = 0.0;
+				prix.computeIfAbsent(codeCis, (k) -> new ConcurrentHashMap<>())
+					.put(presentation, prixMed);
 			});
 		logger.info("Prix récupérés en " + Utils.tempsDepuis(startTime) + " ms");
 		return prix;

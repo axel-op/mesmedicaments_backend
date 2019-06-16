@@ -5,13 +5,12 @@ import java.security.InvalidKeyException;
 import java.text.Normalizer;
 import java.time.ZoneId;
 import java.util.HashMap;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.logging.Logger;
-import java.util.stream.StreamSupport;
 
 import com.microsoft.azure.storage.StorageException;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import app.mesmedicaments.entitestables.EntiteMedicament;
@@ -38,20 +37,15 @@ public final class Utils {
 	public static JSONObject medicamentEnJson (EntiteMedicament entiteM, Logger logger)
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		JSONArray codesSub = entiteM.obtenirSubstancesActivesJArray();
-		JSONObject substances = new JSONObject();
-		StreamSupport.stream(codesSub.spliterator(), true)
-			.map(o -> ((Integer) o).longValue())
-			.map((code) -> {
-				try { return EntiteSubstance.obtenirEntite(code).get(); }
-				catch (StorageException | URISyntaxException | InvalidKeyException e) {
-					Utils.logErreur(e, logger);
-					return null;
-				}
-			})
-			.forEach((e) -> { 
-				if (e != null) { substances.put(e.getRowKey(), e.obtenirNomsJArray()); }
-			});
+		JSONObject substances = entiteM.obtenirSubstancesActivesJObject();
+		for (String cle : (Iterable<String>) () -> substances.keys()) {
+			Long code = Long.parseLong(cle);
+			Optional<EntiteSubstance> optEntS = EntiteSubstance.obtenirEntite(code);
+			if (optEntS.isPresent()) {
+				substances.getJSONObject(cle)
+					.put("noms", optEntS.get().obtenirNomsJArray());
+			}
+		}
 		return new JSONObject()
 			.put("noms", entiteM.getNoms())
 			.put("forme", entiteM.getForme())

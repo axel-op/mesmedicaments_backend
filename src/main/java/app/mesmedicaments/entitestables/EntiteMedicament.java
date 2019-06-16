@@ -4,11 +4,11 @@ import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 public class EntiteMedicament extends AbstractEntiteProduit {
@@ -54,9 +54,20 @@ public class EntiteMedicament extends AbstractEntiteProduit {
         return new JSONArray(noms); 
     }
     public String getSubstancesActives () { return substancesActives; }
-    public JSONArray obtenirSubstancesActivesJArray () {
-        if (substancesActives == null) { return new JSONArray(); } 
-        return new JSONArray(substancesActives); 
+    public JSONObject obtenirSubstancesActivesJObject () {
+        if (substancesActives == null) { return new JSONObject(); }
+        try {
+            return new JSONObject(substancesActives);
+        }
+        catch (JSONException e) {
+            JSONObject jObject = new JSONObject();
+            new JSONArray(substancesActives)
+                .forEach((code) -> jObject.put(String.valueOf(code), new JSONObject()
+                    .put("dosage", "")
+                    .put("referenceDosage", "")
+                ));
+            return jObject;
+        }
     }
     public String getPrix () { return prix; }
     public JSONObject obtenirPrixJObject () {
@@ -90,14 +101,8 @@ public class EntiteMedicament extends AbstractEntiteProduit {
 
     public void setSubstancesActives (String substancesActives) { this.substancesActives = substancesActives; }
 
-    public void definirSubstancesActivesJArray (JSONArray substancesActives) {
-        substancesActives = new JSONArray(
-            substancesActives.toList().stream()
-                .mapToLong(objet -> (Long) objet)
-                .boxed()
-                .collect(Collectors.toSet())
-        );
-        this.substancesActives = substancesActives.toString();
+    public void definirSubstancesActivesJObject (JSONObject jObject) {
+        this.substancesActives = jObject.toString();
     }
 
 }

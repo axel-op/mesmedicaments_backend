@@ -159,14 +159,12 @@ public final class PublicTriggers {
 			}
 			EntiteMedicament entiteMed1 = EntiteMedicament.obtenirEntite(codeCis1).get();
 			EntiteMedicament entiteMed2 = EntiteMedicament.obtenirEntite(codeCis2).get();
-			Function<JSONArray, Set<Integer>> jArrayToSet = jArray -> jArray
-				.toList()
+			Function<Set<String>, Set<Integer>> strSetToIntSet = setStr -> setStr
 				.stream()
-				.mapToInt(obj -> (int) obj)
-				.boxed()
+				.map(str -> Integer.parseInt(str))
 				.collect(Collectors.toSet());
-			Set<Integer> substances1 = jArrayToSet.apply(entiteMed1.obtenirSubstancesActivesJArray());
-			Set<Integer> substances2 = jArrayToSet.apply(entiteMed2.obtenirSubstancesActivesJArray());
+			Set<Integer> substances1 = strSetToIntSet.apply(entiteMed1.obtenirSubstancesActivesJObject().keySet());
+			Set<Integer> substances2 = strSetToIntSet.apply(entiteMed2.obtenirSubstancesActivesJObject().keySet());
 			JSONArray interactions = new JSONArray();
 			for (int codeSubstance1 : substances1) {
 				EntiteSubstance entiteS1 = EntiteSubstance.obtenirEntite(codeSubstance1).get(); // TODO gérer les cas où Optional est null

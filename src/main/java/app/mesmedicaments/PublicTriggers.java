@@ -73,7 +73,7 @@ public final class PublicTriggers {
 			.body(new BufferedReader(new InputStreamReader(
 				getClass().getResourceAsStream(ressource)))
 				.lines()
-				.collect(Collectors.joining()))
+				.collect(Collectors.joining(Utils.NEWLINE)))
 			.build();
 	}
 

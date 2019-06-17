@@ -105,7 +105,6 @@ public final class PublicTriggers {
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			String id = Authentification.getIdFromToken(accessToken);
-			
 			if (categorie.equals("medicaments")) { 
 				Optional<EntiteUtilisateur> optEntiteU = Optional.empty();
 				Optional<JSONObject> optMedicaments = Optional.empty();

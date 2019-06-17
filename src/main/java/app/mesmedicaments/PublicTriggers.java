@@ -1,5 +1,7 @@
 package app.mesmedicaments;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
@@ -46,6 +48,34 @@ public final class PublicTriggers {
 	private static final String CLE_ENVOI_CODE = Authentification.CLE_ENVOI_CODE;
 	private static final String ERR_INTERNE = Authentification.ERR_INTERNE;
 	private static final String HEADER_AUTHORIZATION = "jwt";
+
+	@FunctionName("legal")
+	public HttpResponseMessage legal (
+		@HttpTrigger(
+			name = "legalTrigger",
+			authLevel = AuthorizationLevel.ANONYMOUS,
+			methods = {HttpMethod.GET},
+			route = "legal/{fichier}"
+		) final HttpRequestMessage<Optional<String>> request,
+		@BindingName("fichier") String fichier,
+		final ExecutionContext context
+	) {
+		String ressource;
+		switch (fichier) {
+			case "confidentialite":
+				ressource = "/PolitiqueConfidentialite.txt";
+				break;
+			default:
+				return request.createResponseBuilder(HttpStatus.NOT_FOUND)
+					.build();
+		}
+		return request.createResponseBuilder(HttpStatus.OK)
+			.body(new BufferedReader(new InputStreamReader(
+				getClass().getResourceAsStream(ressource)))
+				.lines()
+				.collect(Collectors.joining()))
+			.build();
+	}
 
 	@FunctionName("recherche")
 	public HttpResponseMessage recherche (

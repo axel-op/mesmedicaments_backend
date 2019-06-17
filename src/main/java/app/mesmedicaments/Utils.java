@@ -38,14 +38,20 @@ public final class Utils {
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		JSONObject substances = entiteM.obtenirSubstancesActivesJObject();
-		for (String cle : (Iterable<String>) () -> substances.keys()) {
-			Long code = Long.parseLong(cle);
-			Optional<EntiteSubstance> optEntS = EntiteSubstance.obtenirEntite(code);
-			if (optEntS.isPresent()) {
-				substances.getJSONObject(cle)
-					.put("noms", optEntS.get().obtenirNomsJArray());
-			}
-		}
+		substances.keySet().stream().parallel()
+			.forEach((cle) -> {
+				try {
+					Long code = Long.parseLong(cle);
+					Optional<EntiteSubstance> optEntS = EntiteSubstance.obtenirEntite(code);
+					if (optEntS.isPresent()) {
+						substances.getJSONObject(cle)
+							.put("noms", optEntS.get().obtenirNomsJArray());
+					}
+				} catch (StorageException | URISyntaxException | InvalidKeyException e) {
+					Utils.logErreur(e, logger);
+					throw new RuntimeException("Erreur lors de la récupération des substances");
+				}
+			});
 		return new JSONObject()
 			.put("noms", entiteM.getNoms())
 			.put("forme", entiteM.getForme())

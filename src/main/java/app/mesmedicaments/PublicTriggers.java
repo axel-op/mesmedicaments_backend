@@ -2,6 +2,7 @@ package app.mesmedicaments;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
@@ -69,12 +70,18 @@ public final class PublicTriggers {
 				return request.createResponseBuilder(HttpStatus.NOT_FOUND)
 					.build();
 		}
-		return request.createResponseBuilder(HttpStatus.OK)
-			.body(new BufferedReader(new InputStreamReader(
-				getClass().getResourceAsStream(ressource)))
-				.lines()
-				.collect(Collectors.joining(Utils.NEWLINE)))
-			.build();
+		try {
+			return request.createResponseBuilder(HttpStatus.OK)
+				.body(new BufferedReader(new InputStreamReader(
+					getClass().getResourceAsStream(ressource), "UTF-8"))
+					.lines()
+					.collect(Collectors.joining(Utils.NEWLINE)))
+				.build();
+		} catch (UnsupportedEncodingException e) {
+			Utils.logErreur(e, context.getLogger());
+			return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
+				.build();
+		}
 	}
 
 	@FunctionName("recherche")

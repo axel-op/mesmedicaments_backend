@@ -5,7 +5,7 @@
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "interactionTrigger",
-    "route" : "interaction/{codecis1:int}/{codecis2:int}",
+    "route" : "api/interaction/{codecis1:int}/{codecis2:int}",
     "methods" : [ "GET" ],
     "authLevel" : "ANONYMOUS"
   }, {

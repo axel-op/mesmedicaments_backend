@@ -5,7 +5,7 @@
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "dmpTrigger",
-    "route" : "dmp/{categorie:alpha}",
+    "route" : "api/dmp/{categorie:alpha}",
     "methods" : [ "GET" ],
     "authLevel" : "ANONYMOUS"
   }, {

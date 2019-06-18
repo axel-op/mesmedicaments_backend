@@ -5,7 +5,7 @@
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "connexionTrigger",
-    "route" : "connexion/{etape:int}",
+    "route" : "api/connexion/{etape:int}",
     "methods" : [ "POST", "GET" ],
     "dataType" : "string",
     "authLevel" : "ANONYMOUS"

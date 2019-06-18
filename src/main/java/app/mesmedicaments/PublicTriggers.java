@@ -90,7 +90,7 @@ public final class PublicTriggers {
 			name = "rechercheTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "recherche/{recherche}"
+			route = "api/recherche/{recherche}"
 		) final HttpRequestMessage<Optional<String>> request,
 		@BindingName("recherche") String recherche,
 		final ExecutionContext context
@@ -128,7 +128,7 @@ public final class PublicTriggers {
 			name = "dmpTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "dmp/{categorie:alpha}")
+			route = "api/dmp/{categorie:alpha}")
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
@@ -180,7 +180,7 @@ public final class PublicTriggers {
 			name = "interactionTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "interaction/{codecis1:int}/{codecis2:int}")
+			route = "api/interaction/{codecis1:int}/{codecis2:int}")
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
@@ -242,7 +242,7 @@ public final class PublicTriggers {
 			name = "produitsTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "produits/{categorie:alpha}/{codeproduit:int?}")
+			route = "api/produits/{categorie:alpha}/{codeproduit:int?}")
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
@@ -315,7 +315,7 @@ public final class PublicTriggers {
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.POST, HttpMethod.GET},
 			dataType = "string",
-			route = "connexion/{etape:int}"
+			route = "api/connexion/{etape:int}"
 		) final HttpRequestMessage<Optional<String>> request,
 		@BindingName("etape") int etape,
 		@QueueOutput(

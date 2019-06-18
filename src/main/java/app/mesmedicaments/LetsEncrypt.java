@@ -52,6 +52,7 @@ public class LetsEncrypt {
         logger.info("path used = " + path.toAbsolutePath().toString());
         try {
             String contenu = new String(Files.readAllBytes(path));
+            logger.info("contenu = " + contenu);
             return request.createResponseBuilder(HttpStatus.OK)
                 .body(contenu)
                 .build();
@@ -113,7 +114,8 @@ public class LetsEncrypt {
         connection.setRequestProperty("Content-Type", "application/json");
         connection.setDoOutput(true);
         OutputStreamWriter ows = new OutputStreamWriter(connection.getOutputStream(), "UTF-8");
-        String corps = new JSONObject(config).toString();
+        //String corps = new JSONObject(config).toString();
+        String corps = config.toJson().toString();
         ows.write(corps);
         logger.info("Corps de la requête = " + corps);
         ows.flush();
@@ -141,11 +143,12 @@ public class LetsEncrypt {
             this.certificateSettings = certificateSettings;
             this.authorizationChallengeProviderConfig = authorizationChallengeProviderConfig;
         }
-        public AzureEnvironment getAzureEnvironment () { return azureEnvironment; }
-        public AcmeConfig getAcmeConfig () { return acmeConfig; }
-        public CertificateSettings getCertificateSettings () { return certificateSettings; }
-        public AuthorizationChallengeProviderConfig getAuthorizationChallengeProviderConfig () {
-            return authorizationChallengeProviderConfig;
+        public JSONObject toJson () {
+            return new JSONObject()
+                .put("AzureEnvironment", new JSONObject(azureEnvironment))
+                .put("AcmeConfig", new JSONObject(acmeConfig))
+                .put("CertificateSettings", new JSONObject(certificateSettings))
+                .put("AuthorizationChallengeProviderConfig", new JSONObject(authorizationChallengeProviderConfig));
         }
     }
 

@@ -35,7 +35,7 @@ public class LetsEncrypt {
             name = "letsEncryptChallengeTrigger",
             authLevel = AuthorizationLevel.ANONYMOUS,
             methods = {HttpMethod.GET},
-            route = "letsEncryptChallenge/{code}"
+            route = ".well-known/acme-challenge/{code}"
         ) final HttpRequestMessage<Optional<String>> request,
         @BindingName("codde") String code,
         final ExecutionContext context

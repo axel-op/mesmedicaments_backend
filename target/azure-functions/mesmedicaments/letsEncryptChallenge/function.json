@@ -5,7 +5,7 @@
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "letsEncryptChallengeTrigger",
-    "route" : "letsEncryptChallenge/{code}",
+    "route" : ".well-known/acme-challenge/{code}",
     "methods" : [ "GET" ],
     "authLevel" : "ANONYMOUS"
   }, {

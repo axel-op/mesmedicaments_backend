@@ -1,0 +1,14 @@
+{
+    "$schema": "http://json.schemastore.org/proxies",
+    "proxies": {
+        "LetsEncryptChallengeRedirect": {
+            "matchCondition": {
+                "methods": [
+                    "GET"
+                ],
+                "route": "/.well-known/acme-challenge/{code}"
+            },
+            "backendUri": "https://localhost/api/letsEncryptChallenge/{code}"
+        }
+    }
+}

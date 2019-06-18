@@ -118,9 +118,10 @@ public class LetsEncrypt {
         String corps = config.toJson().toString();
         ows.write(corps);
         logger.info("Corps de la requête = " + corps);
-        ows.flush();
         ows.close();
         connection.connect();
+        logger.info("response code = " + connection.getResponseCode());
+        logger.info("response message = " + connection.getResponseMessage());
         String reponse = new BufferedReader(new InputStreamReader(connection.getInputStream()))
             .lines()
             .collect(Collectors.joining(Utils.NEWLINE));

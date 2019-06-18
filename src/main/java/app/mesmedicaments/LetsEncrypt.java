@@ -37,10 +37,11 @@ public class LetsEncrypt {
             methods = {HttpMethod.GET},
             route = ".well-known/acme-challenge/{code}"
         ) final HttpRequestMessage<Optional<String>> request,
-        @BindingName("codde") String code,
+        @BindingName("code") String code,
         final ExecutionContext context
     ) {
         Logger logger = context.getLogger();
+        //String[] parametres = request.getUri().getPath().split("/");
         String functionDirectory = System.getenv("EXECUTION_CONTEXT_FUNCTIONDIRECTORY");
         logger.info("function directory = " + functionDirectory);
         String file = functionDirectory + "\\.well-known\\acme-challenge\\" + code;

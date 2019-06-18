@@ -23,7 +23,7 @@ public class LetsEncrypt {
     public void letsEncrypt(
         @TimerTrigger(
             name = "letsEncryptTrigger", 
-            schedule = "0 0 0 0 */2 *"
+            schedule = "0 0 0 1 * *"
         ) final String timerInfo,
         final ExecutionContext context
     ) {

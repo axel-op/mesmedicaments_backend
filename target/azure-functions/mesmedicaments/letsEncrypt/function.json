@@ -5,6 +5,6 @@
     "type" : "timerTrigger",
     "direction" : "in",
     "name" : "letsEncryptTrigger",
-    "schedule" : "0 0 0 0 */2 *"
+    "schedule" : "0 0 0 1 * *"
   } ]
 }

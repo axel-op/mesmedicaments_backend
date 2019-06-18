@@ -5,22 +5,61 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import javax.net.ssl.HttpsURLConnection;
 
 import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.HttpMethod;
+import com.microsoft.azure.functions.HttpRequestMessage;
+import com.microsoft.azure.functions.HttpResponseMessage;
+import com.microsoft.azure.functions.HttpStatus;
+import com.microsoft.azure.functions.annotation.AuthorizationLevel;
+import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
+import com.microsoft.azure.functions.annotation.HttpTrigger;
 import com.microsoft.azure.functions.annotation.TimerTrigger;
 
 import org.json.JSONObject;
 
-public class LetsEncrypt {    
+public class LetsEncrypt {
+
+    @FunctionName("letsEncryptChallenge")
+    public HttpResponseMessage letsEncryptChallenge (
+        @HttpTrigger(
+            name = "letsEncryptChallengeTrigger",
+            authLevel = AuthorizationLevel.ANONYMOUS,
+            methods = {HttpMethod.GET},
+            route = "letsEncryptChallenge/{code}"
+        ) final HttpRequestMessage<Optional<String>> request,
+        @BindingName("codde") String code,
+        final ExecutionContext context
+    ) {
+        Logger logger = context.getLogger();
+        String functionDirectory = System.getenv("EXECUTION_CONTEXT_FUNCTIONDIRECTORY");
+        logger.info("function directory = " + functionDirectory);
+        String file = functionDirectory + "\\.well-known\\acme-challenge\\" + code;
+        logger.info("file path = " + file);
+        try {
+            String contenu = new String(Files.readAllBytes(Paths.get(file)));
+            return request.createResponseBuilder(HttpStatus.OK)
+                .body(contenu)
+                .build();
+        }
+        catch (IOException e) {
+            Utils.logErreur(e, logger);
+            return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
+                .build();
+        }
+    }
 
     @FunctionName("letsEncrypt")
-    public void letsEncrypt(
+    public void letsEncrypt (
         @TimerTrigger(
             name = "letsEncryptTrigger", 
             schedule = "0 0 0 1 * *"
@@ -47,7 +86,8 @@ public class LetsEncrypt {
             new AuthorizationChallengeProviderConfig(false)
         );
         try {
-            HttpsURLConnection connClient = (HttpsURLConnection) new URL("https://" + functionAppName + ".scm.azurewebsites.net/letsencrypt/api/certificates/challengeprovider/http/kudu/certificateinstall/azurewebapp?api-version=2017-09-01")
+            HttpsURLConnection connClient = (HttpsURLConnection) new URL("https://" + functionAppName + ".scm.azurewebsites.net/letsencrypt/api/certificates/challengeprovider/http/kudu/certificateinstall/azurewebapp"
+                + "?api-version=2017-09-01")
                 .openConnection();
             connClient.setRequestProperty("Authorization", "Basic " + Base64.getEncoder().encodeToString((userName + ":" + userPwd).getBytes("UTF-8")));
             configBody.acmeConfig.host = "api.mesmedicaments.app";
@@ -70,7 +110,7 @@ public class LetsEncrypt {
         OutputStreamWriter ows = new OutputStreamWriter(connection.getOutputStream(), "UTF-8");
         String corps = new JSONObject(config).toString();
         ows.write(corps);
-        logger.info("Corps = " + corps);
+        logger.info("Corps de la requête = " + corps);
         ows.flush();
         ows.close();
         connection.connect();

@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.Optional;
@@ -41,13 +42,16 @@ public class LetsEncrypt {
         final ExecutionContext context
     ) {
         Logger logger = context.getLogger();
-        //String[] parametres = request.getUri().getPath().split("/");
-        String functionDirectory = System.getenv("EXECUTION_CONTEXT_FUNCTIONDIRECTORY");
-        logger.info("function directory = " + functionDirectory);
-        String file = functionDirectory + "\\.well-known\\acme-challenge\\" + code;
+        //String functionDirectory = System.getenv("EXECUTION_CONTEXT_FUNCTIONDIRECTORY");
+        //logger.info("function directory = " + functionDirectory);
+        logger.info("code = " + code);
+        logger.info("current relative path = " + Paths.get("").toAbsolutePath().toString());
+        String file = "D:\\home\\site\\wwwroot\\.well-known\\acme-challenge\\" + code;
         logger.info("file path = " + file);
+        Path path = Paths.get(file);
+        logger.info("path used = " + path.toAbsolutePath().toString());
         try {
-            String contenu = new String(Files.readAllBytes(Paths.get(file)));
+            String contenu = new String(Files.readAllBytes(path));
             return request.createResponseBuilder(HttpStatus.OK)
                 .body(contenu)
                 .build();

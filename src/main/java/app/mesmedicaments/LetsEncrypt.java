@@ -66,6 +66,7 @@ public class LetsEncrypt {
     {
         logger.info("createCertificate starts");
         connection.setRequestProperty("Content-Type", "application/json");
+        connection.setDoOutput(true);
         OutputStreamWriter ows = new OutputStreamWriter(connection.getOutputStream(), "UTF-8");
         String corps = new JSONObject(config).toString();
         ows.write(corps);

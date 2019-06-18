@@ -1,7 +1,9 @@
 {
   "version": "2.0",
   "functionTimeout": "00:10:00",
-  "http": {
-    "routePrefix": ""
+  "extensions": {
+    "http": {
+      "routePrefix": ""
+    }
   }
 }

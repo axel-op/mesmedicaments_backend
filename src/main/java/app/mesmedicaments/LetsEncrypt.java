@@ -145,10 +145,10 @@ public class LetsEncrypt {
         }
         public JSONObject toJson () {
             return new JSONObject()
-                .put("AzureEnvironment", new JSONObject(azureEnvironment))
-                .put("AcmeConfig", new JSONObject(acmeConfig))
-                .put("CertificateSettings", new JSONObject(certificateSettings))
-                .put("AuthorizationChallengeProviderConfig", new JSONObject(authorizationChallengeProviderConfig));
+                .put("AzureEnvironment", azureEnvironment.toJson())
+                .put("AcmeConfig", acmeConfig.toJson())
+                .put("CertificateSettings", certificateSettings.toJson())
+                .put("AuthorizationChallengeProviderConfig", authorizationChallengeProviderConfig.toJson());
         }
     }
 
@@ -174,12 +174,14 @@ public class LetsEncrypt {
             this.subscriptionId = subscriptionId;
             this.tenant = tenant;
         }
-        public String getWebAppName () { return webAppName; }
-        public String getClientId () { return clientId; }
-        public String getClientSecret () { return clientSecret; }
-        public String getResourceGroupName () { return resourceGroupName; }
-        public String getSubscriptionId () { return subscriptionId; }
-        public String getTenant () { return tenant; }
+        public JSONObject toJson () {
+            return new JSONObject()
+                .put("WebAppName", webAppName)
+                .put("ClientId", clientId)
+                .put("ResourceGroupName", resourceGroupName)
+                .put("SubscriptionId", subscriptionId)
+                .put("Tenant", tenant);
+        }
     }
 
     private class AcmeConfig {
@@ -204,12 +206,15 @@ public class LetsEncrypt {
             this.PFXPassword = PFXPassword;
             this.useProduction = useProduction;
         }
-        public String getRegistrationEmail () { return registrationEmail; }
-        public String getHost () { return host; }
-        public String[] getAlternateNames () { return alternateNames; }
-        public int getRSAKeyLength () { return RSAKeyLength; }
-        public String getPFXPassword () { return PFXPassword; }
-        public boolean getUseProduction () { return useProduction; }
+        public JSONObject toJson () {
+            return new JSONObject()
+                .put("RegistrationEmail", registrationEmail)
+                .put("Host", host)
+                .put("AlternateNames", alternateNames)
+                .put("RSAKeyLength", RSAKeyLength)
+                .put("PFXPassword", PFXPassword)
+                .put("UseProduction", useProduction);
+        }
     }
 
     private class CertificateSettings {
@@ -217,7 +222,9 @@ public class LetsEncrypt {
         CertificateSettings (boolean useIPBasedSSL) {
             this.useIPBasedSSL = useIPBasedSSL;
         }
-        public boolean getUseIPBasedSSL () { return useIPBasedSSL; }
+        public JSONObject toJson () {
+            return new JSONObjectUneCle("UseIPBasedSSL", useIPBasedSSL);
+        }
     }
 
     private class AuthorizationChallengeProviderConfig {
@@ -225,6 +232,8 @@ public class LetsEncrypt {
         AuthorizationChallengeProviderConfig (boolean disableWebConfigUpdate) {
             this.disableWebConfigUpdate = disableWebConfigUpdate;
         }
-        public boolean getDisableWebConfigUpdate () { return disableWebConfigUpdate; }
+        public JSONObject toJson () {
+            return new JSONObjectUneCle("DisableWebConfigUpdate", disableWebConfigUpdate);
+        }
     }
 }

@@ -51,7 +51,7 @@ public class DMP {
 						.trim(), 
 						cle -> new TreeSet<>()
 					)
-					.add(Long.parseLong(entite.getRowKey()))
+					.add(entite.obtenirCodeCis())
 			);
 		}
 		return nomsMed;

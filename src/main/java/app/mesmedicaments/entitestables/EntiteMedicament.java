@@ -74,6 +74,10 @@ public class EntiteMedicament extends AbstractEntiteProduit {
         return new JSONObject(presentations);
     }
 
+    public Long obtenirCodeCis () {
+        return Long.parseLong(getRowKey());
+    }
+
     /* Setters */
 
     public void setNoms (String noms) { this.noms = noms; }

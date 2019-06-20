@@ -85,6 +85,14 @@ public class EntiteInteraction extends AbstractEntite {
     public String getDescriptif () { return descriptif; }
     public String getConduite () { return conduite; }
 
+    public Long obtenirCodeSubstance1 () {
+        return Long.parseLong(getPartitionKey());
+    }
+
+    public Long obtenirCodeSubstance2 () {
+        return Long.parseLong(getRowKey());
+    }
+
     // Setters
 
     public void setRisque (int risque) {

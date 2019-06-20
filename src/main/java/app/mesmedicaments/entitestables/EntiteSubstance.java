@@ -39,7 +39,11 @@ public class EntiteSubstance extends AbstractEntiteProduit {
 	public JSONArray obtenirNomsJArray () {
 		if (noms == null) { return new JSONArray(); }
         return new JSONArray(noms);
-    }
+	}
+	
+	public Long obtenirCodeSubstance () {
+		return Long.parseLong(getRowKey());
+	}
 
 	/* Setters */
 

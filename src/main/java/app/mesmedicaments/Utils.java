@@ -81,8 +81,8 @@ public final class Utils {
 					if (optEntiteI.isPresent()) {
 						interactions.put(interactionEnJson(optEntiteI.get(), logger)
 							.put("medicaments", new JSONArray()
-								.put(comb[0])
-								.put(comb[1])
+								.put(entiteM1.obtenirCodeCis())
+								.put(entiteM2.obtenirCodeCis())
 							)
 						);
 					}
@@ -98,8 +98,8 @@ public final class Utils {
 	public static JSONObject interactionEnJson (EntiteInteraction entiteI, Logger logger) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		Long codeSub1 = Long.parseLong(entiteI.getPartitionKey());
-		Long codeSub2 = Long.parseLong(entiteI.getRowKey());
+		Long codeSub1 = entiteI.obtenirCodeSubstance1();
+		Long codeSub2 = entiteI.obtenirCodeSubstance2();
 		EntiteSubstance entiteS1 = EntiteSubstance.obtenirEntite(codeSub1).get(); // TODO gérer les cas où Optional est null
 		EntiteSubstance entiteS2 = EntiteSubstance.obtenirEntite(codeSub2).get();
 		return new JSONObject()

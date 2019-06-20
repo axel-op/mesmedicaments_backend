@@ -163,7 +163,7 @@ public final class MiseAJourClassesSubstances {
 					if (!resultats.containsKey(nom)) {
 						resultats.put(nom, new HashSet<>());
 					}
-					long codeSubstance = Long.parseLong(entite.getRowKey());
+					long codeSubstance = entite.obtenirCodeSubstance();
 					resultats.get(nom).add(codeSubstance);
 				}
 			}

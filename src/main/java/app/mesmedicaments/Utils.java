@@ -5,14 +5,21 @@ import java.security.InvalidKeyException;
 import java.text.Normalizer;
 import java.time.ZoneId;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import com.microsoft.azure.storage.StorageException;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
+import app.mesmedicaments.entitestables.EntiteInteraction;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteSubstance;
 
@@ -22,17 +29,86 @@ public final class Utils {
 
 	//private static final String XORKEY;
 	public static final String NEWLINE;
-	private static HashMap<String, String> cacheNormalisation;
+	private static final HashMap<String, String> cacheNormalisation;
 	public static final ZoneId TIMEZONE;
+	private static final Map<Long, EntiteMedicament> cacheEntitesMedicament;
 
 	static {
 		NEWLINE = System.getProperty("line.separator");
 		//XORKEY = System.getenv("cle_XOR");
 		cacheNormalisation = new HashMap<>();
 		TIMEZONE = ZoneId.of("ECT", ZoneId.SHORT_IDS);
+		cacheEntitesMedicament = new ConcurrentHashMap<>();
 	}
 
 	private Utils () {}
+
+	public static EntiteMedicament obtenirEntiteMedicament (Long codeCis) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		EntiteMedicament entiteM;
+		if (!cacheEntitesMedicament.containsKey(codeCis)) {
+			entiteM = EntiteMedicament.obtenirEntite(codeCis).orElse(null);
+			cacheEntitesMedicament.put(codeCis, entiteM);
+		} else {
+			entiteM = cacheEntitesMedicament.get(codeCis);
+		}
+		return entiteM;
+	};
+
+	public static JSONArray obtenirInteractions (EntiteMedicament entiteM1, EntiteMedicament entiteM2, Logger logger) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		Function<Set<String>, Set<Long>> strSetToIntSet = setStr -> setStr.stream()
+			.map(str -> Long.parseLong(str))
+			.collect(Collectors.toSet());
+		Set<Long> substances1 = strSetToIntSet.apply(entiteM1.obtenirSubstancesActivesJObject().keySet());
+		Set<Long> substances2 = strSetToIntSet.apply(entiteM2.obtenirSubstancesActivesJObject().keySet());
+		JSONArray interactions = new JSONArray();
+		Set<Long[]> combinaisons = new HashSet<>();
+		for (Long codeSub1 : substances1) {
+			for (Long codeSub2 : substances2) {
+				if (codeSub1 != codeSub2) {
+					Long[] combinaison = new Long[]{codeSub1, codeSub2};
+					combinaisons.add(combinaison);
+				}
+			}
+		}
+		combinaisons.stream().parallel()
+			.map((Long[] comb) -> {
+				try { return EntiteInteraction.obtenirEntite(comb[0], comb[1]); }
+				catch (URISyntaxException | InvalidKeyException e) {
+					Utils.logErreur(e, logger);
+					throw new RuntimeException();
+				}
+			})
+			.filter((e) -> e != null)
+			.forEach((entite) -> {
+				try { interactions.put(interactionEnJson(entite, logger)); }
+				catch (StorageException | URISyntaxException | InvalidKeyException e) {
+					Utils.logErreur(e, logger);
+					throw new RuntimeException();
+				}
+			});
+		return interactions;
+	}
+
+	public static JSONObject interactionEnJson (EntiteInteraction entiteI, Logger logger) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		Long codeSub1 = Long.parseLong(entiteI.getPartitionKey());
+		Long codeSub2 = Long.parseLong(entiteI.getRowKey());
+		EntiteSubstance entiteS1 = EntiteSubstance.obtenirEntite(codeSub1).get(); // TODO gérer les cas où Optional est null
+		EntiteSubstance entiteS2 = EntiteSubstance.obtenirEntite(codeSub2).get();
+		return new JSONObject()
+			.put("substances", new JSONObject()
+				.put(entiteI.getPartitionKey(), entiteS1.obtenirNomsJArray())
+				.put(entiteI.getRowKey(), entiteS2.obtenirNomsJArray())
+			)
+			.put("risque", entiteI.getRisque())
+			.put("descriptif", entiteI.getDescriptif())
+			.put("conduite", entiteI.getConduite());
+	}
 
 	public static JSONObject medicamentEnJson (EntiteMedicament entiteM, Logger logger)
 		throws StorageException, URISyntaxException, InvalidKeyException

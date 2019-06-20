@@ -8,14 +8,15 @@ import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import com.google.common.collect.Sets;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -35,7 +36,6 @@ import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.Authentification;
 import app.mesmedicaments.entitestables.EntiteCacheRecherche;
-import app.mesmedicaments.entitestables.EntiteInteraction;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteSubstance;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
@@ -112,8 +112,7 @@ public final class PublicTriggers {
 		}
 		catch (StorageException 
 			| URISyntaxException 
-			| InvalidKeyException 
-			| RuntimeException e) {
+			| InvalidKeyException e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
@@ -179,58 +178,59 @@ public final class PublicTriggers {
 		@HttpTrigger(
 			name = "interactionTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.GET},
-			route = "api/interaction/{codecis1:int}/{codecis2:int}")
-		final HttpRequestMessage<Optional<String>> request,
+			methods = {HttpMethod.GET, HttpMethod.POST},
+			route = "api/interaction/{codecis1:int?}/{codecis2:int?}"
+		) final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
+		Logger logger = context.getLogger();
 		String[] parametres = request.getUri().getPath().split("/");
-		long codeCis1 = Long.parseLong(parametres[3]);
-		long codeCis2 = Long.parseLong(parametres[4]);
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
-			if (codeCis1 > 99999999 || codeCis2 > 99999999 ) {
-				throw new IllegalArgumentException("Codes CIS invalides");
-			}
-			EntiteMedicament entiteMed1 = EntiteMedicament.obtenirEntite(codeCis1).get();
-			EntiteMedicament entiteMed2 = EntiteMedicament.obtenirEntite(codeCis2).get();
-			Function<Set<String>, Set<Integer>> strSetToIntSet = setStr -> setStr
-				.stream()
-				.map(str -> Integer.parseInt(str))
-				.collect(Collectors.toSet());
-			Set<Integer> substances1 = strSetToIntSet.apply(entiteMed1.obtenirSubstancesActivesJObject().keySet());
-			Set<Integer> substances2 = strSetToIntSet.apply(entiteMed2.obtenirSubstancesActivesJObject().keySet());
-			JSONArray interactions = new JSONArray();
-			for (int codeSubstance1 : substances1) {
-				EntiteSubstance entiteS1 = EntiteSubstance.obtenirEntite(codeSubstance1).get(); // TODO gérer les cas où Optional est null
-				for (int codeSubstance2 : substances2) {
-					EntiteSubstance entiteS2 = EntiteSubstance.obtenirEntite(codeSubstance2).get();
-					if (codeSubstance1 != codeSubstance2) {
-						EntiteInteraction entiteInt = EntiteInteraction.obtenirEntite(codeSubstance1, codeSubstance2);
-						if (entiteInt != null) {
-							interactions.put(
-								new JSONObject()
-								.put("substances", new JSONObject()
-									.put(String.valueOf(codeSubstance1), entiteS1.obtenirNomsJArray())
-									.put(String.valueOf(codeSubstance2), entiteS2.obtenirNomsJArray())
-								)
-								.put("risque", entiteInt.getRisque())
-								.put("descriptif", entiteInt.getDescriptif())
-								.put("conduite", entiteInt.getConduite())
-							);
+			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			if (parametres.length == 3) {
+				JSONArray interactions = new JSONArray();
+				Set<Long> codesCis = new HashSet<>();
+				JSONArray codes = new JSONObject(request.getBody().get())
+					.getJSONArray("medicaments");
+				for (int i = 0; i < codes.length(); i++) codesCis.add(codes.getLong(i));
+				Set<Set<Long>> combinaisons = Sets.combinations(codesCis, 2);
+				combinaisons.stream().parallel()
+					.map((comb) -> comb.toArray(new Long[2]))
+					.map((comb) -> {
+						try {
+							EntiteMedicament entiteM1 = Utils.obtenirEntiteMedicament(comb[0]);
+							EntiteMedicament entiteM2 = Utils.obtenirEntiteMedicament(comb[1]);
+							if (entiteM1 == null || entiteM2 == null) 
+								throw new RuntimeException("Codes CIS incorrects " + comb[0] + comb[1]);
+							return Utils.obtenirInteractions(entiteM1, entiteM2, logger); 
 						}
-					}
-				}
+						catch (StorageException | InvalidKeyException | URISyntaxException e) {
+							Utils.logErreur(e, logger);
+							throw new RuntimeException();
+						}
+					})
+					.forEach((ja) -> ja.forEach((i) -> interactions.put(i)));
+				corpsReponse.put("interactions", interactions);
+				codeHttp = HttpStatus.OK;
 			}
-			corpsReponse.put("interactions", interactions);
-			codeHttp = HttpStatus.OK;
+			else if (parametres.length == 5) {
+				long codeCis1 = Long.parseLong(parametres[3]);
+				long codeCis2 = Long.parseLong(parametres[4]);
+				EntiteMedicament entiteMed1 = Utils.obtenirEntiteMedicament(codeCis1);
+				EntiteMedicament entiteMed2 = Utils.obtenirEntiteMedicament(codeCis2);
+				if (entiteMed1 == null || entiteMed2 == null)
+					throw new IllegalArgumentException("Codes CIS incorrects" + codeCis1 + codeCis2);
+				corpsReponse.put("interactions", Utils.obtenirInteractions(entiteMed1, entiteMed2, logger));
+				codeHttp = HttpStatus.OK;
+			}
 		}
-		catch (NoSuchElementException e) {
-			codeHttp = HttpStatus.NOT_FOUND;
+		catch (IllegalArgumentException | JSONException | NoSuchElementException e) {
+			codeHttp = HttpStatus.BAD_REQUEST;
 		}
 		catch (StorageException | URISyntaxException | InvalidKeyException e) {
-			Utils.logErreur(e, context.getLogger());
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
 		return construireReponse(codeHttp, corpsReponse, request);
@@ -258,7 +258,6 @@ public final class PublicTriggers {
 				codeProduit = parametres[4]; 
 				if (codeProduit.length() > 10) throw new IllegalArgumentException("Code produit invalide"); 
 			}
-			if (categorie == null) throw new IllegalArgumentException();
 			if (categorie.equals("substances")) {
 				if (codeProduit == null) codeHttp = HttpStatus.FORBIDDEN;
 				else {
@@ -272,9 +271,8 @@ public final class PublicTriggers {
 			}
 			if (categorie.equals("medicaments")) {
 				if (codeProduit != null) {
-					EntiteMedicament entiteM = EntiteMedicament
-						.obtenirEntite(Long.parseLong(codeProduit))
-						.get();
+					EntiteMedicament entiteM = Utils.obtenirEntiteMedicament(Long.parseLong(codeProduit));
+					if (entiteM == null) throw new IllegalArgumentException("Code CIS incorrect");
 					corpsReponse.put(entiteM.getRowKey(), Utils.medicamentEnJson(entiteM, logger));
 					codeHttp = HttpStatus.OK;
 				} 

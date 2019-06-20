@@ -156,7 +156,7 @@ public class LetsEncrypt {
     private class AzureEnvironment {
         private String webAppName;
         private String clientId;
-        private String clientSecret;
+        private String clientSecret; //// !!!!!!!! J'ai oublié ça !!!!! Réessayer avec (je l'ai rajouté mais pas testé)
         private String resourceGroupName;
         private String subscriptionId;
         private String tenant;
@@ -179,6 +179,7 @@ public class LetsEncrypt {
             return new JSONObject()
                 .put("WebAppName", webAppName)
                 .put("ClientId", clientId)
+                .put("ClientSecret", clientSecret)
                 .put("ResourceGroupName", resourceGroupName)
                 .put("SubscriptionId", subscriptionId)
                 .put("Tenant", tenant);

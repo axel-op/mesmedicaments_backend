@@ -68,7 +68,7 @@ public final class Utils {
 		Set<Long[]> combinaisons = new HashSet<>();
 		for (Long codeSub1 : substances1) {
 			for (Long codeSub2 : substances2) {
-				if (codeSub1 != codeSub2) {
+				if (!codeSub1.equals(codeSub2)) {
 					Long[] combinaison = new Long[]{codeSub1, codeSub2};
 					combinaisons.add(combinaison);
 				}
@@ -104,8 +104,8 @@ public final class Utils {
 		EntiteSubstance entiteS2 = EntiteSubstance.obtenirEntite(codeSub2).get();
 		return new JSONObject()
 			.put("substances", new JSONObject()
-				.put(entiteI.getPartitionKey(), entiteS1.obtenirNomsJArray())
-				.put(entiteI.getRowKey(), entiteS2.obtenirNomsJArray())
+				.put(entiteS1.obtenirCodeSubstance().toString(), entiteS1.obtenirNomsJArray())
+				.put(entiteS2.obtenirCodeSubstance().toString(), entiteS2.obtenirNomsJArray())
 			)
 			.put("risque", entiteI.getRisque())
 			.put("descriptif", entiteI.getDescriptif())

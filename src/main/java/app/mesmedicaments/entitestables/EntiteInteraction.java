@@ -3,6 +3,7 @@ package app.mesmedicaments.entitestables;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.Collection;
+import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.CloudTable;
@@ -14,21 +15,16 @@ public class EntiteInteraction extends AbstractEntite {
     private static final String TABLE = System.getenv("tableazure_interactions");
     private static CloudTable cloudTable;
 
-    public static EntiteInteraction obtenirEntite (long codeSubstance1, long codeSubstance2) 
-        throws URISyntaxException, InvalidKeyException
+    public static Optional<EntiteInteraction> obtenirEntite (long codeSubstance1, long codeSubstance2) 
+        throws StorageException, URISyntaxException, InvalidKeyException
     {
-		try {
-			TableOperation operation = TableOperation.retrieve(
-				String.valueOf(Math.min(codeSubstance1, codeSubstance2)), 
-				String.valueOf(Math.max(codeSubstance1, codeSubstance2)), 
-				EntiteInteraction.class);
-			return obtenirCloudTable(TABLE)
-				.execute(operation)
-				.getResultAsType();
-		}
-		catch (StorageException e) {
-			return null;
-		}
+        TableOperation operation = TableOperation.retrieve(
+            String.valueOf(Math.min(codeSubstance1, codeSubstance2)), 
+            String.valueOf(Math.max(codeSubstance1, codeSubstance2)), 
+            EntiteInteraction.class);
+        return Optional.ofNullable(obtenirCloudTable(TABLE)
+            .execute(operation)
+            .getResultAsType());
     }
 
     /**

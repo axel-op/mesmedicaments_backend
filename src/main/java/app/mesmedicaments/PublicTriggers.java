@@ -66,6 +66,9 @@ public final class PublicTriggers {
 			case "confidentialite":
 				ressource = "/PolitiqueConfidentialite.txt";
 				break;
+			case "mentions":
+				ressource = "/MentionsLegales.txt";
+				break;
 			default:
 				return request.createResponseBuilder(HttpStatus.NOT_FOUND)
 					.build();

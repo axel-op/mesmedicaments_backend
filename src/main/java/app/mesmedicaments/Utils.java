@@ -75,16 +75,18 @@ public final class Utils {
 			}
 		}
 		combinaisons.stream().parallel()
-			.map((Long[] comb) -> {
-				try { return EntiteInteraction.obtenirEntite(comb[0], comb[1]); }
-				catch (URISyntaxException | InvalidKeyException e) {
-					Utils.logErreur(e, logger);
-					throw new RuntimeException();
+			.forEach((Long[] comb) -> {
+				try {
+					Optional<EntiteInteraction> optEntiteI = EntiteInteraction.obtenirEntite(comb[0], comb[1]);
+					if (optEntiteI.isPresent()) {
+						interactions.put(interactionEnJson(optEntiteI.get(), logger)
+							.put("medicaments", new JSONArray()
+								.put(comb[0])
+								.put(comb[1])
+							)
+						);
+					}
 				}
-			})
-			.filter((e) -> e != null)
-			.forEach((entite) -> {
-				try { interactions.put(interactionEnJson(entite, logger)); }
 				catch (StorageException | URISyntaxException | InvalidKeyException e) {
 					Utils.logErreur(e, logger);
 					throw new RuntimeException();

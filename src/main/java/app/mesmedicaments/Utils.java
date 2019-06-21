@@ -4,7 +4,6 @@ import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.text.Normalizer;
 import java.time.ZoneId;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -29,19 +28,34 @@ public final class Utils {
 
 	//private static final String XORKEY;
 	public static final String NEWLINE;
-	private static final HashMap<String, String> cacheNormalisation;
+	private static final Map<String, String> cacheNormalisation;
 	public static final ZoneId TIMEZONE;
 	private static final Map<Long, EntiteMedicament> cacheEntitesMedicament;
+	private static final Map<Long, EntiteSubstance> cacheEntitesSubstance;
 
 	static {
 		NEWLINE = System.getProperty("line.separator");
 		//XORKEY = System.getenv("cle_XOR");
-		cacheNormalisation = new HashMap<>();
+		cacheNormalisation = new ConcurrentHashMap<>();
 		TIMEZONE = ZoneId.of("ECT", ZoneId.SHORT_IDS);
 		cacheEntitesMedicament = new ConcurrentHashMap<>();
+		cacheEntitesSubstance = new ConcurrentHashMap<>();
 	}
 
 	private Utils () {}
+
+	public static EntiteSubstance obtenirEntiteSubstance (Long codeSubstance)
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		EntiteSubstance entiteS;
+		if (!cacheEntitesSubstance.containsKey(codeSubstance)) {
+			entiteS = EntiteSubstance.obtenirEntite(codeSubstance).orElse(null);
+			cacheEntitesSubstance.put(codeSubstance, entiteS);
+		} else {
+			entiteS = cacheEntitesSubstance.get(codeSubstance);
+		}
+		return entiteS;
+	}
 
 	public static EntiteMedicament obtenirEntiteMedicament (Long codeCis) 
 		throws StorageException, URISyntaxException, InvalidKeyException
@@ -100,8 +114,10 @@ public final class Utils {
 	{
 		Long codeSub1 = entiteI.obtenirCodeSubstance1();
 		Long codeSub2 = entiteI.obtenirCodeSubstance2();
-		EntiteSubstance entiteS1 = EntiteSubstance.obtenirEntite(codeSub1).get(); // TODO gérer les cas où Optional est null
-		EntiteSubstance entiteS2 = EntiteSubstance.obtenirEntite(codeSub2).get();
+		EntiteSubstance entiteS1 = obtenirEntiteSubstance(codeSub1);
+		EntiteSubstance entiteS2 = obtenirEntiteSubstance(codeSub2);
+		if (entiteS1 == null || entiteS2 == null) 
+			throw new RuntimeException("Une des entités Substance parmi les deux suivantes n'a pas été trouvée alors qu'elle aurait dû l'être : " + codeSub1 + codeSub2);
 		return new JSONObject()
 			.put("substances", new JSONObject()
 				.put(entiteS1.obtenirCodeSubstance().toString(), entiteS1.obtenirNomsJArray())
@@ -120,10 +136,10 @@ public final class Utils {
 			.forEach((cle) -> {
 				try {
 					Long code = Long.parseLong(cle);
-					Optional<EntiteSubstance> optEntS = EntiteSubstance.obtenirEntite(code);
-					if (optEntS.isPresent()) {
+					EntiteSubstance entiteS = obtenirEntiteSubstance(code);
+					if (entiteS != null) {
 						substances.getJSONObject(cle)
-							.put("noms", optEntS.get().obtenirNomsJArray());
+							.put("noms", entiteS.obtenirNomsJArray());
 					}
 				} catch (StorageException | URISyntaxException | InvalidKeyException e) {
 					Utils.logErreur(e, logger);

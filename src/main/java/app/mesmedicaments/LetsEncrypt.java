@@ -77,7 +77,7 @@ public class LetsEncrypt {
         final String userName = "$" + functionAppName;
         final String userPwd = System.getenv("letsencrypt_userpwd");
         final String pfxPassword = System.getenv("letsencrypt_pfxpwd");
-        final String clientSecret = System.getenv("letsencrypt_clientsecret");
+        final String clientSecret = System.getenv("letsencrypt:ClientSecret");
         final Config configBody = new Config(
             new AzureEnvironment(
                 "mesmedicaments", 

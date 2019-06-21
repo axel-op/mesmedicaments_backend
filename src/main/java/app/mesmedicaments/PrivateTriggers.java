@@ -25,8 +25,6 @@ import app.mesmedicaments.misesajour.MiseAJourInteractions;
 
 public class PrivateTriggers {
 
-	//private static final String connectionStorage = "AzureWebJobsStorage";
-	
 	@FunctionName("nettoyageConnexions")
 	public void nettoyageConnexions (
 		@TimerTrigger(
@@ -55,48 +53,6 @@ public class PrivateTriggers {
 			Utils.logErreur(e, logger);
 		}
 	}
-
-	/*
-	@FunctionName("nouvelleConnexion")
-	public void nouvelleConnexion (
-		@QueueTrigger(
-			name = "nouvelleConnexionTrigger",
-			queueName = "nouvelles-connexions",
-			connection = connectionStorage
-		) final String message,
-		final ExecutionContext context
-	) {
-		Logger logger = context.getLogger();
-		logger.info("Message reçu : " + message);
-		try {
-			String id = new JSONObject(message).getString("id");
-			logger.info("Récupération de l'EntiteConnexion...");
-			EntiteConnexion entiteC = EntiteConnexion.obtenirEntite(id).get();
-			DMP dmp = new DMP(
-				entiteC.getUrlFichierRemboursements(),
-				entiteC.obtenirCookiesMap(),
-				logger
-			);
-			logger.info("Récupération des médicaments...");
-			JSONObject medicaments = dmp.obtenirMedicaments();
-			logger.info("Récupération de l'EntiteUtilisateur...");
-			Optional<EntiteUtilisateur> optEntiteU = EntiteUtilisateur.obtenirEntite(id);
-			EntiteUtilisateur entiteU;
-			if (!optEntiteU.isPresent()) {
-				logger.info("Utilisateur " + id + " non trouvé, va être créé");
-				entiteU = new EntiteUtilisateur(id);
-			}
-			else { entiteU = optEntiteU.get(); }
-			logger.info("Ajout des médicaments à l'utilisateur");
-			entiteU.ajouterMedicamentsJObject(medicaments, DateTimeFormatter.ISO_LOCAL_DATE);
-			entiteU.mettreAJourEntite();
-		}
-		catch (Exception e) {
-			Utils.logErreur(e, logger);
-			logger.warning("Impossible de récupérer les médicaments");
-		}
-	}
-	*/
 
     @FunctionName("mettreAJourBases")
 	public HttpResponseMessage mettreAJourBases (

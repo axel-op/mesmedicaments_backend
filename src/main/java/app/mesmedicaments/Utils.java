@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,8 +35,8 @@ public final class Utils {
 	public static final String NEWLINE;
 	private static final Map<String, String> cacheNormalisation;
 	public static final ZoneId TIMEZONE;
-	private static final Map<Long, EntiteMedicament> cacheEntitesMedicament;
-	private static final Map<Long, EntiteSubstance> cacheEntitesSubstance;
+	private static final Map<Long, Optional<EntiteMedicament>> cacheEntitesMedicament;
+	private static final Map<Long, Optional<EntiteSubstance>> cacheEntitesSubstance;
 
 	static {
 		NEWLINE = System.getProperty("line.separator");
@@ -65,30 +66,27 @@ public final class Utils {
 			collection.add(jArray.getLong(i));
 	}
 
-	public static EntiteSubstance obtenirEntiteSubstance (Long codeSubstance)
+	
+	public static Optional<EntiteSubstance> obtenirEntiteSubstance (Long codeSubstance)
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		EntiteSubstance entiteS;
-		if (!cacheEntitesSubstance.containsKey(codeSubstance)) {
-			entiteS = EntiteSubstance.obtenirEntite(codeSubstance).orElse(null);
-			cacheEntitesSubstance.put(codeSubstance, entiteS);
-		} else {
-			entiteS = cacheEntitesSubstance.get(codeSubstance);
+		Optional<EntiteSubstance> optEntiteS = cacheEntitesSubstance.get(codeSubstance);
+		if (optEntiteS == null) {
+			optEntiteS = EntiteSubstance.obtenirEntite(codeSubstance);
+			cacheEntitesSubstance.put(codeSubstance, optEntiteS);
 		}
-		return entiteS;
+		return optEntiteS;
 	}
 
-	public static EntiteMedicament obtenirEntiteMedicament (Long codeCis) 
+	public static Optional<EntiteMedicament> obtenirEntiteMedicament (Long codeCis) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		EntiteMedicament entiteM;
-		if (!cacheEntitesMedicament.containsKey(codeCis)) {
-			entiteM = EntiteMedicament.obtenirEntite(codeCis).orElse(null);
-			cacheEntitesMedicament.put(codeCis, entiteM);
-		} else {
-			entiteM = cacheEntitesMedicament.get(codeCis);
+		Optional<EntiteMedicament> optEntiteM = cacheEntitesMedicament.get(codeCis);
+		if (optEntiteM == null) {
+			optEntiteM = EntiteMedicament.obtenirEntite(codeCis);
+			cacheEntitesMedicament.put(codeCis, optEntiteM);
 		}
-		return entiteM;
+		return optEntiteM;
 	};
 
 	public static JSONArray obtenirInteractions (EntiteMedicament entiteM1, EntiteMedicament entiteM2, Logger logger) 
@@ -131,14 +129,12 @@ public final class Utils {
 	}
 
 	public static JSONObject interactionEnJson (EntiteInteraction entiteI, Logger logger) 
-		throws StorageException, URISyntaxException, InvalidKeyException
+		throws StorageException, URISyntaxException, InvalidKeyException, NoSuchElementException
 	{
 		Long codeSub1 = entiteI.obtenirCodeSubstance1();
 		Long codeSub2 = entiteI.obtenirCodeSubstance2();
-		EntiteSubstance entiteS1 = obtenirEntiteSubstance(codeSub1);
-		EntiteSubstance entiteS2 = obtenirEntiteSubstance(codeSub2);
-		if (entiteS1 == null || entiteS2 == null) 
-			throw new RuntimeException("Une des entités Substance parmi les deux suivantes n'a pas été trouvée alors qu'elle aurait dû l'être : " + codeSub1 + codeSub2);
+		EntiteSubstance entiteS1 = obtenirEntiteSubstance(codeSub1).get();
+		EntiteSubstance entiteS2 = obtenirEntiteSubstance(codeSub2).get();
 		return new JSONObject()
 			.put("substances", new JSONObject()
 				.put(entiteS1.obtenirCodeSubstance().toString(), entiteS1.obtenirNomsJArray())
@@ -157,10 +153,10 @@ public final class Utils {
 			.forEach((cle) -> {
 				try {
 					Long code = Long.parseLong(cle);
-					EntiteSubstance entiteS = obtenirEntiteSubstance(code);
-					if (entiteS != null) {
+					Optional<EntiteSubstance> optEntiteS = obtenirEntiteSubstance(code);
+					if (optEntiteS.isPresent()) {
 						substances.getJSONObject(cle)
-							.put("noms", entiteS.obtenirNomsJArray());
+							.put("noms", optEntiteS.get().obtenirNomsJArray());
 					}
 				} catch (StorageException | URISyntaxException | InvalidKeyException e) {
 					Utils.logErreur(e, logger);

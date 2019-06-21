@@ -13,6 +13,8 @@ import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -198,10 +200,8 @@ public final class PublicTriggers {
 					.map((comb) -> comb.toArray(new Long[2]))
 					.map((comb) -> {
 						try {
-							EntiteMedicament entiteM1 = Utils.obtenirEntiteMedicament(comb[0]);
-							EntiteMedicament entiteM2 = Utils.obtenirEntiteMedicament(comb[1]);
-							if (entiteM1 == null || entiteM2 == null) 
-								throw new IllegalArgumentException("Codes CIS incorrects " + comb[0] + comb[1]);
+							EntiteMedicament entiteM1 = Utils.obtenirEntiteMedicament(comb[0]).get();
+							EntiteMedicament entiteM2 = Utils.obtenirEntiteMedicament(comb[1]).get();
 							return Utils.obtenirInteractions(entiteM1, entiteM2, logger); 
 						}
 						catch (StorageException | InvalidKeyException | URISyntaxException e) {
@@ -216,10 +216,8 @@ public final class PublicTriggers {
 			else if (parametres.length == 5) {
 				long codeCis1 = Long.parseLong(parametres[3]);
 				long codeCis2 = Long.parseLong(parametres[4]);
-				EntiteMedicament entiteMed1 = Utils.obtenirEntiteMedicament(codeCis1);
-				EntiteMedicament entiteMed2 = Utils.obtenirEntiteMedicament(codeCis2);
-				if (entiteMed1 == null || entiteMed2 == null)
-					throw new IllegalArgumentException("Codes CIS incorrects" + codeCis1 + codeCis2);
+				EntiteMedicament entiteMed1 = Utils.obtenirEntiteMedicament(codeCis1).get();
+				EntiteMedicament entiteMed2 = Utils.obtenirEntiteMedicament(codeCis2).get();
 				corpsReponse.put("interactions", Utils.obtenirInteractions(entiteMed1, entiteMed2, logger));
 				codeHttp = HttpStatus.OK;
 			}
@@ -239,7 +237,7 @@ public final class PublicTriggers {
 		@HttpTrigger(
 			name = "produitsTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.GET},
+			methods = {HttpMethod.GET, HttpMethod.POST},
 			route = "api/produits/{categorie:alpha}/{codeproduit:int?}")
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
@@ -269,21 +267,30 @@ public final class PublicTriggers {
 			}
 			if (categorie.equals("medicaments")) {
 				if (codeProduit != null) {
-					EntiteMedicament entiteM = Utils.obtenirEntiteMedicament(Long.parseLong(codeProduit));
-					if (entiteM == null) throw new IllegalArgumentException("Code CIS incorrect");
+					EntiteMedicament entiteM = Utils.obtenirEntiteMedicament(Long.parseLong(codeProduit)).get();
 					corpsReponse.put(entiteM.getRowKey(), Utils.medicamentEnJson(entiteM, logger));
 					codeHttp = HttpStatus.OK;
 				} 
 				else {
-					/*JSONObject tousLesMeds = new JSONObject();
-					int compteur = 0;
-					for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
-						tousLesMeds.put(entite.getRowKey(), entite.getNoms());
-						compteur++;
-					}
-					corpsReponse.put("medicaments", tousLesMeds);
-					corpsReponse.put("total", compteur);*/
-					codeHttp = HttpStatus.FORBIDDEN;
+					Set<Long> codes = new HashSet<>();
+					Utils.ajouterTousLong(
+						codes, 
+						new JSONObject(request.getBody().get()).getJSONArray("medicaments")
+					);
+					ConcurrentMap<Long, JSONObject> medsEnJson = new ConcurrentHashMap<>();
+					codes.stream().parallel()
+						.forEach((code) -> {
+							try {
+								EntiteMedicament entiteM = Utils.obtenirEntiteMedicament(code).get();
+								medsEnJson.put(entiteM.obtenirCodeCis(), Utils.medicamentEnJson(entiteM, logger));
+							}
+							catch (StorageException | URISyntaxException | InvalidKeyException e) {
+								Utils.logErreur(e, logger);
+								throw new RuntimeException();
+							}
+						});
+					corpsReponse.put("medicaments", new JSONArray(medsEnJson.values()));
+					codeHttp = HttpStatus.OK;
 				}
 			}
 		}

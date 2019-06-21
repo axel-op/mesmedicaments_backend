@@ -3,7 +3,6 @@ package app.mesmedicaments;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.logging.Logger;
 
@@ -16,22 +15,17 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
-import com.microsoft.azure.functions.annotation.QueueTrigger;
 import com.microsoft.azure.functions.annotation.TimerTrigger;
 import com.microsoft.azure.storage.StorageException;
 
-import org.json.JSONObject;
-
-import app.mesmedicaments.connexion.DMP;
 import app.mesmedicaments.entitestables.EntiteConnexion;
-import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
 import app.mesmedicaments.misesajour.MiseAJourInteractions;
 
 public class PrivateTriggers {
 
-	private static final String connectionStorage = "AzureWebJobsStorage";
+	//private static final String connectionStorage = "AzureWebJobsStorage";
 	
 	@FunctionName("nettoyageConnexions")
 	public void nettoyageConnexions (
@@ -62,7 +56,7 @@ public class PrivateTriggers {
 		}
 	}
 
-	// TODO à supprimer (mettre date dans MAJ)
+	/*
 	@FunctionName("nouvelleConnexion")
 	public void nouvelleConnexion (
 		@QueueTrigger(
@@ -102,6 +96,7 @@ public class PrivateTriggers {
 			logger.warning("Impossible de récupérer les médicaments");
 		}
 	}
+	*/
 
     @FunctionName("mettreAJourBases")
 	public HttpResponseMessage mettreAJourBases (

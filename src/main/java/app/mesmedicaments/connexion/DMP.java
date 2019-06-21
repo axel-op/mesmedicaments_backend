@@ -10,13 +10,14 @@ import java.security.InvalidKeyException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiFunction;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -35,8 +36,9 @@ import app.mesmedicaments.entitestables.*;
 
 public class DMP {
 
-	private static Map<String, Set<Long>> nomsMedicamentsNormalisesMin = Collections.emptyMap();
-	private static Map<String, Set<Long>> cacheRecherche = new HashMap<>();
+	private static ConcurrentMap<String, Set<Long>> nomsMedicamentsNormalisesMin = new ConcurrentHashMap<>();
+	private static ConcurrentMap<String, Set<Long>> cacheRecherche = new ConcurrentHashMap<>();
+	private static ConcurrentMap<String, Optional<Long>> cacheCorrespondances = new ConcurrentHashMap<>();
 	private DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
 	private static Map<String, Set<Long>> importerNomsMedicamentsNormalisesMin () 
@@ -67,8 +69,8 @@ public class DMP {
 	private static Set<Long> rechercherMedicament (String recherche, boolean precisematch) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		if (nomsMedicamentsNormalisesMin.isEmpty()) { 
-			nomsMedicamentsNormalisesMin = importerNomsMedicamentsNormalisesMin(); 
+		if (nomsMedicamentsNormalisesMin.isEmpty()) {
+			nomsMedicamentsNormalisesMin.putAll(importerNomsMedicamentsNormalisesMin()); 
 		}
 		return cacheRecherche.computeIfAbsent(recherche, exp -> {
 			final String expNorm = Utils.normaliser(exp)
@@ -115,6 +117,7 @@ public class DMP {
 				)
 			)
 		);
+		
 		String ligne;
 		boolean balise = false;
 		boolean alerte = true; // Si pas de section Pharmacie trouvée
@@ -125,7 +128,6 @@ public class DMP {
 					String date = parserDate(ligne.substring(0, 10)).toString();
 					String recherche = ligne.substring(0, 10);
 					if (!recherche.matches(" *")) {
-						// TODO les stocker puis faire les recherches en parallèle ensuite
 						Optional<Long> resultat = trouverCorrespondanceMedicament(ligne.substring(10));
 						if (resultat.isPresent()) {
 							if (!medParDate.has(date)) { medParDate.put(date, new JSONArray()); }
@@ -148,6 +150,8 @@ public class DMP {
 	private Optional<Long> trouverCorrespondanceMedicament (String recherche) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
+		Optional<Long> cache = cacheCorrespondances.get(recherche);
+		if (cache != null) return cache;
 		if (recherche.matches(" *")) { return Optional.empty(); }
 		HashMap<Long, Double> classement = new HashMap<>();
 		boolean devraitTrouver = true;
@@ -203,15 +207,18 @@ public class DMP {
 			if (devraitTrouver) {
 				LOGGER.info("Pas de médicament trouvé pour : " + recherche);
 			}
+			cacheCorrespondances.put(recherche, Optional.empty());
 			return Optional.empty(); 
 		}
 		final double scoremax = classement.values().stream()
 			.max(Double::compare)
 			.get();
-		return classement.entrySet().stream()
+		Optional<Long> resultat = classement.entrySet().stream()
 			.filter(entree -> entree.getValue() == scoremax)
 			.map(Entry::getKey)
 			.findFirst();
+		cacheCorrespondances.put(recherche, resultat);
+		return resultat;
 	}
 
 	private Optional<PDDocument> obtenirFichierRemboursements () {

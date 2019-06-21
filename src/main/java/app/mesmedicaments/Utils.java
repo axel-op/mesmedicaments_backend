@@ -3,7 +3,10 @@ package app.mesmedicaments;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.text.Normalizer;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -16,6 +19,7 @@ import java.util.stream.Collectors;
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.entitestables.EntiteInteraction;
@@ -43,6 +47,23 @@ public final class Utils {
 	}
 
 	private Utils () {}
+
+	public static LocalDateTime dateToLocalDateTime (Date date) {
+		return LocalDateTime.ofInstant(date.toInstant(), Utils.TIMEZONE);
+	}
+
+	/**
+	 * Ajoute tous les éléments du JSONArray comme des nombres de type Long à la Collection
+	 * @param collection La Collection à laquelle ajouter les Long
+	 * @param jArray
+	 * @throws JSONException Si l'un des éléments du JSONArray ne peut être converti en Long
+	 */
+	public static void ajouterTousLong(Collection<Long> collection, JSONArray jArray) 
+		throws JSONException
+	{
+		for (int i = 0; i < jArray.length(); i++)
+			collection.add(jArray.getLong(i));
+	}
 
 	public static EntiteSubstance obtenirEntiteSubstance (Long codeSubstance)
 		throws StorageException, URISyntaxException, InvalidKeyException

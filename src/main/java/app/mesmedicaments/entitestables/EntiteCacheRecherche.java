@@ -34,7 +34,7 @@ public class EntiteCacheRecherche extends AbstractEntite {
 		if (resultats.equals("")) {
 			EntiteCacheRecherche entite = new EntiteCacheRecherche(terme, 1);
 			entite.setResultats(new JSONArray().toString());
-			entite.setNombreRequetes(1);
+			//entite.setNombreRequetes(1);
 			entite.creerEntite();
 			resultats = entite.getResultats();
 		}

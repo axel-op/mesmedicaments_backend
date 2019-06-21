@@ -10,12 +10,6 @@
     "dataType" : "string",
     "authLevel" : "ANONYMOUS"
   }, {
-    "type" : "queue",
-    "direction" : "out",
-    "name" : "connexionQueueOutput",
-    "queueName" : "nouvelles-connexions",
-    "connection" : "AzureWebJobsStorage"
-  }, {
     "type" : "http",
     "direction" : "out",
     "name" : "$return"

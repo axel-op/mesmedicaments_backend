@@ -195,8 +195,7 @@ public final class Authentification {
 				logger.info("Appel API connexion étape 2 mais pas d'élément de l'étape 1 trouvé");
 				throw new IllegalArgumentException("Pas d'élément de l'étape 1 trouvé"); 
 			}
-			LocalDateTime timestamp = LocalDateTime.ofInstant(
-				entiteConnexion.getTimestamp().toInstant(), Utils.TIMEZONE);
+			LocalDateTime timestamp = Utils.dateToLocalDateTime(entiteConnexion.getTimestamp());
 			if (maintenant.minusMinutes(10).isAfter(timestamp)) { 
 				throw new IllegalArgumentException("L'heure ne correspond pas ou plus"); 
 			}
@@ -280,6 +279,6 @@ public final class Authentification {
 			.cookies(cookies)
 			.execute();
 		Document pageInfos = connexion.response().parse();
-		return pageInfos.getElementById("genderValue").val();
+		return pageInfos.getElementById("genderValue").text();
 	}
 }

@@ -22,12 +22,10 @@ import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
-import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
-import com.microsoft.azure.functions.annotation.QueueOutput;
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
@@ -150,6 +148,8 @@ public final class PublicTriggers {
 				Optional<EntiteConnexion> optEntiteC = EntiteConnexion.obtenirEntite(id);
 				if (!optEntiteC.isPresent()) throw new IllegalArgumentException("Pas d'entité Connexion trouvée");
 				EntiteConnexion entiteC = optEntiteC.get();
+				if (Utils.dateToLocalDateTime(entiteC.getTimestamp()).isBefore(LocalDateTime.now().minusMinutes(30)))
+					throw new IllegalArgumentException("Plus de 30 minutes se sont écoulées depuis la connexion");
 				DMP dmp = new DMP(entiteC.getUrlFichierRemboursements(), entiteC.obtenirCookiesMap(), logger);
 				JSONObject medicaments = dmp.obtenirMedicaments();
 				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id)
@@ -191,9 +191,8 @@ public final class PublicTriggers {
 			if (parametres.length == 3) {
 				JSONArray interactions = new JSONArray();
 				Set<Long> codesCis = new HashSet<>();
-				JSONArray codes = new JSONObject(request.getBody().get())
-					.getJSONArray("medicaments");
-				for (int i = 0; i < codes.length(); i++) codesCis.add(codes.getLong(i));
+				Utils.ajouterTousLong(codesCis, new JSONObject(request.getBody().get())
+					.getJSONArray("medicaments"));
 				Set<Set<Long>> combinaisons = Sets.combinations(codesCis, 2);
 				combinaisons.stream().parallel()
 					.map((comb) -> comb.toArray(new Long[2]))
@@ -202,7 +201,7 @@ public final class PublicTriggers {
 							EntiteMedicament entiteM1 = Utils.obtenirEntiteMedicament(comb[0]);
 							EntiteMedicament entiteM2 = Utils.obtenirEntiteMedicament(comb[1]);
 							if (entiteM1 == null || entiteM2 == null) 
-								throw new RuntimeException("Codes CIS incorrects " + comb[0] + comb[1]);
+								throw new IllegalArgumentException("Codes CIS incorrects " + comb[0] + comb[1]);
 							return Utils.obtenirInteractions(entiteM1, entiteM2, logger); 
 						}
 						catch (StorageException | InvalidKeyException | URISyntaxException e) {
@@ -315,11 +314,6 @@ public final class PublicTriggers {
 			route = "api/connexion/{etape:int}"
 		) final HttpRequestMessage<Optional<String>> request,
 		@BindingName("etape") int etape,
-		@QueueOutput(
-			name = "connexionQueueOutput",
-			queueName = "nouvelles-connexions",
-			connection = "AzureWebJobsStorage"
-		) final OutputBinding<String> queue,
 		final ExecutionContext context
 	) {
 		JSONObject corpsRequete = null;
@@ -330,9 +324,7 @@ public final class PublicTriggers {
 		Authentification auth;
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			if (request.getHttpMethod() == HttpMethod.POST) {
-				corpsRequete = new JSONObject(request.getBody().get());
-			}
+			corpsRequete = new JSONObject(request.getBody().get());
 			if (etape == 1) { // Première étape de la connexion
 				final String id = corpsRequete.getString("id");
 				final String mdp = corpsRequete.getString("mdp");
@@ -359,7 +351,7 @@ public final class PublicTriggers {
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
 				} else {
 					logger.info("Ajout de la connexion à la file nouvelles-connexions");
-					queue.setValue(new JSONObject().put("id", id).toString());
+					//queue.setValue(new JSONObject().put("id", id).toString());
 					corpsReponse.put("accessToken", auth.createAccessToken());
 					if (resultat.has("genre")) corpsReponse.put("genre", resultat.get("genre"));
 					codeHttp = HttpStatus.OK;

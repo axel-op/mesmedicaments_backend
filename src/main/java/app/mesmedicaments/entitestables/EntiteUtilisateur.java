@@ -5,7 +5,6 @@ import java.security.InvalidKeyException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Optional;
@@ -16,6 +15,8 @@ import com.microsoft.azure.storage.table.TableOperation;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import app.mesmedicaments.Utils;
 
 public class EntiteUtilisateur extends AbstractEntite {
 
@@ -112,19 +113,15 @@ public class EntiteUtilisateur extends AbstractEntite {
         for (String cle : nouveaux.keySet()) {
             String date = LocalDate.parse(cle, formatter).toString();
             Set<Long> codes = new HashSet<>();
-            ajouterTousLong(
+            Utils.ajouterTousLong(
                 codes, 
                 Optional.ofNullable(medicaments.optJSONArray(cle))
                     .orElseGet(() -> new JSONArray())
             );
-            ajouterTousLong(codes, nouveaux.getJSONArray(cle));
+            Utils.ajouterTousLong(codes, nouveaux.getJSONArray(cle));
             medicaments.put(date, new JSONArray(codes));
         }
         definirMedicamentsJObject(medicaments);
-    }
-
-    private void ajouterTousLong (Collection<Long> collection, JSONArray jArray) {
-        for (int i = 0; i < jArray.length(); i++) collection.add(jArray.getLong(i));
     }
 
 }

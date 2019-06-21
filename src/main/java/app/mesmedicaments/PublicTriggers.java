@@ -7,12 +7,12 @@ import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -35,7 +35,9 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.connexion.Authentification;
+import app.mesmedicaments.connexion.DMP;
 import app.mesmedicaments.entitestables.EntiteCacheRecherche;
+import app.mesmedicaments.entitestables.EntiteConnexion;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteSubstance;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
@@ -144,23 +146,17 @@ public final class PublicTriggers {
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			String id = Authentification.getIdFromToken(accessToken);
-			if (categorie.equals("medicaments")) { 
-				Optional<EntiteUtilisateur> optEntiteU = Optional.empty();
-				Optional<JSONObject> optMedicaments = Optional.empty();
-				long startTime = System.currentTimeMillis();
-				while ((!optEntiteU.isPresent() || !optMedicaments.isPresent()) 
-					&& System.currentTimeMillis() - startTime < 70000
-				) {
-					optEntiteU = EntiteUtilisateur.obtenirEntite(id);
-					if (optEntiteU.isPresent()) {
-						optMedicaments = optEntiteU.get().obtenirMedicamentsJObject();
-					}
-					TimeUnit.MILLISECONDS.sleep(500);
-				}
-				if (!optMedicaments.isPresent()) { 
-					throw new Exception("Impossible de récupérer les médicaments de l'utilisateur"); 
-				}
-				corpsReponse.put("medicaments", optMedicaments.orElseGet(() -> new JSONObject()));
+			if (categorie.equals("medicaments")) {
+				Optional<EntiteConnexion> optEntiteC = EntiteConnexion.obtenirEntite(id);
+				if (!optEntiteC.isPresent()) throw new IllegalArgumentException("Pas d'entité Connexion trouvée");
+				EntiteConnexion entiteC = optEntiteC.get();
+				DMP dmp = new DMP(entiteC.getUrlFichierRemboursements(), entiteC.obtenirCookiesMap(), logger);
+				JSONObject medicaments = dmp.obtenirMedicaments();
+				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id)
+					.orElse(new EntiteUtilisateur(id));
+				entiteU.ajouterMedicamentsJObject(medicaments, DateTimeFormatter.ISO_LOCAL_DATE);
+				entiteU.mettreAJourEntite();
+				corpsReponse.put("medicaments", medicaments);
 				codeHttp = HttpStatus.OK;
 			}
 		}
@@ -314,7 +310,7 @@ public final class PublicTriggers {
 		@HttpTrigger(
 			name = "connexionTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.POST, HttpMethod.GET},
+			methods = {HttpMethod.POST},
 			dataType = "string",
 			route = "api/connexion/{etape:int}"
 		) final HttpRequestMessage<Optional<String>> request,

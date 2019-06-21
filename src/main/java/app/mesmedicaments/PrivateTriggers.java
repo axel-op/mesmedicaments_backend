@@ -3,6 +3,7 @@ package app.mesmedicaments;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.logging.Logger;
 
@@ -61,6 +62,7 @@ public class PrivateTriggers {
 		}
 	}
 
+	// TODO à supprimer (mettre date dans MAJ)
 	@FunctionName("nouvelleConnexion")
 	public void nouvelleConnexion (
 		@QueueTrigger(
@@ -92,7 +94,7 @@ public class PrivateTriggers {
 			}
 			else { entiteU = optEntiteU.get(); }
 			logger.info("Ajout des médicaments à l'utilisateur");
-			entiteU.ajouterMedicamentsJObject(medicaments);
+			entiteU.ajouterMedicamentsJObject(medicaments, DateTimeFormatter.ISO_LOCAL_DATE);
 			entiteU.mettreAJourEntite();
 		}
 		catch (Exception e) {

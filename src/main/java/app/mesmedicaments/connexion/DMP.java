@@ -9,6 +9,7 @@ import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +37,7 @@ public class DMP {
 
 	private static Map<String, Set<Long>> nomsMedicamentsNormalisesMin = Collections.emptyMap();
 	private static Map<String, Set<Long>> cacheRecherche = new HashMap<>();
+	private DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
 	private static Map<String, Set<Long>> importerNomsMedicamentsNormalisesMin () 
 		throws StorageException, URISyntaxException, InvalidKeyException
@@ -123,6 +125,7 @@ public class DMP {
 					String date = parserDate(ligne.substring(0, 10)).toString();
 					String recherche = ligne.substring(0, 10);
 					if (!recherche.matches(" *")) {
+						// TODO les stocker puis faire les recherches en parallèle ensuite
 						Optional<Long> resultat = trouverCorrespondanceMedicament(ligne.substring(10));
 						if (resultat.isPresent()) {
 							if (!medParDate.has(date)) { medParDate.put(date, new JSONArray()); }
@@ -228,7 +231,9 @@ public class DMP {
 		return Optional.empty();
 	}
 
-	private LocalDate parserDate (String date) {
-		return LocalDate.parse(date, DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+	private LocalDate parserDate (String date) 
+		throws DateTimeParseException
+	{
+		return LocalDate.parse(date, dateFormatter);
 	}
 }

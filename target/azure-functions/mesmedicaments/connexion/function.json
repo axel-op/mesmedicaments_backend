@@ -6,7 +6,7 @@
     "direction" : "in",
     "name" : "connexionTrigger",
     "route" : "api/connexion/{etape:int}",
-    "methods" : [ "POST", "GET" ],
+    "methods" : [ "POST" ],
     "dataType" : "string",
     "authLevel" : "ANONYMOUS"
   }, {

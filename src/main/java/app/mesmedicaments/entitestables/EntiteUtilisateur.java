@@ -2,8 +2,14 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.Collection;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.TableOperation;
@@ -67,9 +73,9 @@ public class EntiteUtilisateur extends AbstractEntite {
     /**
      * L'objet JSON associe une date (non formatée) à une liste de médicaments
      */
-    public Optional<JSONObject> obtenirMedicamentsJObject () { 
-        if (medicaments == null || medicaments.equals("")) { return Optional.empty(); }
-        return Optional.of(new JSONObject(medicaments)); 
+    public JSONObject obtenirMedicamentsJObject () { 
+        if (medicaments == null || medicaments.equals("")) { return new JSONObject(); }
+        return new JSONObject(medicaments); 
     }
 
     // Setters
@@ -99,23 +105,26 @@ public class EntiteUtilisateur extends AbstractEntite {
      * Ajoute les médicaments à ceux existant déjà
      * @param nouveaux
      */
-    public void ajouterMedicamentsJObject (JSONObject nouveaux) {
-        if (this.medicaments != null) {
-            JSONObject actuels = new JSONObject(this.medicaments);
-            nouveaux.keySet().forEach((cleDate) -> {
-                JSONArray jarray = nouveaux.getJSONArray(cleDate);
-                for (int i = 0; i < jarray.length(); i++) {
-                    int codeCis = jarray.getInt(i);
-                    if (!actuels.has(cleDate)
-                        || (actuels.has(cleDate) && !actuels.getJSONArray(cleDate).toList().contains(codeCis))
-                    ) {
-                        actuels.append(cleDate, codeCis);
-                    }
-                }
-            });
-            definirMedicamentsJObject(actuels);
+    public void ajouterMedicamentsJObject (JSONObject nouveaux, DateTimeFormatter formatter) 
+        throws DateTimeParseException
+    {
+        JSONObject medicaments = obtenirMedicamentsJObject();
+        for (String cle : nouveaux.keySet()) {
+            String date = LocalDate.parse(cle, formatter).toString();
+            Set<Long> codes = new HashSet<>();
+            ajouterTousLong(
+                codes, 
+                Optional.ofNullable(medicaments.optJSONArray(cle))
+                    .orElseGet(() -> new JSONArray())
+            );
+            ajouterTousLong(codes, nouveaux.getJSONArray(cle));
+            medicaments.put(date, new JSONArray(codes));
         }
-        else { definirMedicamentsJObject(nouveaux); }
+        definirMedicamentsJObject(medicaments);
+    }
+
+    private void ajouterTousLong (Collection<Long> collection, JSONArray jArray) {
+        for (int i = 0; i < jArray.length(); i++) collection.add(jArray.getLong(i));
     }
 
 }

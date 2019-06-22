@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -103,11 +104,10 @@ public class DMP {
 		this.cookies = cookies;
 	}
 
-	public JSONObject obtenirMedicaments () 
+	public JSONObject obtenirMedicaments (Logger logger) 
 		throws IOException, StorageException, URISyntaxException, InvalidKeyException
 	{
 		PDDocument fichierRemboursements = obtenirFichierRemboursements().get(); // TODO : gérer le cas où Optional est vide
-		JSONObject medParDate = new JSONObject();
 		PDFTextStripper stripper = new PDFTextStripper();
 		BufferedReader br = new BufferedReader(
 			new StringReader(
@@ -117,7 +117,7 @@ public class DMP {
 				)
 			)
 		);
-		
+		Map<LocalDate, Set<String>> aChercher = new HashMap<>();
 		String ligne;
 		boolean balise = false;
 		boolean alerte = true; // Si pas de section Pharmacie trouvée
@@ -125,14 +125,10 @@ public class DMP {
 			if (ligne.contains("Hospitalisation")) { balise = false; }
 			if (balise) {
 				if (ligne.matches("[0-9]{2}/[0-9]{2}/[0-9]{4}.*")) {
-					String date = parserDate(ligne.substring(0, 10)).toString();
-					String recherche = ligne.substring(0, 10);
-					if (!recherche.matches(" *")) {
-						Optional<Long> resultat = trouverCorrespondanceMedicament(ligne.substring(10));
-						if (resultat.isPresent()) {
-							if (!medParDate.has(date)) { medParDate.put(date, new JSONArray()); }
-							medParDate.getJSONArray(date).put(resultat.get());
-						}
+					LocalDate date = parserDate(ligne.substring(0, 10));
+					if (!ligne.substring(0, 10).matches(" *")) {
+						aChercher.computeIfAbsent(date, k -> new HashSet<>())
+							.add(ligne.substring(10));
 					}
 				}
 			}
@@ -143,6 +139,24 @@ public class DMP {
 		}
 		fichierRemboursements.close();
 		br.close();
+		ConcurrentMap<LocalDate, Set<Long>> resultats = new ConcurrentHashMap<>();
+		aChercher.entrySet().stream().parallel()
+			.forEach((entree) -> {
+				Set<Long> corr = entree.getValue().stream().parallel()
+					.map((terme) -> {
+						try { return trouverCorrespondanceMedicament(terme); }
+						catch (StorageException | URISyntaxException | InvalidKeyException e) {
+							Utils.logErreur(e, logger);
+							throw new RuntimeException();
+						}
+					})
+					.filter((opt) -> opt.isPresent())
+					.map((opt) -> opt.get())
+					.collect(Collectors.toSet());
+				resultats.put(entree.getKey(), corr);
+			});
+		JSONObject medParDate = new JSONObject();
+		resultats.forEach((date, codes) -> medParDate.put(date.toString(), new JSONArray(codes)));
 		if (alerte) {} // TODO : alerter
 		return medParDate;
 	}

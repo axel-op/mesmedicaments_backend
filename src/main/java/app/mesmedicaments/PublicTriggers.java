@@ -153,7 +153,7 @@ public final class PublicTriggers {
 				if (Utils.dateToLocalDateTime(entiteC.getTimestamp()).isBefore(LocalDateTime.now().minusMinutes(30)))
 					throw new IllegalArgumentException("Plus de 30 minutes se sont écoulées depuis la connexion");
 				DMP dmp = new DMP(entiteC.getUrlFichierRemboursements(), entiteC.obtenirCookiesMap(), logger);
-				JSONObject medicaments = dmp.obtenirMedicaments();
+				JSONObject medicaments = dmp.obtenirMedicaments(logger);
 				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id)
 					.orElse(new EntiteUtilisateur(id));
 				entiteU.ajouterMedicamentsJObject(medicaments, DateTimeFormatter.ISO_LOCAL_DATE);

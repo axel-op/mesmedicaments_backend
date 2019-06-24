@@ -72,7 +72,7 @@ public final class Authentification {
 		CLE_TFORMDATA = "tformdata";
 		JWT_SIGNING_ALG = SignatureAlgorithm.HS512;
 		JWT_SIGNING_KEY = "SuperSecretTest";
-		///////////////// définir un secret et le lier à KEYVAULT (pas nécessaire après tout)
+		///////////////// TODO définir un secret et le lier à une variable d'environnement
 	}
 
 	public static String getIdFromToken (String jwt) 

@@ -72,24 +72,18 @@ public class PrivateTriggers {
 		Logger logger = context.getLogger();
 		switch (etape) {
 			case 1:
-				if (MiseAJourBDPM.majSubstances(logger)) {
+				if (MiseAJourBDPM.handler(logger)) {
 					codeHttp = HttpStatus.OK;
 					corps = "Mise à jour des substances terminée.";
 				}
 				break;
 			case 2:
-				if (MiseAJourBDPM.majMedicaments(logger)) {
-					codeHttp = HttpStatus.OK;
-					corps = "Mise à jour des médicaments terminée.";
-				}
-				break;
-			case 3:
 				if (MiseAJourClassesSubstances.handler(logger)) {
 					codeHttp = HttpStatus.OK;
 					corps = "Mise à jour des classes de substances terminée.";
 				}
 				break;
-			case 4:
+			case 3:
 				if (MiseAJourInteractions.handler(logger)) {
 					codeHttp = HttpStatus.OK;
 					corps = "Mise à jour des interactions terminée.";

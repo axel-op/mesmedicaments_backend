@@ -21,6 +21,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import app.mesmedicaments.Utils;
+import app.mesmedicaments.entitestables.EntiteDateMaj;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteSubstance;
 
@@ -42,8 +43,18 @@ public final class MiseAJourBDPM {
 
 	private MiseAJourBDPM () {}
 
-    public static boolean majSubstances (Logger logger) {
+	public static boolean handler (Logger logger) {
 		MiseAJourBDPM.logger = logger;
+		if (!majSubstances()) return false;
+		if (!majMedicaments()) return false;
+		try { EntiteDateMaj.definirDateMajBDPM(); }
+		catch (StorageException | URISyntaxException | InvalidKeyException e) {
+			Utils.logErreur(e, logger);
+		}
+		return true;
+	}
+
+    private static boolean majSubstances () {
 		logger.info("Début de la mise à jour des substances");
 		BufferedReader listeSubstances = importerFichier(URL_FICHIER_COMPO);
 		if (listeSubstances == null) { return false; }
@@ -111,8 +122,7 @@ public final class MiseAJourBDPM {
 		return true;
     }
 
-    public static boolean majMedicaments (Logger logger) {
-		MiseAJourBDPM.logger = logger;
+    private static boolean majMedicaments () {
 		logger.info("Début de la mise à jour des médicaments");
 		BufferedReader listeMedicaments = importerFichier(URL_FICHIER_BDPM);
 		if (listeMedicaments == null) { return false; }
@@ -154,7 +164,7 @@ public final class MiseAJourBDPM {
 				entite.definirPresentationsJObject(presMed);
 				entites.add(entite);
 			}
-			logger.info(entites.size() + " entités créées en " + Utils.tempsDepuis(startTime) + " ms. "
+			logger.info(entites.size() + " entités Médicament créées en " + Utils.tempsDepuis(startTime) + " ms. "
 			);
 			logger.info("Mise à jour de la base de données en cours...");
 			startTime = System.currentTimeMillis();

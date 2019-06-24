@@ -15,7 +15,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -54,7 +53,7 @@ public class DMP {
 						.replaceAll("  ", " ")
 						.toLowerCase()
 						.trim(), 
-						cle -> new TreeSet<>()
+						cle -> new HashSet<>()
 					)
 					.add(entite.obtenirCodeCis())
 			);
@@ -171,7 +170,7 @@ public class DMP {
 		boolean devraitTrouver = true;
 		for (String mot : recherche.split(" ")) {
 			mot = mot.toLowerCase();
-			if (mot.equals("-")
+			if (mot.equals("-") // ? ne devrait pas aller avec les deux lignes du dessous
 				|| mot.equals("verre")
 				|| mot.equals("monture"))
 			{

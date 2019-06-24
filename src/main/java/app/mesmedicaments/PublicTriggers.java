@@ -2,9 +2,9 @@ package app.mesmedicaments;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -38,6 +38,7 @@ import app.mesmedicaments.connexion.Authentification;
 import app.mesmedicaments.connexion.DMP;
 import app.mesmedicaments.entitestables.EntiteCacheRecherche;
 import app.mesmedicaments.entitestables.EntiteConnexion;
+import app.mesmedicaments.entitestables.EntiteDateMaj;
 import app.mesmedicaments.entitestables.EntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteSubstance;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
@@ -63,26 +64,39 @@ public final class PublicTriggers {
 		@BindingName("fichier") String fichier,
 		final ExecutionContext context
 	) {
-		String ressource;
-		switch (fichier) {
-			case "confidentialite":
-				ressource = "/PolitiqueConfidentialite.txt";
-				break;
-			case "mentions":
-				ressource = "/MentionsLegales.txt";
-				break;
-			default:
-				return request.createResponseBuilder(HttpStatus.NOT_FOUND)
-					.build();
-		}
 		try {
+			String ressource;
+			switch (fichier) {
+				case "confidentialite":
+					ressource = "/PolitiqueConfidentialite.txt";
+					break;
+				case "mentions":
+					ressource = "/MentionsLegales.txt";
+					break;
+				case "datesmaj":
+					LocalDate majBDPM = EntiteDateMaj.obtenirDateMajBDPM().get();
+					LocalDate majInteractions = EntiteDateMaj.obtenirDateMajInteractions().get();
+					return request.createResponseBuilder(HttpStatus.OK)
+						.body(new JSONObject()
+							.put("heure", LocalDateTime.now().toString())
+							.put("dernieresMaj", new JSONObject()
+								.put("bdpm", majBDPM.toString())
+								.put("interactions", majInteractions.toString())
+							)
+							.toString()
+						)
+						.build();
+				default:
+					return request.createResponseBuilder(HttpStatus.NOT_FOUND)
+						.build();
+			}
 			return request.createResponseBuilder(HttpStatus.OK)
 				.body(new BufferedReader(new InputStreamReader(
 					getClass().getResourceAsStream(ressource), "UTF-8"))
 					.lines()
 					.collect(Collectors.joining(Utils.NEWLINE)))
 				.build();
-		} catch (UnsupportedEncodingException e) {
+		} catch (Exception e) {
 			Utils.logErreur(e, context.getLogger());
 			return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
 				.build();

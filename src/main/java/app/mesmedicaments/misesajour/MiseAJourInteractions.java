@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
@@ -31,6 +32,7 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
 
 import app.mesmedicaments.Utils;
+import app.mesmedicaments.entitestables.EntiteDateMaj;
 import app.mesmedicaments.entitestables.EntiteInteraction;
 
 public final class MiseAJourInteractions {
@@ -103,6 +105,10 @@ public final class MiseAJourInteractions {
 				return false;
 			}
 			executionEnCours.set(false);
+			try { EntiteDateMaj.definirDateMajInteractions(); }
+			catch (StorageException | URISyntaxException | InvalidKeyException e) {
+				Utils.logErreur(e, logger);
+			}
 			return true;
 		}
 		else { logger.info("Une exécution est déjà en cours"); }
@@ -393,12 +399,17 @@ public final class MiseAJourInteractions {
 		logger.info(supprimes.size() + " doublons supprimés en " + Utils.tempsDepuis(startTime) + " ms");
 		logger.info("Mise à jour de la base de données en cours...");
 		startTime = System.currentTimeMillis();
-		int total = 0;
-		for (Collection<EntiteInteraction> entites : entitesRegroupees.values()) {
-			total += entites.size();
-			EntiteInteraction.mettreAJourEntitesBatch(entites);
-		}
-		logger.info(total + " entités mises à jour en " + Utils.tempsDepuis(startTime) + " ms");
+		AtomicInteger total = new AtomicInteger(0);
+		entitesRegroupees.values().stream().parallel()
+			.forEach((entites) -> {
+				total.addAndGet(entites.size());
+				try { EntiteInteraction.mettreAJourEntitesBatch(entites); }
+				catch (StorageException | URISyntaxException | InvalidKeyException e) {
+					Utils.logErreur(e, logger);
+					throw new RuntimeException();
+				}
+			});
+		logger.info(total.get() + " entités mises à jour en " + Utils.tempsDepuis(startTime) + " ms");
 	}
 
 	private static class Recherche {

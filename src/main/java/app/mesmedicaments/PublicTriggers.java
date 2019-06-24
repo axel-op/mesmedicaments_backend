@@ -59,7 +59,7 @@ public final class PublicTriggers {
 			name = "legalTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "legal/{fichier}"
+			route = "api/legal/{fichier}"
 		) final HttpRequestMessage<Optional<String>> request,
 		@BindingName("fichier") String fichier,
 		final ExecutionContext context

@@ -5,7 +5,7 @@
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "legalTrigger",
-    "route" : "api/legal/{fichier}",
+    "route" : "legal/{fichier}",
     "methods" : [ "GET" ],
     "authLevel" : "ANONYMOUS"
   }, {

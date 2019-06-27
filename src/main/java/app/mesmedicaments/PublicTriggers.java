@@ -59,7 +59,7 @@ public final class PublicTriggers {
 			name = "legalTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "api/legal/{fichier}"
+			route = "legal/{fichier}"
 		) final HttpRequestMessage<Optional<String>> request,
 		@BindingName("fichier") String fichier,
 		final ExecutionContext context
@@ -109,7 +109,7 @@ public final class PublicTriggers {
 			name = "rechercheTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "api/recherche/{recherche}"
+			route = "recherche/{recherche}"
 		) final HttpRequestMessage<Optional<String>> request,
 		@BindingName("recherche") String recherche,
 		final ExecutionContext context
@@ -146,7 +146,7 @@ public final class PublicTriggers {
 			name = "dmpTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "api/dmp/{categorie:alpha}")
+			route = "dmp/{categorie:alpha}")
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
@@ -188,13 +188,13 @@ public final class PublicTriggers {
 		return construireReponse(codeHttp, corpsReponse, request);
 	}
 
-	@FunctionName("interaction")
-	public HttpResponseMessage interaction (
+	@FunctionName("interactions")
+	public HttpResponseMessage interactions (
 		@HttpTrigger(
-			name = "interactionTrigger",
+			name = "interactionsTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET, HttpMethod.POST},
-			route = "api/interaction/{codecis1:int?}/{codecis2:int?}"
+			route = "interactions/{codecis1:int?}/{codecis2:int?}"
 		) final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
@@ -252,7 +252,7 @@ public final class PublicTriggers {
 			name = "produitsTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET, HttpMethod.POST},
-			route = "api/produits/{categorie:alpha}/{codeproduit:int?}")
+			route = "produits/{categorie:alpha}/{codeproduit:int?}")
 		final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {
@@ -332,7 +332,7 @@ public final class PublicTriggers {
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.POST},
 			dataType = "string",
-			route = "api/connexion/{etape:int}"
+			route = "connexion/{etape:int}"
 		) final HttpRequestMessage<Optional<String>> request,
 		@BindingName("etape") int etape,
 		final ExecutionContext context

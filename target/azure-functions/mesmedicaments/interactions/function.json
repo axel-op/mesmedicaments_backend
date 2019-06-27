@@ -1,11 +1,11 @@
 {
   "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
-  "entryPoint" : "app.mesmedicaments.PublicTriggers.interaction",
+  "entryPoint" : "app.mesmedicaments.PublicTriggers.interactions",
   "bindings" : [ {
     "type" : "httpTrigger",
     "direction" : "in",
-    "name" : "interactionTrigger",
-    "route" : "api/interaction/{codecis1:int?}/{codecis2:int?}",
+    "name" : "interactionsTrigger",
+    "route" : "interactions/{codecis1:int?}/{codecis2:int?}",
     "methods" : [ "GET", "POST" ],
     "authLevel" : "ANONYMOUS"
   }, {

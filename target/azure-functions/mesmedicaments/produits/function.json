@@ -5,7 +5,7 @@
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "produitsTrigger",
-    "route" : "api/produits/{categorie:alpha}/{codeproduit:int?}",
+    "route" : "produits/{categorie:alpha}/{codeproduit:int?}",
     "methods" : [ "GET", "POST" ],
     "authLevel" : "ANONYMOUS"
   }, {

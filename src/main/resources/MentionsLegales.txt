@@ -2,13 +2,15 @@ Mentions légales
 
 Application Mes médicaments
 
-Mises à jour le 17 juin 2019
+Version du 27 juin 2019
 
 Développeur
 Axel Ogereau-Peltier
 
 Adresse
-48 rue de Tolbiac 75013 Paris FRANCE
+48 rue de Tolbiac
+75013 Paris 
+FRANCE
 
 Numéro de téléphone
-+33610671483
++33 7 54 32 18 78

@@ -2,7 +2,7 @@ Politique de confidentialité
 
 Application Mes médicaments
 
-Mise à jour le 18 juin 2019
+Version du 27 juin 2019
 
 L'application propose à l'utilisateur de renseigner ses identifiants de connexion au site Internet "Dossier Médical Partagé" (abrégé DMP), édité par la Caisse nationale de l'assurance maladie et consultable à la date de mise à jour de cette politique à l'adresse https://www.dmp.fr, afin d'en extraire certaines informations, consultables ensuite sur l'application Mes médicaments. 
 Il est rappelé à l'utilisateur que cette application n'a aucun lien avec la Caisse nationale de l'assurance maladie, ni avec la marque DMP, et n'a pas obtenu de quelconque certification de leur part. De ce fait la Caisse nationale de l'assurance maladie ne saurait être tenue responsable des informations affichées sur l'application Mes médicaments.
@@ -27,8 +27,7 @@ Les données ci-dessous sont traitées par l'application ou son API serveur, mai
 
 	- Le modèle et un identifiant unique de l'appareil servant à la connexion, ainsi que des données techniques relatives à la connexion (adresse IP...). Sont exclues de cette catégorie les données listées ci-dessous.
 
-Idem pour les données ci-dessous, qui ne sont traitées que lors d'une connexion réussie au DMP via l'application : 
-
+Les données ci-dessous ne sont traitées que lors d'une connexion réussie au DMP via l'application, mais toutes ne sont pas collectées (voir les sections suivantes) :
 	- L'identifiant et le mot de passe de connexion au DMP.
 	- Des données de connexion temporaires au site Internet du DMP. 
 	- La liste des médicaments obtenue lors de la connexion au DMP, tel que décrit à la section 2.
@@ -37,15 +36,15 @@ Idem pour les données ci-dessous, qui ne sont traitées que lors d'une connexio
 
 2. Utilisation de ces données
 
-L'identifiant du DMP et le mot de passe du DMP sont utilisés afin d'établir une connexion, à la demande de l'utilisateur, à son espace personnel sur le site du DMP, afin d'accéder de façon automatisée et non supervisée par une personne physique, au fichier "Données de remboursement", s'il existe, disponible sur cet espace, et d'en extraire la liste des médicaments pour l'achat desquels l'utilisateur a obtenu un remboursement de la part de la Caisse nationale de l'assurance maladie, sur une période pouvant s'étendre jusqu'à deux ans avant la date à laquelle cette connexion est établie. 
+L'identifiant du DMP et le mot de passe du DMP sont utilisés afin d'établir une connexion, à la demande de l'utilisateur, à son espace personnel sur le site du DMP, afin d'en extraire, si elle existe, et de façon automatisée et non supervisée par une personne physique, la liste des médicaments pour l'achat desquels l'utilisateur a obtenu un remboursement de la part de la Caisse nationale de l'assurance maladie. 
 
 L'identifiant du DMP est utilisé à des fins de sauvegarde de la liste des médicaments ainsi obtenue, tel que décrit dans la section 3.
 
-L'utilisation de données servant à maintenir la connexion au site Internet du DMP pendant une durée courte (inférieure à trente minutes), telles que des cookies, est nécessaire à la réussite de la connexion au DMP via l'application, et donc à la fourniture du service. 
+L'utilisation de données servant à maintenir la connexion au site Internet du DMP pendant une durée courte (inférieure à une heure et quinze minutes), telles que des cookies, est nécessaire à la réussite de la connexion au DMP via l'application, et donc à la fourniture du service. 
 
 La liste des médicaments ainsi obtenue est utilisée dans l'application afin de fournir à l'utilisateur diverses informations en lien avec ces médicaments. 
 
-Le genre de l'utilisateur est collecté de façon anonyme à l'occasion de la connexion au DMP via l'application à des fins de statistiques NON commerciales. 
+Le genre de l'utilisateur est collecté de façon anonyme à l'occasion de la connexion au DMP via l'application à des fins de statistiques. 
 
 Le modèle et l'identifiant de l'appareil ayant servi à la connexion sont utilisés afin de sécuriser l'API serveur à laquelle cette application se connecte, par exemple en permettant le filtrage des connexions. 
 

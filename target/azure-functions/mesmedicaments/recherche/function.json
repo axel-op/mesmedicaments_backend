@@ -5,7 +5,7 @@
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "rechercheTrigger",
-    "route" : "api/recherche/{recherche}",
+    "route" : "recherche/{recherche}",
     "methods" : [ "GET" ],
     "authLevel" : "ANONYMOUS"
   }, {

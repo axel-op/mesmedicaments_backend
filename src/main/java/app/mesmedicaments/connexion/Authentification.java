@@ -221,7 +221,10 @@ public final class Authentification {
 				obtenirURLFichierRemboursements(cookies).orElse(null)
 			);
 			entiteConnexion.mettreAJourEntite();
-			try { retour.put("genre", obtenirGenre(cookies)); }
+			try {
+				Optional<String> optGenre = obtenirGenre(cookies);
+				if (optGenre.isPresent()) retour.put("genre", optGenre.get()); 
+			}
 			catch (IOException e) { logger.warning("Impossible de récupérer le genre"); }
 		}
 		catch (IOException 
@@ -270,7 +273,7 @@ public final class Authentification {
 			.val();
 	}
 
-	private String obtenirGenre (Map<String, String> cookies) 
+	private Optional<String> obtenirGenre (Map<String, String> cookies) 
 		throws IOException
 	{
 		Connection connexion = Jsoup.connect(URL_INFOS_DMP);
@@ -279,6 +282,6 @@ public final class Authentification {
 			.cookies(cookies)
 			.execute();
 		Document pageInfos = connexion.response().parse();
-		return pageInfos.getElementById("genderValue").text();
+		return Optional.ofNullable(pageInfos.getElementById("genderValue").text());
 	}
 }

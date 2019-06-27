@@ -152,8 +152,7 @@ public final class PublicTriggers {
 	) {
 		Logger logger = context.getLogger();
 		String[] parametres = request.getUri().getPath().split("/");
-		String categorie = null;
-		if (parametres.length > 3) { categorie = parametres[3]; }
+		String categorie = parametres[2];
 		String accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
@@ -204,7 +203,7 @@ public final class PublicTriggers {
 		JSONObject corpsReponse = new JSONObject();
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			if (parametres.length == 3) {
+			if (parametres.length == 2) {
 				JSONArray interactions = new JSONArray();
 				Set<Long> codesCis = new HashSet<>();
 				Utils.ajouterTousLong(codesCis, new JSONObject(request.getBody().get())
@@ -227,9 +226,9 @@ public final class PublicTriggers {
 				corpsReponse.put("interactions", interactions);
 				codeHttp = HttpStatus.OK;
 			}
-			else if (parametres.length == 5) {
-				long codeCis1 = Long.parseLong(parametres[3]);
-				long codeCis2 = Long.parseLong(parametres[4]);
+			else if (parametres.length == 4) {
+				long codeCis1 = Long.parseLong(parametres[2]);
+				long codeCis2 = Long.parseLong(parametres[3]);
 				EntiteMedicament entiteMed1 = Utils.obtenirEntiteMedicament(codeCis1).get();
 				EntiteMedicament entiteMed2 = Utils.obtenirEntiteMedicament(codeCis2).get();
 				corpsReponse.put("interactions", Utils.obtenirInteractions(entiteMed1, entiteMed2, logger));
@@ -258,14 +257,14 @@ public final class PublicTriggers {
 	) {
 		Logger logger = context.getLogger();
 		String[] parametres = request.getUri().getPath().split("/");
-		String categorie = parametres[3];
+		String categorie = parametres[2];
 		String codeProduit = null;
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			if (parametres.length > 4) { 
-				codeProduit = parametres[4]; 
+			if (parametres.length > 3) { 
+				codeProduit = parametres[3]; 
 				if (codeProduit.length() > 10) throw new IllegalArgumentException("Code produit invalide"); 
 			}
 			if (categorie.equals("substances")) {

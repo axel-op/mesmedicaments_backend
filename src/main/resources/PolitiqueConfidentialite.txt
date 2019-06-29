@@ -2,7 +2,7 @@ Politique de confidentialité
 
 Application Mes médicaments
 
-Version du 27 juin 2019
+Version du 28 juin 2019
 
 L'application propose à l'utilisateur de renseigner ses identifiants de connexion au site Internet "Dossier Médical Partagé" (abrégé DMP), édité par la Caisse nationale de l'assurance maladie et consultable à la date de mise à jour de cette politique à l'adresse https://www.dmp.fr, afin d'en extraire certaines informations, consultables ensuite sur l'application Mes médicaments. 
 Il est rappelé à l'utilisateur que cette application n'a aucun lien avec la Caisse nationale de l'assurance maladie, ni avec la marque DMP, et n'a pas obtenu de quelconque certification de leur part. De ce fait la Caisse nationale de l'assurance maladie ne saurait être tenue responsable des informations affichées sur l'application Mes médicaments.
@@ -85,6 +85,5 @@ Les données sont traitées en France ou en Irlande.
 L'adresse de messagerie électronique à laquelle adresser toute demande concernant les données personnelles est : contact@mesmedicaments.app.
 
 Les autres informations de contact pour toute question concernant les données personnelles sont les mêmes que celles affichées : 
-- sur la page "Informations sur l'application" de l'application,
-- dans les mentions légales,
+- dans les mentions légales, accessibles depuis la rubrique "Aide" de l'application, ou sur Internet, à l'adresse api.mesmedicaments.app/legal/mentions ;
 - et sur la fiche Google Play Store de l'application. 

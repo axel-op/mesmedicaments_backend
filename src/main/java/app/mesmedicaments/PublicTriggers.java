@@ -103,6 +103,51 @@ public final class PublicTriggers {
 		}
 	}
 
+	@FunctionName("synchronisation")
+	public HttpResponseMessage synchronisation (
+		@HttpTrigger(
+			name = "synchronisationTrigger",
+			authLevel = AuthorizationLevel.ANONYMOUS,
+			methods = {HttpMethod.POST},
+			route = "synchronisation/{categorie:alpha}"
+		) final HttpRequestMessage<Optional<String>> request,
+		@BindingName("categorie") String categorie,
+		final ExecutionContext context
+	) {
+		Logger logger = context.getLogger();
+		HttpStatus codeHttp = HttpStatus.OK;
+		try {
+			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			String accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
+			String id = Authentification.getIdFromToken(accessToken);
+			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
+			JSONObject medicament = new JSONObject(request.getBody().get())
+				.getJSONObject("medicament");
+			Long codeCis = medicament.getLong("codecis");
+			if (categorie.equals("ajouter")) {
+				entiteU.ajouterMedicamentPerso(codeCis);
+			}
+			else if (categorie.equals("retirer")) {
+				LocalDate date = LocalDate.parse(medicament.getString("dateachat"), DateTimeFormatter.ISO_LOCAL_DATE);
+				entiteU.retirerMedicamentPerso(codeCis, date);
+			}
+			else throw new IllegalArgumentException("La catégorie de route n'existe pas");
+			entiteU.mettreAJourEntite();
+
+		}
+		catch (JSONException e) {
+			codeHttp = HttpStatus.UNAUTHORIZED;
+		}
+		catch (NoSuchElementException | IllegalArgumentException e) {
+			codeHttp = HttpStatus.BAD_REQUEST;
+		}
+		catch (StorageException | InvalidKeyException | URISyntaxException e) {
+			Utils.logErreur(e, logger);
+			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
+		}
+		return request.createResponseBuilder(codeHttp).build();
+	}
+
 	@FunctionName("recherche")
 	public HttpResponseMessage recherche (
 		@HttpTrigger(
@@ -167,9 +212,8 @@ public final class PublicTriggers {
 					throw new IllegalArgumentException("Plus de 30 minutes se sont écoulées depuis la connexion");
 				DMP dmp = new DMP(entiteC.getUrlFichierRemboursements(), entiteC.obtenirCookiesMap(), logger);
 				JSONObject medicaments = dmp.obtenirMedicaments(logger);
-				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id)
-					.orElse(new EntiteUtilisateur(id));
-				entiteU.ajouterMedicamentsJObject(medicaments, DateTimeFormatter.ISO_LOCAL_DATE);
+				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
+				entiteU.ajouterMedicamentsDMPJObject(medicaments, DateTimeFormatter.ISO_LOCAL_DATE);
 				entiteU.mettreAJourEntite();
 				corpsReponse.put("medicaments", medicaments);
 				codeHttp = HttpStatus.OK;
@@ -370,8 +414,9 @@ public final class PublicTriggers {
 					codeHttp = HttpStatus.CONFLICT;
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
 				} else {
-					logger.info("Ajout de la connexion à la file nouvelles-connexions");
-					//queue.setValue(new JSONObject().put("id", id).toString());
+					EntiteUtilisateur entiteU = new EntiteUtilisateur(id);
+					entiteU.creerEntite();
+					corpsReponse.put("idAnalytics", entiteU.getIdAnalytics());
 					corpsReponse.put("accessToken", auth.createAccessToken());
 					if (resultat.has("genre")) corpsReponse.put("genre", resultat.get("genre"));
 					codeHttp = HttpStatus.OK;

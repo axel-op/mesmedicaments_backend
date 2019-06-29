@@ -37,6 +37,7 @@ public final class Utils {
 	public static final ZoneId TIMEZONE;
 	private static final Map<Long, Optional<EntiteMedicament>> cacheEntitesMedicament;
 	private static final Map<Long, Optional<EntiteSubstance>> cacheEntitesSubstance;
+	private static final Map<String, Optional<EntiteInteraction>> cacheEntitesInteraction;
 
 	static {
 		NEWLINE = System.getProperty("line.separator");
@@ -45,12 +46,29 @@ public final class Utils {
 		TIMEZONE = ZoneId.of("ECT", ZoneId.SHORT_IDS);
 		cacheEntitesMedicament = new ConcurrentHashMap<>();
 		cacheEntitesSubstance = new ConcurrentHashMap<>();
+		cacheEntitesInteraction = new ConcurrentHashMap<>();
 	}
 
 	private Utils () {}
 
 	public static LocalDateTime dateToLocalDateTime (Date date) {
 		return LocalDateTime.ofInstant(date.toInstant(), Utils.TIMEZONE);
+	}
+
+	/**
+	 * Convertit tous les éléments du JSONArray en objet Long et les place dans un Set (donc supprime les doublons)
+	 * @param jsonArray
+	 * @return Set<Long>
+	 * @throws JSONException Si un élément du JSONArray ne peut être converti en Long
+	 */
+	public static Set<Long> jsonArrayToSetLong (JSONArray jsonArray) 
+		throws JSONException
+	{
+		Set<Long> set = new HashSet<>();
+		for (int i = 0; i < jsonArray.length(); i++) {
+			set.add(jsonArray.getLong(i));
+		}
+		return set;
 	}
 
 	/**
@@ -66,8 +84,20 @@ public final class Utils {
 			collection.add(jArray.getLong(i));
 	}
 
+	public static Optional<EntiteInteraction> obtenirEntiteInteraction (long codeSubstance1, long codeSubstance2) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		String cle = String.valueOf(Math.min(codeSubstance1, codeSubstance2)) + String.valueOf(Math.max(codeSubstance1, codeSubstance2));
+		Optional<EntiteInteraction> optEntiteI = cacheEntitesInteraction.get(cle);
+		if (optEntiteI == null) {
+			optEntiteI = EntiteInteraction.obtenirEntite(codeSubstance1, codeSubstance2);
+			cacheEntitesInteraction.put(cle, optEntiteI);
+		}
+		return optEntiteI;
+	}
+
 	
-	public static Optional<EntiteSubstance> obtenirEntiteSubstance (Long codeSubstance)
+	public static Optional<EntiteSubstance> obtenirEntiteSubstance (long codeSubstance)
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		Optional<EntiteSubstance> optEntiteS = cacheEntitesSubstance.get(codeSubstance);
@@ -78,7 +108,7 @@ public final class Utils {
 		return optEntiteS;
 	}
 
-	public static Optional<EntiteMedicament> obtenirEntiteMedicament (Long codeCis) 
+	public static Optional<EntiteMedicament> obtenirEntiteMedicament (long codeCis) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		Optional<EntiteMedicament> optEntiteM = cacheEntitesMedicament.get(codeCis);
@@ -110,7 +140,7 @@ public final class Utils {
 		combinaisons.stream().parallel()
 			.forEach((Long[] comb) -> {
 				try {
-					Optional<EntiteInteraction> optEntiteI = EntiteInteraction.obtenirEntite(comb[0], comb[1]);
+					Optional<EntiteInteraction> optEntiteI = Utils.obtenirEntiteInteraction(comb[0], comb[1]);
 					if (optEntiteI.isPresent()) {
 						interactions.put(interactionEnJson(optEntiteI.get(), logger)
 							.put("medicaments", new JSONArray()
@@ -133,8 +163,8 @@ public final class Utils {
 	{
 		Long codeSub1 = entiteI.obtenirCodeSubstance1();
 		Long codeSub2 = entiteI.obtenirCodeSubstance2();
-		EntiteSubstance entiteS1 = obtenirEntiteSubstance(codeSub1).get();
-		EntiteSubstance entiteS2 = obtenirEntiteSubstance(codeSub2).get();
+		EntiteSubstance entiteS1 = Utils.obtenirEntiteSubstance(codeSub1).get();
+		EntiteSubstance entiteS2 = Utils.obtenirEntiteSubstance(codeSub2).get();
 		return new JSONObject()
 			.put("substances", new JSONObject()
 				.put(entiteS1.obtenirCodeSubstance().toString(), entiteS1.obtenirNomsJArray())
@@ -153,7 +183,7 @@ public final class Utils {
 			.forEach((cle) -> {
 				try {
 					Long code = Long.parseLong(cle);
-					Optional<EntiteSubstance> optEntiteS = obtenirEntiteSubstance(code);
+					Optional<EntiteSubstance> optEntiteS = Utils.obtenirEntiteSubstance(code);
 					if (optEntiteS.isPresent()) {
 						substances.getJSONObject(cle)
 							.put("noms", optEntiteS.get().obtenirNomsJArray());

@@ -193,11 +193,10 @@ public final class PublicTriggers {
 			methods = {HttpMethod.GET},
 			route = "dmp/{categorie:alpha}")
 		final HttpRequestMessage<Optional<String>> request,
+		@BindingName("categorie") String categorie,
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
-		String[] parametres = request.getUri().getPath().split("/");
-		String categorie = parametres[2];
 		String accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
@@ -215,7 +214,23 @@ public final class PublicTriggers {
 				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
 				entiteU.ajouterMedicamentsDMPJObject(medicaments, DateTimeFormatter.ISO_LOCAL_DATE);
 				entiteU.mettreAJourEntite();
-				corpsReponse.put("medicaments", medicaments);
+				JSONObject medsEnJson = new JSONObject();
+				for (String cle : medicaments.keySet()) {
+					JSONArray codes = medicaments.getJSONArray(cle);
+					JSONArray enJson = new JSONArray();
+					Utils.jsonArrayToSetLong(codes).stream().parallel()
+						.forEach((Long codeCis) -> {
+							try {
+								EntiteMedicament entiteM = Utils.obtenirEntiteMedicament(codeCis).get();
+								enJson.put(Utils.medicamentEnJson(entiteM, logger));
+							} catch (StorageException | URISyntaxException| InvalidKeyException e) {
+								Utils.logErreur(e, logger);
+								throw new RuntimeException();
+							}
+						});
+					medsEnJson.put(cle, enJson);
+				}
+				corpsReponse.put("medicaments", medsEnJson);
 				codeHttp = HttpStatus.OK;
 			}
 		}
@@ -289,85 +304,6 @@ public final class PublicTriggers {
 		return construireReponse(codeHttp, corpsReponse, request);
 	}
 
-	@FunctionName("produits")
-	public HttpResponseMessage produits (
-		@HttpTrigger(
-			name = "produitsTrigger",
-			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.GET, HttpMethod.POST},
-			route = "produits/{categorie:alpha}/{codeproduit:int?}")
-		final HttpRequestMessage<Optional<String>> request,
-		final ExecutionContext context
-	) {
-		Logger logger = context.getLogger();
-		String[] parametres = request.getUri().getPath().split("/");
-		String categorie = parametres[2];
-		String codeProduit = null;
-		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
-		JSONObject corpsReponse = new JSONObject();
-		try {
-			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			if (parametres.length > 3) { 
-				codeProduit = parametres[3]; 
-				if (codeProduit.length() > 10) throw new IllegalArgumentException("Code produit invalide"); 
-			}
-			if (categorie.equals("substances")) {
-				if (codeProduit == null) codeHttp = HttpStatus.FORBIDDEN;
-				else {
-					EntiteSubstance entite = EntiteSubstance
-						.obtenirEntite(Long.parseLong(codeProduit))
-						.get();
-					JSONObject infosSub = new JSONObject().put("noms", entite.obtenirNomsJArray());
-					corpsReponse.put(entite.getRowKey(), infosSub);
-					codeHttp = HttpStatus.OK;
-				}
-			}
-			if (categorie.equals("medicaments")) {
-				if (codeProduit != null) {
-					EntiteMedicament entiteM = Utils.obtenirEntiteMedicament(Long.parseLong(codeProduit)).get();
-					corpsReponse.put(entiteM.getRowKey(), Utils.medicamentEnJson(entiteM, logger));
-					codeHttp = HttpStatus.OK;
-				} 
-				else {
-					Set<Long> codes = new HashSet<>();
-					Utils.ajouterTousLong(
-						codes, 
-						new JSONObject(request.getBody().get()).getJSONArray("medicaments")
-					);
-					ConcurrentMap<Long, JSONObject> medsEnJson = new ConcurrentHashMap<>();
-					codes.stream().parallel()
-						.forEach((code) -> {
-							try {
-								EntiteMedicament entiteM = Utils.obtenirEntiteMedicament(code).get();
-								medsEnJson.put(entiteM.obtenirCodeCis(), Utils.medicamentEnJson(entiteM, logger));
-							}
-							catch (StorageException | URISyntaxException | InvalidKeyException e) {
-								Utils.logErreur(e, logger);
-								throw new RuntimeException();
-							}
-						});
-					corpsReponse.put("medicaments", new JSONArray(medsEnJson.values()));
-					codeHttp = HttpStatus.OK;
-				}
-			}
-		}
-		catch (JwtException e) {
-			codeHttp = HttpStatus.UNAUTHORIZED;
-		}
-		catch (NoSuchElementException e) {
-			codeHttp = HttpStatus.NOT_FOUND;
-		}
-		catch (IllegalArgumentException e) {
-			codeHttp = HttpStatus.BAD_REQUEST;
-			corpsReponse.put(CLE_CAUSE, e.getMessage());
-		}
-		catch (StorageException | URISyntaxException | InvalidKeyException e) {
-			Utils.logErreur(e, logger);
-			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
-		}
-		return construireReponse(codeHttp, corpsReponse, request);
-	}
-
 	@FunctionName("connexion")
 	public HttpResponseMessage connexion (
 		@HttpTrigger(
@@ -414,9 +350,12 @@ public final class PublicTriggers {
 					codeHttp = HttpStatus.CONFLICT;
 					corpsReponse.put(CLE_CAUSE, resultat.get(CLE_ERREUR_AUTH));
 				} else {
-					EntiteUtilisateur entiteU = new EntiteUtilisateur(id);
-					entiteU.creerEntite();
-					corpsReponse.put("idAnalytics", entiteU.getIdAnalytics());
+					Optional<EntiteUtilisateur> optEntiteU = EntiteUtilisateur.obtenirEntite(id);
+					if (!optEntiteU.isPresent()) {
+						optEntiteU = Optional.of(new EntiteUtilisateur(id));
+						optEntiteU.get().creerEntite();
+					}
+					corpsReponse.put("idAnalytics", optEntiteU.get().getIdAnalytics());
 					corpsReponse.put("accessToken", auth.createAccessToken());
 					if (resultat.has("genre")) corpsReponse.put("genre", resultat.get("genre"));
 					codeHttp = HttpStatus.OK;

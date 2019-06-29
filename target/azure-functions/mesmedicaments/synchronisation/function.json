@@ -6,7 +6,7 @@
     "direction" : "in",
     "name" : "synchronisationTrigger",
     "route" : "synchronisation/{categorie:alpha}",
-    "methods" : [ "POST" ],
+    "methods" : [ "POST", "GET" ],
     "authLevel" : "ANONYMOUS"
   }, {
     "type" : "http",

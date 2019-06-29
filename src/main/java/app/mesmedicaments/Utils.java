@@ -55,6 +55,25 @@ public final class Utils {
 		return LocalDateTime.ofInstant(date.toInstant(), Utils.TIMEZONE);
 	}
 
+	public static JSONObject convertirJsonDatesCodesEnJsonDatesDetails (JSONObject json, Logger logger) {
+		JSONObject medsEnJson = new JSONObject();
+		for (String cle : json.keySet()) {
+			JSONArray codes = json.getJSONArray(cle);
+			JSONArray enJson = new JSONArray();
+			Utils.jsonArrayToSetLong(codes).stream().parallel().forEach((Long codeCis) -> {
+				try {
+					EntiteMedicament entiteM = Utils.obtenirEntiteMedicament(codeCis).get();
+					enJson.put(Utils.medicamentEnJson(entiteM, logger));
+				} catch (StorageException | URISyntaxException | InvalidKeyException e) {
+					Utils.logErreur(e, logger);
+					throw new RuntimeException();
+				}
+			});
+			medsEnJson.put(cle, enJson);
+		}
+		return medsEnJson;
+	}
+
 	/**
 	 * Convertit tous les éléments du JSONArray en objet Long et les place dans un Set (donc supprime les doublons)
 	 * @param jsonArray

@@ -13,8 +13,6 @@ import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -40,7 +38,6 @@ import app.mesmedicaments.entitestables.EntiteCacheRecherche;
 import app.mesmedicaments.entitestables.EntiteConnexion;
 import app.mesmedicaments.entitestables.EntiteDateMaj;
 import app.mesmedicaments.entitestables.EntiteMedicament;
-import app.mesmedicaments.entitestables.EntiteSubstance;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import io.jsonwebtoken.JwtException;
 
@@ -108,32 +105,44 @@ public final class PublicTriggers {
 		@HttpTrigger(
 			name = "synchronisationTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.POST},
+			methods = {HttpMethod.POST, HttpMethod.GET},
 			route = "synchronisation/{categorie:alpha}"
 		) final HttpRequestMessage<Optional<String>> request,
 		@BindingName("categorie") String categorie,
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
-		HttpStatus codeHttp = HttpStatus.OK;
+		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			String accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
 			String id = Authentification.getIdFromToken(accessToken);
 			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
-			JSONObject medicament = new JSONObject(request.getBody().get())
-				.getJSONObject("medicament");
-			Long codeCis = medicament.getLong("codecis");
-			if (categorie.equals("ajouter")) {
-				entiteU.ajouterMedicamentPerso(codeCis);
+			if (categorie.equals("ajouter") || categorie.equals("retirer")) {
+				JSONObject medicament = new JSONObject(request.getBody().get())
+					.getJSONObject("medicament");
+				Long codeCis = medicament.getLong("codecis");
+				if (categorie.equals("ajouter")) entiteU.ajouterMedicamentPerso(codeCis);
+				if (categorie.equals("retirer")) {
+					LocalDate date = LocalDate.parse(medicament.getString("dateAchat"), DateTimeFormatter.ISO_LOCAL_DATE);
+					entiteU.retirerMedicamentPerso(codeCis, date);
+				}
+				entiteU.mettreAJourEntite();
+				codeHttp = HttpStatus.OK;
 			}
-			else if (categorie.equals("retirer")) {
-				LocalDate date = LocalDate.parse(medicament.getString("dateachat"), DateTimeFormatter.ISO_LOCAL_DATE);
-				entiteU.retirerMedicamentPerso(codeCis, date);
+			else if (categorie.equals("obtenir")) {
+				JSONObject corpsReponse = new JSONObject().put(
+					"medicamentsPerso",
+					Utils.convertirJsonDatesCodesEnJsonDatesDetails(
+						entiteU.obtenirMedicamentsPersoJObject(), 
+						logger
+					)
+				);
+				return request.createResponseBuilder(HttpStatus.OK)
+					.body(corpsReponse.toString())
+					.build();
 			}
 			else throw new IllegalArgumentException("La catégorie de route n'existe pas");
-			entiteU.mettreAJourEntite();
-
 		}
 		catch (JSONException e) {
 			codeHttp = HttpStatus.UNAUTHORIZED;
@@ -214,22 +223,7 @@ public final class PublicTriggers {
 				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
 				entiteU.ajouterMedicamentsDMPJObject(medicaments, DateTimeFormatter.ISO_LOCAL_DATE);
 				entiteU.mettreAJourEntite();
-				JSONObject medsEnJson = new JSONObject();
-				for (String cle : medicaments.keySet()) {
-					JSONArray codes = medicaments.getJSONArray(cle);
-					JSONArray enJson = new JSONArray();
-					Utils.jsonArrayToSetLong(codes).stream().parallel()
-						.forEach((Long codeCis) -> {
-							try {
-								EntiteMedicament entiteM = Utils.obtenirEntiteMedicament(codeCis).get();
-								enJson.put(Utils.medicamentEnJson(entiteM, logger));
-							} catch (StorageException | URISyntaxException| InvalidKeyException e) {
-								Utils.logErreur(e, logger);
-								throw new RuntimeException();
-							}
-						});
-					medsEnJson.put(cle, enJson);
-				}
+				JSONObject medsEnJson = Utils.convertirJsonDatesCodesEnJsonDatesDetails(medicaments, logger);
 				corpsReponse.put("medicaments", medsEnJson);
 				codeHttp = HttpStatus.OK;
 			}

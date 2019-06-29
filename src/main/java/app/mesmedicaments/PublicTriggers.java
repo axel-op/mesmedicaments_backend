@@ -118,11 +118,20 @@ public final class PublicTriggers {
 			String accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
 			String id = Authentification.getIdFromToken(accessToken);
 			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
-			if (categorie.equals("ajouter") || categorie.equals("retirer")) {
-				JSONObject medicament = new JSONObject(request.getBody().get())
-					.getJSONObject("medicament");
+			if (categorie.equals("ajouter")) {
+				JSONObject corpsRequete = new JSONObject(request.getBody().get());
+				JSONArray medicaments = corpsRequete.getJSONArray("medicaments");
+				for (int i = 0; i < medicaments.length(); i++) {
+					Long codeCis = medicaments.getJSONObject(i).getLong("codecis");
+					entiteU.ajouterMedicamentPerso(codeCis);
+				}
+				entiteU.mettreAJourEntite();
+				codeHttp = HttpStatus.OK;
+			}
+			else if (categorie.equals("retirer")) {
+				JSONObject corpsRequete = new JSONObject(request.getBody().get());
+				JSONObject medicament = corpsRequete.getJSONObject("medicament");
 				Long codeCis = medicament.getLong("codecis");
-				if (categorie.equals("ajouter")) entiteU.ajouterMedicamentPerso(codeCis);
 				if (categorie.equals("retirer")) {
 					LocalDate date = LocalDate.parse(medicament.getString("dateAchat"), DateTimeFormatter.ISO_LOCAL_DATE);
 					entiteU.retirerMedicamentPerso(codeCis, date);

@@ -2,7 +2,6 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
-import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -10,6 +9,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 
 import com.microsoft.azure.storage.StorageException;
@@ -60,9 +60,11 @@ public class EntiteUtilisateur extends AbstractEntite {
     {
         super(System.getenv("tableazure_utilisateurs"), CLE_PARTITION, id);
         dateInscription = Date.from(LocalDateTime.now().atZone(Utils.TIMEZONE).toInstant());
-        byte[] salt = new byte[16];
-        new SecureRandom().nextBytes(salt);
-        idAnalytics = String.valueOf(id.hashCode()) + new String(salt);
+        idAnalytics = String.valueOf(id.hashCode());
+        Random rd = new Random();
+        for (int i = 0; i < 32; i++) { // longueur choisie au hasard
+            idAnalytics += String.valueOf(rd.nextInt(10));
+        }
     }
 
     // Getters

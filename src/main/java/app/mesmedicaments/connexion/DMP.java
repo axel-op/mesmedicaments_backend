@@ -69,16 +69,13 @@ public class DMP {
 	private static Set<Long> rechercherMedicament (String recherche, boolean precisematch) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		if (nomsMedicamentsNormalisesMin.isEmpty()) {
-			nomsMedicamentsNormalisesMin.putAll(importerNomsMedicamentsNormalisesMin()); 
-		}
 		return cacheRecherche.computeIfAbsent(recherche, exp -> {
 			final String expNorm = Utils.normaliser(exp)
 				.replaceAll("  ", " ")
 				.toLowerCase()
 				.trim();
 			final String[] mots = expNorm.split(" ");
-			return nomsMedicamentsNormalisesMin.keySet().stream()
+			return nomsMedicamentsNormalisesMin.keySet().stream().parallel()
 				.filter(nom -> {
 					for (String mot : mots) {
 						if (nom.matches(obtenirRegex.apply(mot, precisematch))) { 
@@ -138,6 +135,9 @@ public class DMP {
 		}
 		fichierRemboursements.close();
 		br.close();
+		if (nomsMedicamentsNormalisesMin.isEmpty()) {
+			nomsMedicamentsNormalisesMin.putAll(importerNomsMedicamentsNormalisesMin());
+		}
 		ConcurrentMap<LocalDate, Set<Long>> resultats = new ConcurrentHashMap<>();
 		aChercher.entrySet().stream().parallel()
 			.forEach((entree) -> {

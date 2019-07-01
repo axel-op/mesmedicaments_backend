@@ -91,16 +91,6 @@ public class DMP {
 				});
 			if (pmTrue.isEmpty()) return pmFalse;
 			return pmTrue;
-				/*.filter(nom -> {
-					for (String mot : mots) {
-						if (nom.matches(obtenirRegex.apply(mot, precisematch))) { 
-							return true; 
-						}
-					}
-					return false;
-				})
-				.flatMap(nom -> nomsMedicamentsNormalisesMin.get(nom).stream())
-				.collect(Collectors.toSet());*/
 		});
 	}
 

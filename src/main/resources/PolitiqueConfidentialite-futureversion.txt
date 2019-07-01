@@ -2,7 +2,7 @@ Politique de confidentialité
 
 Application Mes médicaments
 
-Version du 1 juillet 2019
+Version du 28 juin 2019
 
 L'application propose à l'utilisateur de renseigner ses identifiants de connexion au site Internet "Dossier Médical Partagé" (abrégé DMP), édité par la Caisse nationale de l'assurance maladie et consultable à la date de mise à jour de cette politique à l'adresse https://www.dmp.fr, afin d'en extraire certaines informations, consultables ensuite sur l'application Mes médicaments. 
 Il est rappelé à l'utilisateur que cette application n'a aucun lien avec la Caisse nationale de l'assurance maladie, ni avec la marque DMP, et n'a pas obtenu de quelconque certification de leur part. De ce fait la Caisse nationale de l'assurance maladie ne saurait être tenue responsable des informations affichées sur l'application Mes médicaments.
@@ -68,7 +68,11 @@ Les données servant à maintenir temporairement la connexion à l'espace person
 
 4. Droits de l'utilisateur
 
-Il est possible pour l'utilisateur de demander l'accès et/ou l'effacement des données le concernant par courrier électronique à l'adresse de contact spécifiée à la section 6. Il est possible qu'à cette occasion des données personnelles déjà obtenues via le logiciel serveur soient demandées à l'utilisateur, à seule fin de vérifier son identité. 
+L'application considère qu'une connexion réussie au DMP via l'application suffit à certifier l'identité de l'utilisateur.
+
+Il est possible pour l'utilisateur ayant établi une telle connexion de demander l'accès et/ou l'effacement des données le concernant directement depuis la page "Informations sur l'application" accessible depuis l'application. 
+
+Au cas où les données de l'application seraient effacées, ou bien au cas où l'utilisateur ait un appareil différent n'ayant pas encore établi une telle connexion, l'utilisateur devra alors faire telle une demande par courrier électronique à l'adresse de contact spécifiée à la section 6. Il est possible qu'à cette occasion des données personnelles déjà obtenues via le logiciel serveur soient demandées à l'utilisateur, à seule fin de vérifier son identité. 
 
 
 5. Lieux de traitement des données

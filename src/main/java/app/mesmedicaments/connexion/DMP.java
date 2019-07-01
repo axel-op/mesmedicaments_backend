@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import com.google.common.collect.Sets;
 import com.microsoft.azure.storage.StorageException;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -66,7 +67,7 @@ public class DMP {
 		else { return "(?i:.*\\b" + mot + ".*)"; }
 	};
 
-	private static Set<Long> rechercherMedicament (String recherche, boolean precisematch) 
+	private static Set<Long> rechercherMedicament (String recherche) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		return cacheRecherche.computeIfAbsent(recherche, exp -> {
@@ -75,8 +76,22 @@ public class DMP {
 				.toLowerCase()
 				.trim();
 			final String[] mots = expNorm.split(" ");
-			return nomsMedicamentsNormalisesMin.keySet().stream().parallel()
-				.filter(nom -> {
+			Set<Long> pmTrue = Sets.newConcurrentHashSet();
+			Set<Long> pmFalse = Sets.newConcurrentHashSet();
+			nomsMedicamentsNormalisesMin.keySet().stream().parallel()
+				.forEach(nom -> {
+					for (String mot : mots) {
+						if (nom.matches(obtenirRegex.apply(mot, true))) {
+							pmTrue.addAll(nomsMedicamentsNormalisesMin.get(nom));
+						}
+						else if (pmTrue.isEmpty() && nom.matches(obtenirRegex.apply(mot, false))) {
+							pmFalse.addAll(nomsMedicamentsNormalisesMin.get(nom));
+						}
+					}
+				});
+			if (pmTrue.isEmpty()) return pmFalse;
+			return pmTrue;
+				/*.filter(nom -> {
 					for (String mot : mots) {
 						if (nom.matches(obtenirRegex.apply(mot, precisematch))) { 
 							return true; 
@@ -85,7 +100,7 @@ public class DMP {
 					return false;
 				})
 				.flatMap(nom -> nomsMedicamentsNormalisesMin.get(nom).stream())
-				.collect(Collectors.toSet());
+				.collect(Collectors.toSet());*/
 		});
 	}
 
@@ -204,8 +219,8 @@ public class DMP {
 							break;
 			}
 			if (!mot.equals("")) {
-				Set<Long> resultats = rechercherMedicament(mot, true);
-				if (resultats.isEmpty()) { resultats = rechercherMedicament(mot, false); }
+				Set<Long> resultats = rechercherMedicament(mot);
+				//if (resultats.isEmpty()) { resultats = rechercherMedicament(mot, false); }
 				if (classement.isEmpty()) { 
 					resultats.forEach(resultat -> classement.put(resultat, 1.0)); 
 				}

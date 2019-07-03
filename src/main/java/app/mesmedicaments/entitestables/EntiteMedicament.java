@@ -33,6 +33,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     String marque;
     String substancesActives;
     String presentations;
+    String effetsIndesirables;
 
     public EntiteMedicament (long codeCIS) 
         throws StorageException, InvalidKeyException, URISyntaxException 
@@ -48,6 +49,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     public String getForme () { return forme; }
     public String getAutorisation () { return autorisation; }
     public String getMarque () { return marque; }
+    public String getEffetsIndesirables () { return effetsIndesirables; }
     public JSONArray obtenirNomsJArray () { 
         if (noms == null) { return new JSONArray(); }
         return new JSONArray(noms); 
@@ -85,6 +87,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     public void setAutorisation (String autorisation) { this.autorisation = autorisation; }
     public void setMarque (String marque) { this.marque = marque; }
     public void setPresentations (String presentations) { this.presentations = presentations; }
+    public void setEffetsIndesirables (String effets) { this.effetsIndesirables = effets; }
 
     public void definirPresentationsJObject (JSONObject presentations) {
         if (presentations == null) this.presentations = new JSONObject().toString();

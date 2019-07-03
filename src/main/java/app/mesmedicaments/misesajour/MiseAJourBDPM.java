@@ -7,18 +7,27 @@ import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.InvalidKeyException;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.jsoup.Connection;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
 import app.mesmedicaments.Utils;
 import app.mesmedicaments.entitestables.EntiteDateMaj;
@@ -223,6 +232,58 @@ public final class MiseAJourBDPM {
 			});
 		logger.info("Présentations récupérées en " + Utils.tempsDepuis(startTime) + " ms");
 		return presentations;
+	}
+
+	private static Set<EntiteMedicament> entitesMedicaments = new HashSet<>();
+
+	public static void importerEffetsIndesirables (Logger logger) 
+		throws StorageException, URISyntaxException, InvalidKeyException
+	{
+		if (entitesMedicaments.isEmpty()) {
+			entitesMedicaments = StreamSupport.stream(
+				EntiteMedicament.obtenirToutesLesEntites().spliterator(), false
+			).collect(Collectors.toSet());
+		}
+		AtomicInteger compteur = new AtomicInteger(0);
+		int total = entitesMedicaments.size();
+		entitesMedicaments.stream().parallel().forEach((EntiteMedicament entiteM) -> {
+			try {
+				Connection connexion = Jsoup.connect(
+					"http://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid="
+					+ entiteM.obtenirCodeCis()
+					+ "&typedoc=N"
+				);
+				connexion.method(Connection.Method.GET)
+					.userAgent(System.getenv("user_agent"))
+					.execute();
+				Document rep = connexion.response().parse();
+				//System.out.println(rep.text());
+				String texte = "";
+				Boolean balise = null;
+				for (Element el : rep.getAllElements()) {
+					if (balise != null && !balise) break;
+					if (el.hasAttr("name") && el.attr("name").contains("EffetsIndesirables")) balise = true;
+					if (balise != null && balise) {
+						if (!el.tagName().equals("h2")) {
+							if (texte.length() > 0) texte += Utils.NEWLINE;
+							texte += el.ownText();
+						}
+						else balise = false;
+					}
+				}
+				entiteM.setEffetsIndesirables(texte);
+				entiteM.mettreAJourEntite();
+				logger.info(compteur.incrementAndGet() + "/" + total);
+			}
+			catch (IOException e) {
+				logger.warning("Erreur d'importation des effets indésirables pour le médicament " + entiteM.obtenirCodeCis());
+				Utils.logErreur(e, logger);
+			}
+			catch (StorageException e) {
+				Utils.logErreur(e, logger);
+				throw new RuntimeException();
+			}
+		});
 	}
 
 	private static Double formaterPrix (String prix) {

@@ -219,7 +219,8 @@ public final class Utils {
 			.put("autorisation", entiteM.getAutorisation())
 			.put("codecis", entiteM.getRowKey())
 			.put("substances", substances)
-			.put("presentations", entiteM.obtenirPresentationsJObject());
+			.put("presentations", entiteM.obtenirPresentationsJObject())
+			.put("effetsIndesirables", Optional.ofNullable(entiteM.getEffetsIndesirables()).orElse(""));
 	}
 
 

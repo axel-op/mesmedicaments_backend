@@ -89,6 +89,15 @@ public class PrivateTriggers {
 					corps = "Mise à jour des interactions terminée.";
 				}
 				break;
+			case 4:
+				try {
+					MiseAJourBDPM.importerEffetsIndesirables(logger);
+					codeHttp = HttpStatus.OK;
+				}
+				catch (StorageException | URISyntaxException | InvalidKeyException e) {
+					Utils.logErreur(e, logger);
+				}
+				break;
 			default:
 				codeHttp = HttpStatus.BAD_REQUEST;
 				corps = "Le paramètre maj de la requête n'est pas reconnu.";

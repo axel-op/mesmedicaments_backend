@@ -166,6 +166,41 @@ public final class PublicTriggers {
 		return request.createResponseBuilder(codeHttp).build();
 	}
 
+	@FunctionName("medicament")
+	public HttpResponseMessage medicament (
+		@HttpTrigger(
+			name = "medicamentTrigger",
+			authLevel = AuthorizationLevel.ANONYMOUS,
+			methods = {HttpMethod.GET},
+			route = "medicament/{code:int}"
+		) final HttpRequestMessage<Optional<String>> request,
+		@BindingName("code") Integer codeCis,
+		final ExecutionContext context
+	) {
+		Logger logger = context.getLogger();
+		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
+		verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+		JSONObject reponse = new JSONObject();
+		try {
+			reponse.put(
+				"medicament", 
+				Utils.medicamentEnJson(
+					Utils.obtenirEntiteMedicament(codeCis.longValue()).get(), 
+					logger
+				)
+			);
+			codeHttp = HttpStatus.OK;
+		}
+		catch (IllegalArgumentException | NoSuchElementException e) {
+			codeHttp = HttpStatus.BAD_REQUEST;
+		}
+		catch (StorageException | URISyntaxException | InvalidKeyException e) {
+			Utils.logErreur(e, logger);
+			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
+		}
+		return construireReponse(codeHttp, reponse, request);
+	}
+
 	@FunctionName("recherche")
 	public HttpResponseMessage recherche (
 		@HttpTrigger(

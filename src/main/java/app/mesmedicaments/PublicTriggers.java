@@ -45,6 +45,7 @@ public final class PublicTriggers {
 
 	private static final String CLE_CAUSE = "cause";
 	private static final String CLE_HEURE = "heure";
+	private static final String CLE_VERSION = "versionapplication";
 	private static final String CLE_ERREUR_AUTH = Authentification.CLE_ERREUR;
 	private static final String CLE_ENVOI_CODE = Authentification.CLE_ENVOI_CODE;
 	private static final String ERR_INTERNE = Authentification.ERR_INTERNE;
@@ -220,7 +221,8 @@ public final class PublicTriggers {
 			if (recherche.length() > 100) throw new IllegalArgumentException();
 			recherche = Utils.normaliser(recherche).toLowerCase();
 			logger.info("Recherche de \"" + recherche + "\"");
-			JSONArray resultats = EntiteCacheRecherche.obtenirResultatsCache(recherche);
+			String version = request.getHeaders().get(CLE_VERSION);
+			JSONArray resultats = EntiteCacheRecherche.obtenirResultatsCache(recherche, version != null);
 			corpsReponse.put("resultats", resultats);
 			logger.info(resultats.length() + " résultats trouvés");
 		}	

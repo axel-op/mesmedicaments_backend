@@ -1,5 +1,6 @@
 package app.mesmedicaments;
 
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.text.Normalizer;
@@ -50,6 +51,17 @@ public final class Utils {
 	}
 
 	private Utils () {}
+
+	public static String[] decouperTexte (String texte, int nbrDecoupes) {
+		String[] retour = new String[nbrDecoupes];
+		for (int i = 1; i <= nbrDecoupes; i++) {
+			retour[i - 1] = texte.substring(
+				texte.length() / nbrDecoupes * (i - 1), 
+				i == nbrDecoupes ? texte.length() : texte.length() / nbrDecoupes * i
+			);
+		}
+		return retour;
+	}
 
 	public static LocalDateTime dateToLocalDateTime (Date date) {
 		return LocalDateTime.ofInstant(date.toInstant(), Utils.TIMEZONE);
@@ -212,8 +224,8 @@ public final class Utils {
 					throw new RuntimeException("Erreur lors de la récupération des substances");
 				}
 			});
-		return new JSONObject()
-			.put("noms", entiteM.getNoms())
+		JSONObject retour = new JSONObject()
+			.put("noms", entiteM.obtenirNomsJArray())
 			.put("forme", entiteM.getForme())
 			.put("marque", entiteM.getMarque())
 			.put("autorisation", entiteM.getAutorisation())
@@ -221,6 +233,13 @@ public final class Utils {
 			.put("substances", substances)
 			.put("presentations", entiteM.obtenirPresentationsJObject())
 			.put("effetsIndesirables", Optional.ofNullable(entiteM.getEffetsIndesirables()).orElse(""));
+		try {
+			retour.put("expressionsCles", new JSONArray(AnalyseTexte.obtenirExpressionsClesEffets(entiteM)));
+		}
+		catch (IOException e) {
+			Utils.logErreur(e, logger);
+		}
+		return retour;
 	}
 
 

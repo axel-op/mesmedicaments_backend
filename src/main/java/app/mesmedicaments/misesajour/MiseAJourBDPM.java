@@ -9,8 +9,8 @@ import java.net.URL;
 import java.security.InvalidKeyException;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,7 +24,6 @@ import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -248,15 +247,14 @@ public final class MiseAJourBDPM {
 		int total = entitesMedicaments.size();
 		entitesMedicaments.stream().parallel().forEach((EntiteMedicament entiteM) -> {
 			try {
-				Connection connexion = Jsoup.connect(
-					"http://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid="
+				final String url = "http://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid="
 					+ entiteM.obtenirCodeCis()
-					+ "&typedoc=N"
-				);
+					+ "&typedoc=N";
+				/*Connection connexion = Jsoup.connect(url);
 				connexion.method(Connection.Method.GET)
-					.userAgent(System.getenv("user_agent"))
 					.execute();
-				Document rep = connexion.response().parse();
+				Document rep = connexion.response().parse();*/
+				Document rep = Jsoup.parse(new URL(url).openStream(), "ISO-8859-1", url);
 				//System.out.println(rep.text());
 				String texte = "";
 				Boolean balise = null;
@@ -265,8 +263,10 @@ public final class MiseAJourBDPM {
 					if (el.hasAttr("name") && el.attr("name").contains("EffetsIndesirables")) balise = true;
 					if (balise != null && balise) {
 						if (!el.tagName().equals("h2")) {
-							if (texte.length() > 0) texte += Utils.NEWLINE;
-							texte += el.ownText();
+							if (el.tagName().equals("p")) {
+								if (texte.length() > 0) texte += Utils.NEWLINE;
+								texte += el.text();
+							}
 						}
 						else balise = false;
 					}

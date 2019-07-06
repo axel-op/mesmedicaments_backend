@@ -276,6 +276,7 @@ public final class PublicTriggers {
 		}
 		catch (JwtException
 			| IllegalArgumentException e) {
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.UNAUTHORIZED;
 		}
 		catch (Exception e)

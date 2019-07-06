@@ -74,7 +74,7 @@ public class PrivateTriggers {
 			case 1:
 				if (MiseAJourBDPM.handler(logger)) {
 					codeHttp = HttpStatus.OK;
-					corps = "Mise à jour des substances terminée.";
+					corps = "Mise à jour des produits terminée.";
 				}
 				break;
 			case 2:

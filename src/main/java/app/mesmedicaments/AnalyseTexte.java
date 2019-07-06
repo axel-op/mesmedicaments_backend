@@ -35,8 +35,8 @@ public class AnalyseTexte {
         if (optEntiteE.isPresent()) return optEntiteE.get().obtenirEffetsIndesirablesSet();
         String texte = entiteM.getEffetsIndesirables()
             .replaceFirst("Comme tous les médicaments, ce médicament peut provoquer des effets indésirables, mais ils ne surviennent pas systématiquement chez tout le monde\\.", "")
-            .replaceAll("?dème", "œdème")
-            .replaceAll("c?ur", "cœur");
+            .replaceAll("\\?dème", "œdème")
+            .replaceAll("c\\?ur", "cœur");
         Set<String> exprCles = executerRequeteAPI(texte);
         EntiteExpressionsCles entiteE = new EntiteExpressionsCles(entiteM.obtenirCodeCis());
         entiteE.definirEffetsIndesirablesCollection(exprCles);

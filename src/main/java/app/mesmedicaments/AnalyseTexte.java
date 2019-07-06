@@ -25,17 +25,18 @@ import app.mesmedicaments.entitestables.EntiteMedicament;
 
 public class AnalyseTexte {
 
-    // TODO private final String ADRESSE_API = System.getenv("analysetexte_adresseapi");
-    private static final String ADRESSE_API = "https://francecentral.api.cognitive.microsoft.com/text/analytics/v2.1/keyPhrases";
-    // TODO private final String CLE_API = System.getenv("analysetexte_cleapi");
-    private static final String CLE_API = "b8633dc42a42426a993c8bcd30007c51";
+    private static final String ADRESSE_API = System.getenv("analysetexte_adresseapi");
+    private static final String CLE_API = System.getenv("analysetexte_cleapi");
 
     public static Set<String> obtenirExpressionsClesEffets (EntiteMedicament entiteM) 
         throws StorageException, URISyntaxException, InvalidKeyException, IOException
     {
         Optional<EntiteExpressionsCles> optEntiteE = EntiteExpressionsCles.obtenirEntite(entiteM.obtenirCodeCis());
         if (optEntiteE.isPresent()) return optEntiteE.get().obtenirEffetsIndesirablesSet();
-        String texte = entiteM.getEffetsIndesirables().replaceFirst("Comme tous les médicaments, ce médicament peut provoquer des effets indésirables, mais ils ne surviennent pas systématiquement chez tout le monde\\.", "");
+        String texte = entiteM.getEffetsIndesirables()
+            .replaceFirst("Comme tous les médicaments, ce médicament peut provoquer des effets indésirables, mais ils ne surviennent pas systématiquement chez tout le monde\\.", "")
+            .replaceAll("?dème", "œdème")
+            .replaceAll("c?ur", "cœur");
         Set<String> exprCles = executerRequeteAPI(texte);
         EntiteExpressionsCles entiteE = new EntiteExpressionsCles(entiteM.obtenirCodeCis());
         entiteE.definirEffetsIndesirablesCollection(exprCles);

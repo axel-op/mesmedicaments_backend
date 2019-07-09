@@ -50,7 +50,7 @@ public class DMP {
 	private DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
 	private static final Function<String, String> normaliser = nom -> cacheNormalisation
-		.putIfAbsent(nom, Utils.normaliser(nom)
+		.computeIfAbsent(nom, k -> Utils.normaliser(nom)
 			.replaceAll("  ", " ")
 			.toLowerCase()
 			.trim());

@@ -10,6 +10,7 @@ import java.security.InvalidKeyException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -18,13 +19,17 @@ import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import javax.net.ssl.HttpsURLConnection;
 
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.microsoft.azure.storage.StorageException;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -38,26 +43,28 @@ import app.mesmedicaments.entitestables.*;
 public class DMP {
 
 	private static ConcurrentMap<String, Set<Long>> nomsMedicamentsNormalisesMin = new ConcurrentHashMap<>();
+	private static ConcurrentMap<String, String> cacheNormalisation = new ConcurrentHashMap<>();
 	private static ConcurrentMap<String, Set<Long>> cacheRecherche = new ConcurrentHashMap<>();
 	private static ConcurrentMap<String, Optional<Long>> cacheCorrespondances = new ConcurrentHashMap<>();
+	private static ConcurrentMap<String, String> cacheTransformationMot = new ConcurrentHashMap<>();
 	private DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+	private static final Function<String, String> normaliser = nom -> cacheNormalisation
+		.putIfAbsent(nom, Utils.normaliser(nom)
+			.replaceAll("  ", " ")
+			.toLowerCase()
+			.trim());
 
 	private static Map<String, Set<Long>> importerNomsMedicamentsNormalisesMin () 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		Map<String, Set<Long>> nomsMed = new HashMap<>();
+		ConcurrentMap<String, Set<Long>> nomsMed = new ConcurrentHashMap<>();
 		for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
-			entite.obtenirNomsJArray().forEach(
-				nom -> nomsMed
-					.computeIfAbsent(
-						Utils.normaliser(nom.toString())
-						.replaceAll("  ", " ")
-						.toLowerCase()
-						.trim(), 
-						cle -> new HashSet<>()
-					)
+			StreamSupport.stream(entite.obtenirNomsJArray().spliterator(), true)
+				.map(nom -> normaliser.apply(nom.toString()))
+				.forEach(nom -> nomsMed.computeIfAbsent(nom, k -> new HashSet<>())
 					.add(entite.obtenirCodeCis())
-			);
+				);
 		}
 		return nomsMed;
 	}
@@ -67,26 +74,23 @@ public class DMP {
 		else { return "(?i:.*\\b" + mot + ".*)"; }
 	};
 
-	private static Set<Long> rechercherMedicament (String recherche) 
+	private static Set<Long> rechercherMedicament (String mot) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		return cacheRecherche.computeIfAbsent(recherche, exp -> {
-			final String expNorm = Utils.normaliser(exp)
-				.replaceAll("  ", " ")
-				.toLowerCase()
-				.trim();
-			final String[] mots = expNorm.split(" ");
+		return cacheRecherche.computeIfAbsent(mot, exp -> {
+			/*Set<String> mots = Streams.stream(Arrays.asList(exp.split(" ")).iterator())
+				.map((mot) -> normaliser.apply(mot))
+				.collect(Collectors.toSet());*/
+			final String expNorm = normaliser.apply(exp);
 			Set<Long> pmTrue = Sets.newConcurrentHashSet();
 			Set<Long> pmFalse = Sets.newConcurrentHashSet();
 			nomsMedicamentsNormalisesMin.keySet().stream().parallel()
-				.forEach(nom -> {
-					for (String mot : mots) {
-						if (nom.matches(obtenirRegex.apply(mot, true))) {
-							pmTrue.addAll(nomsMedicamentsNormalisesMin.get(nom));
-						}
-						else if (pmTrue.isEmpty() && nom.matches(obtenirRegex.apply(mot, false))) {
-							pmFalse.addAll(nomsMedicamentsNormalisesMin.get(nom));
-						}
+				.forEach(nomMed -> {	
+					if (nomMed.matches(obtenirRegex.apply(expNorm, true))) {
+						pmTrue.addAll(nomsMedicamentsNormalisesMin.get(nomMed));
+					}
+					else if (pmTrue.isEmpty() && nomMed.matches(obtenirRegex.apply(expNorm, false))) {
+						pmFalse.addAll(nomsMedicamentsNormalisesMin.get(nomMed));
 					}
 				});
 			if (pmTrue.isEmpty()) return pmFalse;
@@ -147,13 +151,7 @@ public class DMP {
 		aChercher.entrySet().stream().parallel()
 			.forEach((entree) -> {
 				Set<Long> corr = entree.getValue().stream().parallel()
-					.map((terme) -> {
-						try { return trouverCorrespondanceMedicament(terme); }
-						catch (StorageException | URISyntaxException | InvalidKeyException e) {
-							Utils.logErreur(e, logger);
-							throw new RuntimeException();
-						}
-					})
+					.map((terme) -> trouverCorrespondanceMedicament(terme, logger))
 					.filter((opt) -> opt.isPresent())
 					.map((opt) -> opt.get())
 					.collect(Collectors.toSet());
@@ -165,64 +163,62 @@ public class DMP {
 		return medParDate;
 	}
 
-	private Optional<Long> trouverCorrespondanceMedicament (String recherche) 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
+	private static final Function<String, String> transformerMot = leMot -> cacheTransformationMot
+		.computeIfAbsent(leMot, mot -> {
+			if (mot.matches("[0-9,].*")) return mot.split("[^0-9,]")[0];
+			if (mot.matches("[^0-9]+[0-9].*")) return mot.split("[0-9]")[0];
+			if (mot.equals("mg") || mot.equals("-")) return "";
+			switch (mot) {
+				case "myl": return "mylan";
+				case "sdz": return "sandoz";
+				case "bga": return "biogaran";
+				case "tvc": return "teva";
+				case "sol": return "solution";
+				case "solbu": return "solution buvable";
+				case "cpr": return "comprimé";
+				case "eff": return "effervescent";
+				case "inj": return "injectable";
+				case "ser": return "seringue";
+			}
+			return mot;
+		});
+
+	private Optional<Long> trouverCorrespondanceMedicament (String recherche, Logger logger) {
 		Optional<Long> cache = cacheCorrespondances.get(recherche);
 		if (cache != null) return cache;
 		if (recherche.matches(" *")) { return Optional.empty(); }
-		HashMap<Long, Double> classement = new HashMap<>();
-		boolean devraitTrouver = true;
-		for (String mot : recherche.split(" ")) {
-			mot = mot.toLowerCase();
-			if (mot.equals("-") // ? ne devrait pas aller avec les deux lignes du dessous
-				|| mot.equals("verre")
-				|| mot.equals("monture"))
-			{
-				devraitTrouver = false;
-				break; 
-			}
-			if (mot.matches("[0-9,].*")) { mot = mot.split("[^0-9,]")[0]; }
-			if (mot.matches("[^0-9]+[0-9].*")) { mot = mot.split("[0-9]")[0]; }
-			if (mot.equals("mg")) { mot = ""; }
-			switch (mot) {
-				case "myl": mot = "mylan";
-							break;
-				case "sdz": mot = "sandoz";
-							break;
-				case "bga": mot = "biogaran";
-							break;
-				case "tvc": mot = "teva";
-							break;
-				case "sol": mot = "solution";
-							break;
-				case "solbu": 
-							mot = "solution buvable";
-							break;
-				case "cpr": mot = "comprimé";
-							break;
-				case "eff": mot = "effervescent";
-							break;
-				case "inj": mot = "injectable";
-							break;
-				case "ser": mot = "seringue";
-							break;
-			}
-			if (!mot.equals("")) {
-				Set<Long> resultats = rechercherMedicament(mot);
-				//if (resultats.isEmpty()) { resultats = rechercherMedicament(mot, false); }
-				if (classement.isEmpty()) { 
-					resultats.forEach(resultat -> classement.put(resultat, 1.0)); 
+		ConcurrentMap<Long, Double> classement = new ConcurrentHashMap<>();
+		AtomicBoolean devraitTrouver = new AtomicBoolean(true);
+		Streams.stream(Arrays.asList(recherche.split(" ")).iterator())
+			.parallel()
+			.forEach(mot -> {
+				try {
+					mot = mot.toLowerCase();
+					if (mot.equals("verre")
+						|| mot.equals("monture"))
+					{ devraitTrouver.set(false); }
+					if (devraitTrouver.get()) {
+						mot = transformerMot.apply(mot);
+						if (!mot.equals("")) {
+							Set<Long> resultats = rechercherMedicament(mot);
+							if (classement.isEmpty()) { 
+								resultats.forEach(resultat -> classement.put(resultat, 1.0)); 
+							}
+							else { 
+								resultats.stream()
+									.filter(resultat -> classement.containsKey(resultat))
+									.forEach(resultat -> classement.put(resultat, classement.get(resultat) + 1.0));
+							}
+						}
+					}
 				}
-				else { 
-					resultats.stream()
-						.filter(resultat -> classement.containsKey(resultat))
-						.forEach(resultat -> classement.put(resultat, classement.get(resultat) + 1.0));
+				catch (StorageException | URISyntaxException | InvalidKeyException e) {
+					Utils.logErreur(e, logger);
+					throw new RuntimeException();
 				}
-			}
-		}
+			});
 		if (classement.isEmpty()) { 
-			if (devraitTrouver) {
+			if (devraitTrouver.get()) {
 				LOGGER.info("Pas de médicament trouvé pour : " + recherche);
 			}
 			cacheCorrespondances.put(recherche, Optional.empty());

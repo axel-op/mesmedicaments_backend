@@ -2,7 +2,11 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import com.microsoft.azure.storage.StorageException;
 
@@ -50,30 +54,51 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     public String getAutorisation () { return autorisation; }
     public String getMarque () { return marque; }
     public String getEffetsIndesirables () { return effetsIndesirables; }
+    public String getPresentations () { return presentations; }
+    public String getSubstancesActives () { return substancesActives; }
+
     public JSONArray obtenirNomsJArray () { 
         if (noms == null) { return new JSONArray(); }
         return new JSONArray(noms); 
     }
-    public String getSubstancesActives () { return substancesActives; }
-    public JSONObject obtenirSubstancesActivesJObject () {
-        if (substancesActives == null) { return new JSONObject(); }
+
+    public Set<SubstanceActive> obtenirSubstancesActives () {
+        if (substancesActives == null) { return new HashSet<>(); }
         try {
-            return new JSONObject(substancesActives);
+            JSONObject json = new JSONObject(substancesActives);
+            return json.keySet().stream()
+                .map(codeStr -> {
+                    JSONObject jsonSub = json.getJSONObject(codeStr);
+                    return new SubstanceActive(
+                        Long.parseLong(codeStr), 
+                        jsonSub.getString("dosage"), 
+                        jsonSub.getString("referenceDosage")
+                    );
+                })
+                .collect(Collectors.toSet());
         }
         catch (JSONException e) {
-            JSONObject jObject = new JSONObject();
-            new JSONArray(substancesActives)
-                .forEach((code) -> jObject.put(String.valueOf(code), new JSONObject()
-                    .put("dosage", "")
-                    .put("referenceDosage", "")
-                ));
-            return jObject;
+            return StreamSupport.stream(new JSONArray(substancesActives).spliterator(), false)
+                .map((code) -> new SubstanceActive((Long) code, null, null))
+                .collect(Collectors.toSet());
         }
     }
-    public String getPresentations () { return presentations; }
-    public JSONObject obtenirPresentationsJObject () {
-        if (presentations == null) return new JSONObject();
-        return new JSONObject(presentations);
+
+    public Set<Presentation> obtenirPresentations () {
+        if (presentations == null) return new HashSet<>();
+        JSONObject json = new JSONObject(presentations);
+        return json.keySet().stream()
+            .map(nom -> {
+                JSONObject jsonPres = json.getJSONObject(nom);
+                return new Presentation(
+                    nom, 
+                    jsonPres.getDouble("prix"), 
+                    jsonPres.getInt("tauxRemboursement"), 
+                    jsonPres.getDouble("honorairesDispensation"), 
+                    jsonPres.getString("conditionsRemboursement")
+                );
+            })
+            .collect(Collectors.toSet());
     }
 
     public Long obtenirCodeCis () {
@@ -89,25 +114,67 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     public void setPresentations (String presentations) { this.presentations = presentations; }
     public void setEffetsIndesirables (String effets) { this.effetsIndesirables = effets; }
 
-    public void definirPresentationsJObject (JSONObject presentations) {
+    public void definirPresentations (Iterable<Presentation> presentations) {
         if (presentations == null) this.presentations = new JSONObject().toString();
-        else this.presentations = presentations.toString();
+        else {
+            JSONObject json = new JSONObject();
+            for (Presentation presentation : presentations) {
+                json.put(presentation.nom, new JSONObject()
+                    .put("prix", presentation.prix)
+                    .put("tauxRemboursement", presentation.tauxRemboursement)
+                    .put("honorairesDispensation", presentation.honorairesDispensation)
+                    .put("conditionsRemboursement", presentation.conditionsRemboursement)
+                );
+            }
+            this.presentations = json.toString();
+        }
     }
 
     public void definirNomsJArray (JSONArray noms) {
         this.noms = noms.toString();
     }
 
-    public void ajouterNom (String nom) {
-        JSONArray noms = new JSONArray(this.noms);
-        noms.put(nom);
-        this.noms = noms.toString();
-    }
-
     public void setSubstancesActives (String substancesActives) { this.substancesActives = substancesActives; }
 
-    public void definirSubstancesActivesJObject (JSONObject jObject) {
-        this.substancesActives = jObject.toString();
+    public void definirSubstancesActives (Iterable<SubstanceActive> substances) {
+        JSONObject json = new JSONObject();
+        for (SubstanceActive substance : substances) {
+            json.put(substance.codeSubstance.toString(), new JSONObject()
+                .put("dosage", substance.dosage)
+                .put("referenceDosage", substance.referenceDosage)
+            );
+        }
+        this.substancesActives = json.toString();
+    }
+
+
+    public static class SubstanceActive {
+        public final Long codeSubstance;
+        public final String dosage;
+        public final String referenceDosage;
+
+        public SubstanceActive (long code, String dosage, String referenceDosage) {
+            this.codeSubstance = code;
+            this.dosage = dosage != null ? dosage : "";
+            this.referenceDosage = referenceDosage != null ? referenceDosage : "";
+        }
+    }
+
+    public static class Presentation {
+        public final String nom;
+        public final Double prix;
+        public final Integer tauxRemboursement;
+        public final Double honorairesDispensation;
+        public final String conditionsRemboursement;
+
+        public Presentation (String nom, double prix, int tauxRemboursement, double honorairesDispensation, String conditionsRemboursement) {
+            if (nom == null) throw new IllegalArgumentException();
+            this.nom = nom;
+            this.prix = prix;
+            this.tauxRemboursement = tauxRemboursement;
+            this.honorairesDispensation = honorairesDispensation;
+            this.conditionsRemboursement = conditionsRemboursement != null ? conditionsRemboursement : "";
+        }
     }
 
 }

@@ -23,7 +23,6 @@ import java.util.stream.StreamSupport;
 import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
-import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -67,7 +66,7 @@ public final class MiseAJourBDPM {
 		BufferedReader listeSubstances = importerFichier(URL_FICHIER_COMPO);
 		if (listeSubstances == null) { return false; }
 		TreeMap<Long, TreeSet<String>> substances = new TreeMap<>();
-		TreeMap<Long, JSONObject> medSubstances = new TreeMap<>();
+		TreeMap<Long, Set<EntiteMedicament.SubstanceActive>> medSubstances = new TreeMap<>();
 		try {
 			logger.info("Parsing en cours...");
 			String ligne;
@@ -85,10 +84,11 @@ public final class MiseAJourBDPM {
 				} catch (NullPointerException e) {}
 				substances.computeIfAbsent(codesubstance, cle -> new TreeSet<>())
 					.add(nom);
-				medSubstances.computeIfAbsent(codecis, cle -> new JSONObject())
-					.put(codesubstance.toString(), new JSONObject()
-						.put("dosage", dosage)
-						.put("referenceDosage", refDosage)
+				medSubstances.computeIfAbsent(codecis, k -> new HashSet<>())
+					.add(new EntiteMedicament.SubstanceActive(
+						codesubstance, 
+						dosage, 
+						refDosage)
 					);
 			}
 			double total = substances.size();
@@ -104,9 +104,9 @@ public final class MiseAJourBDPM {
 				entite.definirNomsJArray(new JSONArray(entree.getValue()));
 				entitesSubstances.add(entite);
 			}
-			for (Entry<Long, JSONObject> entree : medSubstances.entrySet()) {
+			for (Entry<Long, Set<EntiteMedicament.SubstanceActive>> entree : medSubstances.entrySet()) {
 				EntiteMedicament entite = new EntiteMedicament(entree.getKey());
-				entite.definirSubstancesActivesJObject(entree.getValue());
+				entite.definirSubstancesActives(entree.getValue());
 				entitesMedicaments.add(entite);
 			}
 			logger.info(entitesSubstances.size() + " entités Substance"
@@ -157,7 +157,7 @@ public final class MiseAJourBDPM {
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 
 				+ ((int) total) + " médicaments trouvés."
 			);
-			Map<Long, JSONObject> presentations = obtenirPresentations(logger);
+			Map<Long, Set<EntiteMedicament.Presentation>> presentations = obtenirPresentations(logger);
 			logger.info("Création des entités en cours...");
 			TreeSet<EntiteMedicament> entites = new TreeSet<>();
 			startTime = System.currentTimeMillis();
@@ -168,8 +168,7 @@ public final class MiseAJourBDPM {
 				entite.setForme(caracMed.get(codecis)[0]);
 				entite.setAutorisation(caracMed.get(codecis)[1]);
 				entite.setMarque(caracMed.get(codecis)[2]);
-				JSONObject presMed = presentations.get(codecis);
-				entite.definirPresentationsJObject(presMed);
+				entite.definirPresentations(presentations.get(codecis));
 				entites.add(entite);
 			}
 			logger.info(entites.size() + " entités Médicament créées en " + Utils.tempsDepuis(startTime) + " ms. "
@@ -196,8 +195,8 @@ public final class MiseAJourBDPM {
 	 * @param logger
 	 * @return Map avec en clé les codes CIS, en valeur un JSONObject avec pour clés les présentations
 	 */
-	private static Map<Long,JSONObject> obtenirPresentations (Logger logger) {
-		ConcurrentMap<Long, JSONObject> presentations = new ConcurrentHashMap<>();
+	private static Map<Long, Set<EntiteMedicament.Presentation>> obtenirPresentations (Logger logger) {
+		ConcurrentMap<Long, Set<EntiteMedicament.Presentation>> presentations = new ConcurrentHashMap<>();
 		logger.info("Récupération des presentations");
 		long startTime = System.currentTimeMillis();
 		importerFichier(URL_FICHIER_PRESENTATIONS)
@@ -221,13 +220,14 @@ public final class MiseAJourBDPM {
 				} catch (ArrayIndexOutOfBoundsException e) {}
 				if (prixPres == null) prixPres = 0.0;
 				if (honoraires == null) honoraires = 0.0;
-				presentations.computeIfAbsent(codeCis, (k) -> new JSONObject())
-					.put(presentation, new JSONObject()
-						.put("prix", prixPres)
-						.put("tauxRemboursement", tauxRbst)
-						.put("honorairesDispensation", honoraires)
-						.put("conditionsRemboursement", conditions)
-					);
+				presentations.computeIfAbsent(codeCis, (k) -> new HashSet<>())
+					.add(new EntiteMedicament.Presentation(
+						presentation, 
+						prixPres, 
+						tauxRbst, 
+						honoraires, 
+						conditions
+					));
 			});
 		logger.info("Présentations récupérées en " + Utils.tempsDepuis(startTime) + " ms");
 		return presentations;

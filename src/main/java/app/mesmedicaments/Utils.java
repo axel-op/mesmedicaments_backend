@@ -16,7 +16,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 import com.microsoft.azure.storage.StorageException;
 
@@ -153,17 +152,14 @@ public final class Utils {
 	public static JSONArray obtenirInteractions (EntiteMedicament entiteM1, EntiteMedicament entiteM2, Logger logger) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		Function<Set<String>, Set<Long>> strSetToIntSet = setStr -> setStr.stream()
-			.map(str -> Long.parseLong(str))
-			.collect(Collectors.toSet());
-		Set<Long> substances1 = strSetToIntSet.apply(entiteM1.obtenirSubstancesActivesJObject().keySet());
-		Set<Long> substances2 = strSetToIntSet.apply(entiteM2.obtenirSubstancesActivesJObject().keySet());
+		Set<EntiteMedicament.SubstanceActive> substances1 = entiteM1.obtenirSubstancesActives();
+		Set<EntiteMedicament.SubstanceActive> substances2 = entiteM2.obtenirSubstancesActives();
 		JSONArray interactions = new JSONArray();
 		Set<Long[]> combinaisons = new HashSet<>();
-		for (Long codeSub1 : substances1) {
-			for (Long codeSub2 : substances2) {
-				if (!codeSub1.equals(codeSub2)) {
-					Long[] combinaison = new Long[]{codeSub1, codeSub2};
+		for (EntiteMedicament.SubstanceActive sub1 : substances1) {
+			for (EntiteMedicament.SubstanceActive sub2 : substances2) {
+				if (!sub1.codeSubstance.equals(sub2.codeSubstance)) {
+					Long[] combinaison = new Long[]{sub1.codeSubstance, sub2.codeSubstance};
 					combinaisons.add(combinaison);
 				}
 			}
@@ -209,29 +205,41 @@ public final class Utils {
 	public static JSONObject medicamentEnJson (EntiteMedicament entiteM, Logger logger)
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		JSONObject substances = entiteM.obtenirSubstancesActivesJObject();
-		substances.keySet().stream().parallel()
-			.forEach((cle) -> {
+		Set<EntiteMedicament.SubstanceActive> substances = entiteM.obtenirSubstancesActives();
+		JSONObject jsonSubstances = new JSONObject();
+		substances.stream().parallel()
+			.forEach(substance -> {
 				try {
-					Long code = Long.parseLong(cle);
-					Optional<EntiteSubstance> optEntiteS = Utils.obtenirEntiteSubstance(code);
+					Optional<EntiteSubstance> optEntiteS = Utils.obtenirEntiteSubstance(substance.codeSubstance);
 					if (optEntiteS.isPresent()) {
-						substances.getJSONObject(cle)
-							.put("noms", optEntiteS.get().obtenirNomsJArray());
+						jsonSubstances.put(substance.codeSubstance.toString(), new JSONObject()
+							.put("dosage", substance.dosage)
+							.put("referenceDosage", substance.referenceDosage)
+							.put("noms", optEntiteS.get().obtenirNomsJArray())
+						);
 					}
 				} catch (StorageException | URISyntaxException | InvalidKeyException e) {
 					Utils.logErreur(e, logger);
 					throw new RuntimeException("Erreur lors de la récupération des substances");
 				}
 			});
+		JSONObject jsonPresentations = new JSONObject();
+		for (EntiteMedicament.Presentation presentation : entiteM.obtenirPresentations()) {
+			jsonPresentations.put(presentation.nom, new JSONObject()
+				.put("prix", presentation.prix)
+				.put("conditionsRemboursement", presentation.conditionsRemboursement)
+				.put("tauxRemboursement", presentation.tauxRemboursement)
+				.put("honorairesDispensation", presentation.honorairesDispensation)
+			);
+		}
 		JSONObject retour = new JSONObject()
 			.put("noms", entiteM.obtenirNomsJArray())
 			.put("forme", entiteM.getForme())
 			.put("marque", entiteM.getMarque())
 			.put("autorisation", entiteM.getAutorisation())
 			.put("codecis", entiteM.getRowKey())
-			.put("substances", substances)
-			.put("presentations", entiteM.obtenirPresentationsJObject())
+			.put("substances", jsonSubstances)
+			.put("presentations", jsonPresentations)
 			.put("effetsIndesirables", Optional.ofNullable(entiteM.getEffetsIndesirables()).orElse(""));
 		try {
 			retour.put("expressionsCles", new JSONArray(AnalyseTexte.obtenirExpressionsClesEffets(entiteM)));

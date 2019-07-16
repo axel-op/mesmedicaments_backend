@@ -78,9 +78,6 @@ public class DMP {
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		return cacheRecherche.computeIfAbsent(mot, exp -> {
-			/*Set<String> mots = Streams.stream(Arrays.asList(exp.split(" ")).iterator())
-				.map((mot) -> normaliser.apply(mot))
-				.collect(Collectors.toSet());*/
 			final String expNorm = normaliser.apply(exp);
 			Set<Long> pmTrue = Sets.newConcurrentHashSet();
 			Set<Long> pmFalse = Sets.newConcurrentHashSet();

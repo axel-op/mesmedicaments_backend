@@ -221,8 +221,7 @@ public final class PublicTriggers {
 			if (recherche.length() > 100) throw new IllegalArgumentException();
 			recherche = Utils.normaliser(recherche).toLowerCase();
 			logger.info("Recherche de \"" + recherche + "\"");
-			String version = request.getHeaders().get(CLE_VERSION);
-			JSONArray resultats = EntiteCacheRecherche.obtenirResultatsCache(recherche, version != null);
+			JSONArray resultats = EntiteCacheRecherche.obtenirResultatsCache(recherche);
 			corpsReponse.put("resultats", resultats);
 			logger.info(resultats.length() + " résultats trouvés");
 		}	

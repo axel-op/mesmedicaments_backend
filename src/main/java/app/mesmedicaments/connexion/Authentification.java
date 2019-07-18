@@ -29,51 +29,29 @@ import io.jsonwebtoken.UnsupportedJwtException;
 
 public final class Authentification {
 
-	public static final String CLE_ERREUR;
-	public static final String CLE_ENVOI_CODE;
-	public static final String CLE_SID;
-	public static final String CLE_TFORMDATA;
-	public static final String CLE_COOKIES;
-	public static final String ERR_INTERNE;
-	public static final String ERR_ID;
-	public static final String ERR_SQL;
-	public static final String ENVOI_SMS;
-	public static final String ENVOI_MAIL;
+	public static final String ERR_INTERNE = "interne";
+	public static final String ERR_ID = "mauvais identifiants";
+	public static final String ENVOI_SMS = "SMS";
+	public static final String ENVOI_MAIL = "Courriel";
+	public static final String CLE_ERREUR = "erreur";
+	public static final String CLE_ENVOI_CODE = "envoiCode";
+	public static final String CLE_COOKIES = "cookies";
+	public static final String CLE_SID = "sid";
+	public static final String CLE_TFORMDATA = "tformdata";
 
-	private static final String REGEX_ACCUEIL;
-	private static final String USERAGENT;
-	private static final String URL_CHOIX_CODE;
-	private static final String URL_CONNEXION_DMP;
-	private static final String URL_POST_FORM_DMP;
-	private static final String URL_ENVOI_CODE;
-	private static final String URL_INFOS_DMP;
-	//private static final String ID_MSI;
-	private static SignatureAlgorithm JWT_SIGNING_ALG;
-    private static String JWT_SIGNING_KEY;
-	
-	static {
-		ERR_INTERNE = "interne";
-		ERR_ID = "mauvais identifiants";
-		ERR_SQL = "erreur lors de l'enregistrement BDD";
-		ENVOI_SMS = "SMS";
-		ENVOI_MAIL = "Courriel";
-		REGEX_ACCUEIL = System.getenv("regex_reussite_da");
-		USERAGENT = System.getenv("user_agent");
-		URL_CHOIX_CODE = System.getenv("url_post_choix_code");
-		URL_CONNEXION_DMP = System.getenv("url_connexion_dmp");
-		URL_POST_FORM_DMP = System.getenv("url_post_form_dmp");
-		URL_ENVOI_CODE = System.getenv("url_post_envoi_code");
-		URL_INFOS_DMP = System.getenv("url_infos_dmp");
-		//ID_MSI = System.getenv("msi_auth");
-		CLE_ERREUR = "erreur";
-		CLE_ENVOI_CODE = "envoiCode";
-		CLE_COOKIES = "cookies";
-		CLE_SID = "sid";
-		CLE_TFORMDATA = "tformdata";
-		JWT_SIGNING_ALG = SignatureAlgorithm.HS512;
-		JWT_SIGNING_KEY = "SuperSecretTest";
-		///////////////// TODO définir un secret et le lier à une variable d'environnement
-	}
+	private static final String REGEX_ACCUEIL = System.getenv("regex_reussite_da");
+	private static final String USERAGENT = System.getenv("user_agent");
+	private static final String URL_CHOIX_CODE = System.getenv("url_post_choix_code");
+	private static final String URL_CONNEXION_DMP = System.getenv("url_connexion_dmp");
+	private static final String URL_POST_FORM_DMP = System.getenv("url_post_form_dmp");
+	private static final String URL_ENVOI_CODE = System.getenv("url_post_envoi_code");
+	private static final String URL_INFOS_DMP = System.getenv("url_infos_dmp");
+	private static final String URL_LISTE_DOCS = System.getenv("url_liste_docs_dmp");
+	private static final String URL_BASE = System.getenv("url_base_dmp");
+	//ID_MSI = System.getenv("msi_auth");
+	private static final SignatureAlgorithm JWT_SIGNING_ALG = SignatureAlgorithm.HS512;
+	private static final String JWT_SIGNING_KEY = "SuperSecretTest";
+	///////////////// TODO définir un secret et le lier à une variable d'environnement
 
 	public static String getIdFromToken (String jwt) 
 		throws SignatureException, 
@@ -238,7 +216,7 @@ public final class Authentification {
 	}
 
 	private Optional<String> obtenirURLFichierRemboursements (Map<String, String> cookies) throws IOException {
-		Connection connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr/dmp/documents/liste/raz");
+		Connection connexion = Jsoup.connect(URL_LISTE_DOCS);
 		connexion.method(Connection.Method.GET)
 			.userAgent(USERAGENT)
 			.cookies(cookies)
@@ -247,7 +225,8 @@ public final class Authentification {
 		String attribut;
 		try {
 			attribut = doc.getElementsContainingOwnText("de remboursement").attr("href");
-			connexion = Jsoup.connect("https://mondmp3.dmp.gouv.fr" + attribut);
+			// TODO idem
+			connexion = Jsoup.connect(URL_BASE + attribut);
 			connexion.method(Connection.Method.GET)
 				.userAgent(USERAGENT)
 				.cookies(cookies)

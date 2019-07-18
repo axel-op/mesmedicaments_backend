@@ -407,6 +407,7 @@ public final class PublicTriggers {
 			| NoSuchElementException
 			| IllegalArgumentException e) 
 		{
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
 			corpsReponse = new JSONObjectUneCle(CLE_CAUSE, e.getMessage());
 		}

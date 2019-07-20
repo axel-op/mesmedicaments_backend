@@ -59,7 +59,7 @@ public class EntiteCacheRecherche extends AbstractEntite {
 		for (int i = 0; i < decoupes.length; i++) {
 			EntiteCacheRecherche entite = new EntiteCacheRecherche(terme, i + 1);
 			entite.setResultats(decoupes[i]);
-			entite.mettreAJourEntite();
+			//entite.mettreAJourEntite(); // TODO !!!!!!!!!!!
 			batchOp.insertOrMerge(entite);
 			if ((i + 1) % 100 == 0 || (i + 1) == decoupes.length) {
 				cloudTable.execute(batchOp);

@@ -21,14 +21,14 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import app.mesmedicaments.entitestables.EntiteExpressionsCles;
-import app.mesmedicaments.entitestables.EntiteMedicament;
+import app.mesmedicaments.entitestables.AbstractEntiteMedicament;
 
 public class AnalyseTexte {
 
     private static final String ADRESSE_API = System.getenv("analysetexte_adresseapi");
     private static final String CLE_API = System.getenv("analysetexte_cleapi");
 
-    public static Set<String> obtenirExpressionsClesEffets (EntiteMedicament entiteM) 
+    public static <Presentation extends Object> Set<String> obtenirExpressionsClesEffets (AbstractEntiteMedicament<Presentation> entiteM) 
         throws StorageException, URISyntaxException, InvalidKeyException, IOException
     {
         Optional<EntiteExpressionsCles> optEntiteE = EntiteExpressionsCles.obtenirEntite(entiteM.obtenirCodeCis());

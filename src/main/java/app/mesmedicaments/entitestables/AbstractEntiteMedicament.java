@@ -3,29 +3,21 @@ package app.mesmedicaments.entitestables;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.table.TableOperation;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class EntiteMedicament extends AbstractEntiteProduit {
+public abstract class AbstractEntiteMedicament<Presentation extends Object> extends AbstractEntiteProduit {
 
-    public static Optional<EntiteMedicament> obtenirEntite (long codeCIS)
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		return AbstractEntiteProduit.obtenirEntite("medicament", codeCIS, EntiteMedicament.class);
-	}
-
-	public static Iterable<EntiteMedicament> obtenirToutesLesEntites ()
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		return AbstractEntiteProduit.obtenirToutesLesEntites("medicament", EntiteMedicament.class);
+    public void supprimerEntite() throws StorageException, URISyntaxException, InvalidKeyException {
+        obtenirCloudTable(TABLE).execute(TableOperation.delete(this));
     }
     
     /**
@@ -39,15 +31,25 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     String presentations;
     String effetsIndesirables;
 
-    public EntiteMedicament (long codeCIS) 
+    // Constructeurs
+
+    public AbstractEntiteMedicament (String partition, long code) 
         throws StorageException, InvalidKeyException, URISyntaxException 
     {
-        super("medicament", codeCIS);
+        super(partition, code);
     }
-
-    public EntiteMedicament () throws StorageException, InvalidKeyException, URISyntaxException {}
+    
+    /**
+     * NE PAS UTILISER
+     * @throws StorageException
+     * @throws InvalidKeyException
+     * @throws URISyntaxException
+     */
+    public AbstractEntiteMedicament () throws StorageException, InvalidKeyException, URISyntaxException {}
 
     /* Getters */
+
+    public abstract Set<Presentation> obtenirPresentations();
 
     public String getNoms () { return noms; }
     public String getForme () { return forme; }
@@ -84,23 +86,6 @@ public class EntiteMedicament extends AbstractEntiteProduit {
         }
     }
 
-    public Set<Presentation> obtenirPresentations () {
-        if (presentations == null) return new HashSet<>();
-        JSONObject json = new JSONObject(presentations);
-        return json.keySet().stream()
-            .map(nom -> {
-                JSONObject jsonPres = json.getJSONObject(nom);
-                return new Presentation(
-                    nom, 
-                    jsonPres.getDouble("prix"), 
-                    jsonPres.getInt("tauxRemboursement"), 
-                    jsonPres.getDouble("honorairesDispensation"), 
-                    jsonPres.getString("conditionsRemboursement")
-                );
-            })
-            .collect(Collectors.toSet());
-    }
-
     public Long obtenirCodeCis () {
         return Long.parseLong(getRowKey());
     }
@@ -114,21 +99,7 @@ public class EntiteMedicament extends AbstractEntiteProduit {
     public void setPresentations (String presentations) { this.presentations = presentations; }
     public void setEffetsIndesirables (String effets) { this.effetsIndesirables = effets; }
 
-    public void definirPresentations (Iterable<Presentation> presentations) {
-        if (presentations == null) this.presentations = new JSONObject().toString();
-        else {
-            JSONObject json = new JSONObject();
-            for (Presentation presentation : presentations) {
-                json.put(presentation.nom, new JSONObject()
-                    .put("prix", presentation.prix)
-                    .put("tauxRemboursement", presentation.tauxRemboursement)
-                    .put("honorairesDispensation", presentation.honorairesDispensation)
-                    .put("conditionsRemboursement", presentation.conditionsRemboursement)
-                );
-            }
-            this.presentations = json.toString();
-        }
-    }
+    public abstract void definirPresentations (Iterable<Presentation> presentations);
 
     public void definirNomsJArray (JSONArray noms) {
         this.noms = noms.toString();
@@ -157,23 +128,6 @@ public class EntiteMedicament extends AbstractEntiteProduit {
             this.codeSubstance = code;
             this.dosage = dosage != null ? dosage : "";
             this.referenceDosage = referenceDosage != null ? referenceDosage : "";
-        }
-    }
-
-    public static class Presentation {
-        public final String nom;
-        public final Double prix;
-        public final Integer tauxRemboursement;
-        public final Double honorairesDispensation;
-        public final String conditionsRemboursement;
-
-        public Presentation (String nom, double prix, int tauxRemboursement, double honorairesDispensation, String conditionsRemboursement) {
-            if (nom == null) throw new IllegalArgumentException();
-            this.nom = nom;
-            this.prix = prix;
-            this.tauxRemboursement = tauxRemboursement;
-            this.honorairesDispensation = honorairesDispensation;
-            this.conditionsRemboursement = conditionsRemboursement != null ? conditionsRemboursement : "";
         }
     }
 

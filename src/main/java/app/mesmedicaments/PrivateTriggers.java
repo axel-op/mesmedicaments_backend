@@ -20,6 +20,7 @@ import com.microsoft.azure.storage.StorageException;
 
 import app.mesmedicaments.entitestables.EntiteConnexion;
 import app.mesmedicaments.misesajour.MiseAJourBDPM;
+import app.mesmedicaments.misesajour.MiseAJourBelgique;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
 import app.mesmedicaments.misesajour.MiseAJourInteractions;
 
@@ -74,7 +75,7 @@ public class PrivateTriggers {
 			case 1:
 				if (MiseAJourBDPM.handler(logger)) {
 					codeHttp = HttpStatus.OK;
-					corps = "Mise à jour des produits terminée.";
+					corps = "Mise à jour des médicaments français et des substances terminée.";
 				}
 				break;
 			case 2:
@@ -96,6 +97,12 @@ public class PrivateTriggers {
 				}
 				catch (StorageException | URISyntaxException | InvalidKeyException e) {
 					Utils.logErreur(e, logger);
+				}
+				break;
+			case 5:
+				if (MiseAJourBelgique.handler(logger)) {
+					codeHttp = HttpStatus.OK;
+					corps = "Mise à jour des médicaments belges terminée.";
 				}
 				break;
 			default:

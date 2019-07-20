@@ -59,7 +59,7 @@ public class DMP {
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		ConcurrentMap<String, Set<Long>> nomsMed = new ConcurrentHashMap<>();
-		for (EntiteMedicament entite : EntiteMedicament.obtenirToutesLesEntites()) {
+		for (EntiteMedicamentFrance entite : EntiteMedicamentFrance.obtenirToutesLesEntites()) {
 			StreamSupport.stream(entite.obtenirNomsJArray().spliterator(), true)
 				.map(nom -> normaliser.apply(nom.toString()))
 				.forEach(nom -> nomsMed.computeIfAbsent(nom, k -> new HashSet<>())

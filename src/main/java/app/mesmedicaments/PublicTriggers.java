@@ -37,7 +37,7 @@ import app.mesmedicaments.connexion.DMP;
 import app.mesmedicaments.entitestables.EntiteCacheRecherche;
 import app.mesmedicaments.entitestables.EntiteConnexion;
 import app.mesmedicaments.entitestables.EntiteDateMaj;
-import app.mesmedicaments.entitestables.EntiteMedicament;
+import app.mesmedicaments.entitestables.EntiteMedicamentFrance;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import io.jsonwebtoken.JwtException;
 
@@ -180,13 +180,13 @@ public final class PublicTriggers {
 	) {
 		Logger logger = context.getLogger();
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
-		verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 		JSONObject reponse = new JSONObject();
 		try {
+			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			reponse.put(
 				"medicament", 
-				Utils.medicamentEnJson(
-					Utils.obtenirEntiteMedicament(codeCis.longValue()).get(), 
+				Utils.medicamentFranceEnJson(
+					Utils.obtenirEntiteMedicamentFrance(codeCis.longValue()).get(), 
 					logger
 				)
 			);
@@ -312,8 +312,8 @@ public final class PublicTriggers {
 					.map((comb) -> comb.toArray(new Long[2]))
 					.map((comb) -> {
 						try {
-							EntiteMedicament entiteM1 = Utils.obtenirEntiteMedicament(comb[0]).get();
-							EntiteMedicament entiteM2 = Utils.obtenirEntiteMedicament(comb[1]).get();
+							EntiteMedicamentFrance entiteM1 = Utils.obtenirEntiteMedicamentFrance(comb[0]).get();
+							EntiteMedicamentFrance entiteM2 = Utils.obtenirEntiteMedicamentFrance(comb[1]).get();
 							return Utils.obtenirInteractions(entiteM1, entiteM2, logger); 
 						}
 						catch (StorageException | InvalidKeyException | URISyntaxException e) {
@@ -328,8 +328,8 @@ public final class PublicTriggers {
 			else if (parametres.length == 4) {
 				long codeCis1 = Long.parseLong(parametres[2]);
 				long codeCis2 = Long.parseLong(parametres[3]);
-				EntiteMedicament entiteMed1 = Utils.obtenirEntiteMedicament(codeCis1).get();
-				EntiteMedicament entiteMed2 = Utils.obtenirEntiteMedicament(codeCis2).get();
+				EntiteMedicamentFrance entiteMed1 = Utils.obtenirEntiteMedicamentFrance(codeCis1).get();
+				EntiteMedicamentFrance entiteMed2 = Utils.obtenirEntiteMedicamentFrance(codeCis2).get();
 				corpsReponse.put("interactions", Utils.obtenirInteractions(entiteMed1, entiteMed2, logger));
 				codeHttp = HttpStatus.OK;
 			}

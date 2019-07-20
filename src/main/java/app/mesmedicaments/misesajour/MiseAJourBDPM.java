@@ -29,7 +29,8 @@ import org.jsoup.nodes.Element;
 
 import app.mesmedicaments.Utils;
 import app.mesmedicaments.entitestables.EntiteDateMaj;
-import app.mesmedicaments.entitestables.EntiteMedicament;
+import app.mesmedicaments.entitestables.AbstractEntiteMedicament;
+import app.mesmedicaments.entitestables.EntiteMedicamentFrance;
 import app.mesmedicaments.entitestables.EntiteSubstance;
 
 /**
@@ -66,7 +67,7 @@ public final class MiseAJourBDPM {
 		BufferedReader listeSubstances = importerFichier(URL_FICHIER_COMPO);
 		if (listeSubstances == null) { return false; }
 		TreeMap<Long, TreeSet<String>> substances = new TreeMap<>();
-		TreeMap<Long, Set<EntiteMedicament.SubstanceActive>> medSubstances = new TreeMap<>();
+		TreeMap<Long, Set<AbstractEntiteMedicament.SubstanceActive>> medSubstances = new TreeMap<>();
 		try {
 			logger.info("Parsing en cours...");
 			String ligne;
@@ -85,7 +86,7 @@ public final class MiseAJourBDPM {
 				substances.computeIfAbsent(codesubstance, cle -> new TreeSet<>())
 					.add(nom);
 				medSubstances.computeIfAbsent(codecis, k -> new HashSet<>())
-					.add(new EntiteMedicament.SubstanceActive(
+					.add(new AbstractEntiteMedicament.SubstanceActive(
 						codesubstance, 
 						dosage, 
 						refDosage)
@@ -97,15 +98,15 @@ public final class MiseAJourBDPM {
 			);
 			logger.info("Création des entités en cours...");
 			TreeSet<EntiteSubstance> entitesSubstances = new TreeSet<>();
-			TreeSet<EntiteMedicament> entitesMedicaments = new TreeSet<>();
+			TreeSet<EntiteMedicamentFrance> entitesMedicaments = new TreeSet<>();
 			startTime = System.currentTimeMillis();
 			for (Entry<Long, TreeSet<String>> entree : substances.entrySet()) {
 				EntiteSubstance entite = new EntiteSubstance(entree.getKey());
 				entite.definirNomsJArray(new JSONArray(entree.getValue()));
 				entitesSubstances.add(entite);
 			}
-			for (Entry<Long, Set<EntiteMedicament.SubstanceActive>> entree : medSubstances.entrySet()) {
-				EntiteMedicament entite = new EntiteMedicament(entree.getKey());
+			for (Entry<Long, Set<AbstractEntiteMedicament.SubstanceActive>> entree : medSubstances.entrySet()) {
+				EntiteMedicamentFrance entite = new EntiteMedicamentFrance(entree.getKey());
 				entite.definirSubstancesActives(entree.getValue());
 				entitesMedicaments.add(entite);
 			}
@@ -115,7 +116,7 @@ public final class MiseAJourBDPM {
 			logger.info("Mise à jour de la base de données en cours...");
 			startTime = System.currentTimeMillis();
 			EntiteSubstance.mettreAJourEntitesBatch(entitesSubstances);
-			EntiteMedicament.mettreAJourEntitesBatch(entitesMedicaments);
+			AbstractEntiteMedicament.mettreAJourEntitesBatch(entitesMedicaments);
 			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms"
 			);
 		}
@@ -157,13 +158,13 @@ public final class MiseAJourBDPM {
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 
 				+ ((int) total) + " médicaments trouvés."
 			);
-			Map<Long, Set<EntiteMedicament.Presentation>> presentations = obtenirPresentations(logger);
+			Map<Long, Set<EntiteMedicamentFrance.Presentation>> presentations = obtenirPresentations(logger);
 			logger.info("Création des entités en cours...");
-			TreeSet<EntiteMedicament> entites = new TreeSet<>();
+			TreeSet<EntiteMedicamentFrance> entites = new TreeSet<>();
 			startTime = System.currentTimeMillis();
 			for (Entry<Long, TreeSet<String>> entree : nomsMed.entrySet()) {
 				long codecis = entree.getKey();
-				EntiteMedicament entite = new EntiteMedicament(codecis);
+				EntiteMedicamentFrance entite = new EntiteMedicamentFrance(codecis);
 				entite.definirNomsJArray(new JSONArray(entree.getValue()));
 				entite.setForme(caracMed.get(codecis)[0]);
 				entite.setAutorisation(caracMed.get(codecis)[1]);
@@ -175,7 +176,7 @@ public final class MiseAJourBDPM {
 			);
 			logger.info("Mise à jour de la base de données en cours...");
 			startTime = System.currentTimeMillis();
-			EntiteMedicament.mettreAJourEntitesBatch(entites);
+			AbstractEntiteMedicament.mettreAJourEntitesBatch(entites);
 			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms. "
 			);
 		}
@@ -195,8 +196,8 @@ public final class MiseAJourBDPM {
 	 * @param logger
 	 * @return Map avec en clé les codes CIS, en valeur un JSONObject avec pour clés les présentations
 	 */
-	private static Map<Long, Set<EntiteMedicament.Presentation>> obtenirPresentations (Logger logger) {
-		ConcurrentMap<Long, Set<EntiteMedicament.Presentation>> presentations = new ConcurrentHashMap<>();
+	private static Map<Long, Set<EntiteMedicamentFrance.Presentation>> obtenirPresentations (Logger logger) {
+		ConcurrentMap<Long, Set<EntiteMedicamentFrance.Presentation>> presentations = new ConcurrentHashMap<>();
 		logger.info("Récupération des presentations");
 		long startTime = System.currentTimeMillis();
 		importerFichier(URL_FICHIER_PRESENTATIONS)
@@ -221,7 +222,7 @@ public final class MiseAJourBDPM {
 				if (prixPres == null) prixPres = 0.0;
 				if (honoraires == null) honoraires = 0.0;
 				presentations.computeIfAbsent(codeCis, (k) -> new HashSet<>())
-					.add(new EntiteMedicament.Presentation(
+					.add(new EntiteMedicamentFrance.Presentation(
 						presentation, 
 						prixPres, 
 						tauxRbst, 
@@ -233,19 +234,19 @@ public final class MiseAJourBDPM {
 		return presentations;
 	}
 
-	private static Set<EntiteMedicament> entitesMedicaments = new HashSet<>();
+	private static Set<EntiteMedicamentFrance> entitesMedicaments = new HashSet<>();
 
 	public static void importerEffetsIndesirables (Logger logger) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		if (entitesMedicaments.isEmpty()) {
 			entitesMedicaments = StreamSupport.stream(
-				EntiteMedicament.obtenirToutesLesEntites().spliterator(), false
+				EntiteMedicamentFrance.obtenirToutesLesEntites().spliterator(), false
 			).collect(Collectors.toSet());
 		}
 		AtomicInteger compteur = new AtomicInteger(0);
 		int total = entitesMedicaments.size();
-		entitesMedicaments.stream().parallel().forEach((EntiteMedicament entiteM) -> {
+		entitesMedicaments.stream().parallel().forEach((EntiteMedicamentFrance entiteM) -> {
 			try {
 				final String url = "http://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid="
 					+ entiteM.obtenirCodeCis()

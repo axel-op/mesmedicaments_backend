@@ -509,7 +509,8 @@ public final class MiseAJourInteractions {
 				return Optional.ofNullable(
 					noms.get()
 						.filter(nom -> nom.matches("(?i:.*" + mot + "\\b.*)"))
-						.collect(Collectors.toSet()))
+						.collect(Collectors.toSet())
+				)
 					.orElseGet(() -> noms.get()
 						.filter(nom -> nom.matches("(?i:.*" + mot + ".*)"))
 						.collect(Collectors.toSet()));

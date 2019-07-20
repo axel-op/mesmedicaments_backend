@@ -13,7 +13,7 @@ import com.microsoft.azure.storage.table.TableQuery.QueryComparisons;
 
 public abstract class AbstractEntiteProduit extends AbstractEntite implements Comparable<AbstractEntiteProduit> {
 
-	private static final String TABLE = System.getenv("tableazure_produits"); 
+	protected static final String TABLE = System.getenv("tableazure_produits"); 
 	private static CloudTable cloudTable;
 
 	protected static <E extends AbstractEntiteProduit> Optional<E> obtenirEntite (String typeProduit, long codeProduit, Class<E> clazzType)

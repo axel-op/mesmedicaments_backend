@@ -24,7 +24,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.entitestables.EntiteInteraction;
-import app.mesmedicaments.entitestables.EntiteMedicament;
+import app.mesmedicaments.entitestables.AbstractEntiteMedicament;
+import app.mesmedicaments.entitestables.EntiteMedicamentFrance;
 import app.mesmedicaments.entitestables.EntiteSubstance;
 
 //import org.json.JSONArray;
@@ -35,7 +36,7 @@ public final class Utils {
 	public static final String NEWLINE;
 	private static final Map<String, String> cacheNormalisation;
 	public static final ZoneId TIMEZONE;
-	private static final Map<Long, Optional<EntiteMedicament>> cacheEntitesMedicament;
+	private static final Map<Long, Optional<EntiteMedicamentFrance>> cacheEntitesMedicamentFrance;
 	private static final Map<Long, Optional<EntiteSubstance>> cacheEntitesSubstance;
 	private static final Map<String, Optional<EntiteInteraction>> cacheEntitesInteraction;
 
@@ -44,7 +45,7 @@ public final class Utils {
 		//XORKEY = System.getenv("cle_XOR");
 		cacheNormalisation = new ConcurrentHashMap<>();
 		TIMEZONE = ZoneId.of("ECT", ZoneId.SHORT_IDS);
-		cacheEntitesMedicament = new ConcurrentHashMap<>();
+		cacheEntitesMedicamentFrance = new ConcurrentHashMap<>();
 		cacheEntitesSubstance = new ConcurrentHashMap<>();
 		cacheEntitesInteraction = new ConcurrentHashMap<>();
 	}
@@ -73,8 +74,8 @@ public final class Utils {
 			JSONArray enJson = new JSONArray();
 			Utils.jsonArrayToSetLong(codes).stream().parallel().forEach((Long codeCis) -> {
 				try {
-					EntiteMedicament entiteM = Utils.obtenirEntiteMedicament(codeCis).get();
-					enJson.put(Utils.medicamentEnJson(entiteM, logger));
+					EntiteMedicamentFrance entiteM = Utils.obtenirEntiteMedicamentFrance(codeCis).get();
+					enJson.put(Utils.medicamentFranceEnJson(entiteM, logger));
 				} catch (StorageException | URISyntaxException | InvalidKeyException e) {
 					Utils.logErreur(e, logger);
 					throw new RuntimeException();
@@ -138,26 +139,26 @@ public final class Utils {
 		return optEntiteS;
 	}
 
-	public static Optional<EntiteMedicament> obtenirEntiteMedicament (long codeCis) 
+	public static Optional<EntiteMedicamentFrance> obtenirEntiteMedicamentFrance (long codeCis) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		Optional<EntiteMedicament> optEntiteM = cacheEntitesMedicament.get(codeCis);
+		Optional<EntiteMedicamentFrance> optEntiteM = cacheEntitesMedicamentFrance.get(codeCis);
 		if (optEntiteM == null) {
-			optEntiteM = EntiteMedicament.obtenirEntite(codeCis);
-			cacheEntitesMedicament.put(codeCis, optEntiteM);
+			optEntiteM = EntiteMedicamentFrance.obtenirEntite(codeCis);
+			cacheEntitesMedicamentFrance.put(codeCis, optEntiteM);
 		}
 		return optEntiteM;
 	};
 
-	public static JSONArray obtenirInteractions (EntiteMedicament entiteM1, EntiteMedicament entiteM2, Logger logger) 
+	public static <P extends Object> JSONArray obtenirInteractions (AbstractEntiteMedicament<P> entiteM1, AbstractEntiteMedicament<P> entiteM2, Logger logger) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		Set<EntiteMedicament.SubstanceActive> substances1 = entiteM1.obtenirSubstancesActives();
-		Set<EntiteMedicament.SubstanceActive> substances2 = entiteM2.obtenirSubstancesActives();
+		Set<AbstractEntiteMedicament.SubstanceActive> substances1 = entiteM1.obtenirSubstancesActives();
+		Set<AbstractEntiteMedicament.SubstanceActive> substances2 = entiteM2.obtenirSubstancesActives();
 		JSONArray interactions = new JSONArray();
 		Set<Long[]> combinaisons = new HashSet<>();
-		for (EntiteMedicament.SubstanceActive sub1 : substances1) {
-			for (EntiteMedicament.SubstanceActive sub2 : substances2) {
+		for (AbstractEntiteMedicament.SubstanceActive sub1 : substances1) {
+			for (AbstractEntiteMedicament.SubstanceActive sub2 : substances2) {
 				if (!sub1.codeSubstance.equals(sub2.codeSubstance)) {
 					Long[] combinaison = new Long[]{sub1.codeSubstance, sub2.codeSubstance};
 					combinaisons.add(combinaison);
@@ -202,10 +203,10 @@ public final class Utils {
 			.put("conduite", entiteI.getConduite());
 	}
 
-	public static JSONObject medicamentEnJson (EntiteMedicament entiteM, Logger logger)
+	public static JSONObject medicamentFranceEnJson (EntiteMedicamentFrance entiteM, Logger logger)
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		Set<EntiteMedicament.SubstanceActive> substances = entiteM.obtenirSubstancesActives();
+		Set<AbstractEntiteMedicament.SubstanceActive> substances = entiteM.obtenirSubstancesActives();
 		JSONObject jsonSubstances = new JSONObject();
 		substances.stream().parallel()
 			.forEach(substance -> {
@@ -224,7 +225,7 @@ public final class Utils {
 				}
 			});
 		JSONObject jsonPresentations = new JSONObject();
-		for (EntiteMedicament.Presentation presentation : entiteM.obtenirPresentations()) {
+		for (EntiteMedicamentFrance.Presentation presentation : entiteM.obtenirPresentations()) {
 			jsonPresentations.put(presentation.nom, new JSONObject()
 				.put("prix", presentation.prix)
 				.put("conditionsRemboursement", presentation.conditionsRemboursement)
@@ -252,31 +253,32 @@ public final class Utils {
 
 
 	public static void logErreur(Throwable t, Logger logger) {
-		logger.warning(t.toString());
-		try { logger.warning(t.getCause().getMessage()); }
+		String message = t.toString();
+		try { message += NEWLINE + t.getCause().getMessage(); }
 		catch (NullPointerException e) {
-			logger.warning("(Classe Utils) L'objet Throwable n'a pas de méthode getCause().getMessage()"); 
+			message += NEWLINE + "(Classe Utils) L'objet Throwable n'a pas de méthode getCause().getMessage()"; 
 		}
 		try {
 			for (StackTraceElement trace : t.getCause().getStackTrace()) {
-				logger.warning("\t" + trace.toString());
+				message += NEWLINE + "\t" + trace.toString();
 			}
 		}
 		catch (NullPointerException e) {
-			logger.warning("(Classe Utils) L'objet Throwable n'a pas de méthode getCause()");
+			message += NEWLINE + "(Classe Utils) L'objet Throwable n'a pas de méthode getCause()";
 		}
 		try { logger.warning(t.getMessage()); }
 		catch (NullPointerException e) {
-			logger.warning("(Classe Utils) L'objet Throwable n'a pas de méthode getMessage()");
+			message += NEWLINE + "(Classe Utils) L'objet Throwable n'a pas de méthode getMessage()";
 		}
 		try {
 			for (StackTraceElement trace : t.getStackTrace()) {
-				logger.warning("\t" + trace.toString());
+				message += NEWLINE + "\t" + trace.toString();
 			}
 		}
 		catch (NullPointerException e) {
-			logger.warning("(Classe Utils) L'objet Throwable n'a pas de méthode getStackTrace()");
+			message += NEWLINE + "(Classe Utils) L'objet Throwable n'a pas de méthode getStackTrace()";
 		}
+		logger.warning(message);
 	}
 
 	public static long tempsDepuis (long startTime) {

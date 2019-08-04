@@ -154,13 +154,49 @@ public final class PublicTriggers {
 		return construireReponse(codeHttp, request);
 	}
 
+	@FunctionName("medicaments")
+	public HttpResponseMessage medicaments (
+		@HttpTrigger(
+			name = "medicamentsTrigger",
+			authLevel = AuthorizationLevel.ANONYMOUS,
+			methods = {HttpMethod.POST},
+			route = "medicaments"
+		) final HttpRequestMessage<Optional<String>> request,
+		final ExecutionContext context
+	) {
+		Logger logger = context.getLogger();
+		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
+		JSONObject reponse = new JSONObject();
+		try {
+			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			JSONObject med = new JSONObject(request.getBody().get()).getJSONObject("medicament");
+			Pays pays = Pays.obtenirPays(med.getString("pays"));
+			Long code = med.getLong("code");
+			AbstractEntiteMedicament<? extends Presentation> entiteM = pays == Pays.France
+				? EntiteMedicamentFrance.obtenirEntite(code).get()
+				: EntiteMedicamentBelgique.obtenirEntite(code).get();
+			reponse.put("medicament", Utils.medicamentEnJson(entiteM, logger));
+			codeHttp = HttpStatus.OK;
+		}
+		catch (JSONException | NoSuchElementException | IllegalArgumentException e) {
+			Utils.logErreur(e, logger);
+			codeHttp = HttpStatus.BAD_REQUEST;
+		}
+		catch (Exception e) {
+			Utils.logErreur(e, logger);
+			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
+		}
+		return construireReponse(codeHttp, reponse, request);
+	}
+
+	// Maintenue uniquement pour compatibilité avec versions < 25
 	@FunctionName("medicament")
 	public HttpResponseMessage medicament (
 		@HttpTrigger(
 			name = "medicamentTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.GET, HttpMethod.POST},
-			route = "medicament/{code=NONE}"
+			methods = {HttpMethod.GET},
+			route = "medicament/{code:alpha}"
 		) final HttpRequestMessage<Optional<String>> request,
 		@BindingName("code") final String codeStr,
 		final ExecutionContext context
@@ -171,20 +207,10 @@ public final class PublicTriggers {
 		//String[] parametres = request.getUri().getPath().split("/");
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			if (!codeStr.equals("NONE"))
-				reponse.put("medicament", Utils.medicamentFranceEnJsonDepreciee(
-					EntiteMedicamentFrance.obtenirEntite(Long.parseLong(codeStr)).get(), 
-					logger
-				));
-			else {
-				JSONObject med = new JSONObject(request.getBody().get()).getJSONObject("medicament");
-				Pays pays = Pays.obtenirPays(med.getString("pays"));
-				Long code = med.getLong("code");
-				AbstractEntiteMedicament<? extends Presentation> entiteM = pays == Pays.France
-					? EntiteMedicamentFrance.obtenirEntite(code).get()
-					: EntiteMedicamentBelgique.obtenirEntite(code).get();
-				reponse.put("medicament", Utils.medicamentEnJson(entiteM, logger));
-			}
+			reponse.put("medicament", Utils.medicamentFranceEnJsonDepreciee(
+				EntiteMedicamentFrance.obtenirEntite(Long.parseLong(codeStr)).get(), 
+				logger
+			));
 			codeHttp = HttpStatus.OK;
 		}
 		catch (IllegalArgumentException | NoSuchElementException e) {

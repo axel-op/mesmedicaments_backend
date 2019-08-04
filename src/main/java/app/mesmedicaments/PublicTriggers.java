@@ -160,19 +160,20 @@ public final class PublicTriggers {
 			name = "medicamentTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET, HttpMethod.POST},
-			route = "medicament/{code:int?}"
+			route = "medicament/{code=NONE}"
 		) final HttpRequestMessage<Optional<String>> request,
+		@BindingName("code") final String codeStr,
 		final ExecutionContext context
 	) {
 		Logger logger = context.getLogger();
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject reponse = new JSONObject();
-		String[] parametres = request.getUri().getPath().split("/");
+		//String[] parametres = request.getUri().getPath().split("/");
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			if (parametres.length == 3)
+			if (!codeStr.equals("NONE"))
 				reponse.put("medicament", Utils.medicamentFranceEnJsonDepreciee(
-					EntiteMedicamentFrance.obtenirEntite(Long.parseLong(parametres[2])).get(), 
+					EntiteMedicamentFrance.obtenirEntite(Long.parseLong(codeStr)).get(), 
 					logger
 				));
 			else {

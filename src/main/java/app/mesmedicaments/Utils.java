@@ -195,7 +195,7 @@ public final class Utils {
 			.put("forme", entiteM.getForme())
 			.put("marque", entiteM.getMarque())
 			.put("autorisation", entiteM.getAutorisation())
-			.put("codecis", entiteM.getCodeMedicament())
+			.put("codecis", String.valueOf(entiteM.getCodeMedicament()))
 			.put("substances", jsonSubstances)
 			.put("presentations", jsonPresentations)
 			.put("effetsIndesirables", Optional

@@ -3,56 +3,35 @@ package app.mesmedicaments;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URISyntaxException;
 import java.net.URL;
-import java.security.InvalidKeyException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import javax.net.ssl.HttpsURLConnection;
 
 import com.google.common.io.CharStreams;
-import com.microsoft.azure.storage.StorageException;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-
-import app.mesmedicaments.entitestables.EntiteExpressionsCles;
-import app.mesmedicaments.entitestables.AbstractEntiteMedicament;
 
 public class AnalyseTexte {
 
     private static final String ADRESSE_API = System.getenv("analysetexte_adresseapi");
     private static final String CLE_API = System.getenv("analysetexte_cleapi");
 
-    public static <Presentation extends Object> Set<String> obtenirExpressionsClesEffets (AbstractEntiteMedicament<Presentation> entiteM) 
-        throws StorageException, URISyntaxException, InvalidKeyException, IOException
-    {
-        Optional<EntiteExpressionsCles> optEntiteE = EntiteExpressionsCles.obtenirEntite(entiteM.obtenirCodeCis());
-        if (optEntiteE.isPresent()) return optEntiteE.get().obtenirEffetsIndesirablesSet();
-        String texte = entiteM.getEffetsIndesirables()
-            .replaceFirst("Comme tous les médicaments, ce médicament peut provoquer des effets indésirables, mais ils ne surviennent pas systématiquement chez tout le monde\\.", "")
-            .replaceAll("\\?dème", "œdème")
-            .replaceAll("c\\?ur", "cœur");
-        Set<String> exprCles = executerRequeteAPI(texte);
-        EntiteExpressionsCles entiteE = new EntiteExpressionsCles(entiteM.obtenirCodeCis());
-        entiteE.definirEffetsIndesirablesCollection(exprCles);
-        entiteE.creerEntite();
-        return exprCles;
-    }
-
-    private static Set<String> executerRequeteAPI (String texte) 
+    public static Set<String> obtenirExpressionsCles (String texte) 
         throws IOException
     {
+        if (texte == null || texte.equals("")) return new HashSet<>();
         int limiteParDoc = 5110 - " ".length();
         String[] tokens =  texte.split(" ");
         List<String> decoupes = new ArrayList<>();
         String decoupeEnCours = "";
         for (String token : tokens) {
-            if (token.length() > limiteParDoc) throw new RuntimeException("Un token à lui seul dépasse la limite de taille");
+            if (token.length() > limiteParDoc) 
+                throw new RuntimeException(" (AnalyseTexte) Un token à lui seul dépasse la limite de taille");
             if (decoupeEnCours.length() + token.length() < limiteParDoc) {
                 decoupeEnCours += token + " ";
             }

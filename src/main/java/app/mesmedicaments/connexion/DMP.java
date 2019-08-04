@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -24,7 +24,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+import java.util.stream.Stream;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -34,11 +34,11 @@ import com.microsoft.azure.storage.StorageException;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import app.mesmedicaments.Utils;
 import app.mesmedicaments.entitestables.*;
+import app.mesmedicaments.entitestables.AbstractEntite.Langue;
+import app.mesmedicaments.unchecked.Unchecker;
 
 public class DMP {
 
@@ -60,10 +60,11 @@ public class DMP {
 	{
 		ConcurrentMap<String, Set<Long>> nomsMed = new ConcurrentHashMap<>();
 		for (EntiteMedicamentFrance entite : EntiteMedicamentFrance.obtenirToutesLesEntites()) {
-			StreamSupport.stream(entite.obtenirNomsJArray().spliterator(), true)
+			//StreamSupport.stream(entite.obtenirNomsJArray().spliterator(), true)
+			entite.getNomsLangue(Langue.Francais).stream()
 				.map(nom -> normaliser.apply(nom.toString()))
 				.forEach(nom -> nomsMed.computeIfAbsent(nom, k -> new HashSet<>())
-					.add(entite.obtenirCodeCis())
+					.add(entite.getCodeMedicament())
 				);
 		}
 		return nomsMed;
@@ -106,7 +107,7 @@ public class DMP {
 		this.cookies = cookies;
 	}
 
-	public JSONObject obtenirMedicaments (Logger logger) 
+	public Map<LocalDate, Set<Long>> obtenirMedicaments (Logger logger) 
 		throws IOException, StorageException, URISyntaxException, InvalidKeyException
 	{
 		PDDocument fichierRemboursements = obtenirFichierRemboursements().get(); // TODO : gérer le cas où Optional est vide
@@ -115,7 +116,7 @@ public class DMP {
 			new StringReader(
 				new String(
 					stripper.getText(fichierRemboursements).getBytes(),
-					Charset.forName("ISO-8859-1")
+					StandardCharsets.ISO_8859_1
 				)
 			)
 		);
@@ -144,20 +145,21 @@ public class DMP {
 		if (nomsMedicamentsNormalisesMin.isEmpty()) {
 			nomsMedicamentsNormalisesMin.putAll(importerNomsMedicamentsNormalisesMin());
 		}
-		ConcurrentMap<LocalDate, Set<Long>> resultats = new ConcurrentHashMap<>();
-		aChercher.entrySet().stream().parallel()
-			.forEach((entree) -> {
-				Set<Long> corr = entree.getValue().stream().parallel()
-					.map((terme) -> trouverCorrespondanceMedicament(terme, logger))
-					.filter((opt) -> opt.isPresent())
-					.map((opt) -> opt.get())
-					.collect(Collectors.toSet());
-				resultats.put(entree.getKey(), corr);
-			});
-		JSONObject medParDate = new JSONObject();
-		resultats.forEach((date, codes) -> medParDate.put(date.toString(), new JSONArray(codes)));
+		Map<LocalDate, Set<Long>> resultats = aChercher.entrySet()
+			.parallelStream()
+			.collect(Collectors.toMap(
+				entree -> entree.getKey(),
+				entree -> entree.getValue().parallelStream()
+					// TODO tester
+					.flatMap((terme) -> trouverCorrespondanceMedicament(terme, logger)
+						.map(Stream::of)
+						.orElseGet(Stream::empty))
+					//.filter((opt) -> opt.isPresent())
+					//.map((opt) -> opt.get())
+					.collect(Collectors.toSet())
+			));
 		if (alerte) {} // TODO : alerter
-		return medParDate;
+		return resultats;
 	}
 
 	private static final Function<String, String> transformerMot = leMot -> cacheTransformationMot
@@ -188,32 +190,26 @@ public class DMP {
 		AtomicBoolean devraitTrouver = new AtomicBoolean(true);
 		Streams.stream(Arrays.asList(recherche.split(" ")).iterator())
 			.parallel()
-			.forEach(mot -> {
-				try {
-					mot = mot.toLowerCase();
-					if (mot.equals("verre")
-						|| mot.equals("monture"))
-					{ devraitTrouver.set(false); }
-					if (devraitTrouver.get()) {
-						mot = transformerMot.apply(mot);
-						if (!mot.equals("")) {
-							Set<Long> resultats = rechercherMedicament(mot);
-							if (classement.isEmpty()) { 
-								resultats.forEach(resultat -> classement.put(resultat, 1.0)); 
-							}
-							else { 
-								resultats.stream()
-									.filter(resultat -> classement.containsKey(resultat))
-									.forEach(resultat -> classement.put(resultat, classement.get(resultat) + 1.0));
-							}
+			.forEach(Unchecker.wrap(logger, mot -> {
+				mot = mot.toLowerCase();
+				if (mot.equals("verre")
+					|| mot.equals("monture"))
+				{ devraitTrouver.set(false); }
+				if (devraitTrouver.get()) {
+					mot = transformerMot.apply(mot);
+					if (!mot.equals("")) {
+						Set<Long> resultats = rechercherMedicament(mot);
+						if (classement.isEmpty()) { 
+							resultats.forEach(resultat -> classement.put(resultat, 1.0)); 
+						}
+						else { 
+							resultats.stream()
+								.filter(resultat -> classement.containsKey(resultat))
+								.forEach(resultat -> classement.put(resultat, classement.get(resultat) + 1.0));
 						}
 					}
 				}
-				catch (StorageException | URISyntaxException | InvalidKeyException e) {
-					Utils.logErreur(e, logger);
-					throw new RuntimeException();
-				}
-			});
+			}));
 		if (classement.isEmpty()) { 
 			if (devraitTrouver.get()) {
 				LOGGER.info("Pas de médicament trouvé pour : " + recherche);

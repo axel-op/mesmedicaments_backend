@@ -1,11 +1,11 @@
 {
   "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
-  "entryPoint" : "app.mesmedicaments.PrivateTriggers.mettreAJourBases",
+  "entryPoint" : "app.mesmedicaments.PrivateTriggers.miseAJourBases",
   "bindings" : [ {
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "majTrigger",
-    "route" : "mettreAJourBases/{etape:int}",
+    "route" : "miseAJourBases/{etape:int}",
     "methods" : [ "GET" ],
     "dataType" : "string"
   }, {

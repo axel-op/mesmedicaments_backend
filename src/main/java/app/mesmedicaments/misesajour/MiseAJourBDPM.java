@@ -7,12 +7,12 @@ import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.InvalidKeyException;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -20,9 +20,9 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import com.google.common.base.Functions;
 import com.microsoft.azure.storage.StorageException;
 
-import org.json.JSONArray;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -32,6 +32,9 @@ import app.mesmedicaments.entitestables.EntiteDateMaj;
 import app.mesmedicaments.entitestables.AbstractEntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteMedicamentFrance;
 import app.mesmedicaments.entitestables.EntiteSubstance;
+import app.mesmedicaments.entitestables.AbstractEntite.Langue;
+import app.mesmedicaments.entitestables.AbstractEntite.Pays;
+import app.mesmedicaments.unchecked.Unchecker;
 
 /**
  * Met à jour la base de données à partir des informations récupérées sur la base publique des médicaments.
@@ -42,6 +45,7 @@ public final class MiseAJourBDPM {
 	private static final String URL_FICHIER_COMPO;
 	private static final String URL_FICHIER_PRESENTATIONS;
 	private static Logger logger;
+	private static Map<Long, EntiteMedicamentFrance> entitesMedsEnCours;
 
 	static {
 		URL_FICHIER_BDPM = System.getenv("url_cis_bdpm");
@@ -66,8 +70,8 @@ public final class MiseAJourBDPM {
 		logger.info("Début de la mise à jour des substances");
 		BufferedReader listeSubstances = importerFichier(URL_FICHIER_COMPO);
 		if (listeSubstances == null) { return false; }
-		TreeMap<Long, TreeSet<String>> substances = new TreeMap<>();
-		TreeMap<Long, Set<AbstractEntiteMedicament.SubstanceActive>> medSubstances = new TreeMap<>();
+		HashMap<Long, HashSet<String>> substancesCodesNoms = new HashMap<>();
+		HashMap<Long, Set<AbstractEntiteMedicament.SubstanceActive>> medSubstances = new HashMap<>();
 		try {
 			logger.info("Parsing en cours...");
 			String ligne;
@@ -75,7 +79,7 @@ public final class MiseAJourBDPM {
 			while ((ligne = listeSubstances.readLine()) != null) {
 				String[] elements = ligne.split("\t");
 				long codecis = Long.parseLong(elements[0]);
-				Long codesubstance = Long.parseLong(elements[2]);
+				long codesubstance = Long.parseLong(elements[2]);
 				String nom = elements[3].trim();
 				String dosage = "";
 				String refDosage = "";
@@ -83,7 +87,7 @@ public final class MiseAJourBDPM {
 					dosage = elements[4];
 					refDosage = elements[5];
 				} catch (NullPointerException e) {}
-				substances.computeIfAbsent(codesubstance, cle -> new TreeSet<>())
+				substancesCodesNoms.computeIfAbsent(codesubstance, cle -> new HashSet<>())
 					.add(nom);
 				medSubstances.computeIfAbsent(codecis, k -> new HashSet<>())
 					.add(new AbstractEntiteMedicament.SubstanceActive(
@@ -92,35 +96,36 @@ public final class MiseAJourBDPM {
 						refDosage)
 					);
 			}
-			double total = substances.size();
+			double total = substancesCodesNoms.size();
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 
 				+ ((int) total) + " substances trouvées."
 			);
 			logger.info("Création des entités en cours...");
-			TreeSet<EntiteSubstance> entitesSubstances = new TreeSet<>();
-			TreeSet<EntiteMedicamentFrance> entitesMedicaments = new TreeSet<>();
+			HashSet<EntiteSubstance> entitesSubstances = new HashSet<>();
+			HashSet<EntiteMedicamentFrance> entitesMedicaments = new HashSet<>();
 			startTime = System.currentTimeMillis();
-			for (Entry<Long, TreeSet<String>> entree : substances.entrySet()) {
-				EntiteSubstance entite = new EntiteSubstance(entree.getKey());
-				entite.definirNomsJArray(new JSONArray(entree.getValue()));
+			for (Entry<Long, HashSet<String>> entree : substancesCodesNoms.entrySet()) {
+				EntiteSubstance entite = new EntiteSubstance(Pays.France, entree.getKey());
+				entite.ajouterNoms(Langue.Francais, entree.getValue());
 				entitesSubstances.add(entite);
 			}
 			for (Entry<Long, Set<AbstractEntiteMedicament.SubstanceActive>> entree : medSubstances.entrySet()) {
 				EntiteMedicamentFrance entite = new EntiteMedicamentFrance(entree.getKey());
-				entite.definirSubstancesActives(entree.getValue());
+				entite.setSubstancesActivesIterable(entree.getValue());
 				entitesMedicaments.add(entite);
 			}
 			logger.info(entitesSubstances.size() + " entités Substance"
 				+ " et " + entitesMedicaments.size() + " entités Médicament"
 				+ " créées en " + Utils.tempsDepuis(startTime) + " ms. ");
-			logger.info("Mise à jour de la base de données en cours...");
+			logger.info("Mise à jour des entités Substance en cours...");
 			startTime = System.currentTimeMillis();
 			EntiteSubstance.mettreAJourEntitesBatch(entitesSubstances);
-			AbstractEntiteMedicament.mettreAJourEntitesBatch(entitesMedicaments);
-			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms"
-			);
+			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms");
+			entitesMedsEnCours = entitesMedicaments.stream().collect(Collectors.toMap(
+				e -> e.getCodeMedicament(), Functions.identity()
+			));
 		}
-		catch (IOException 
+		catch (IOException
 			| StorageException 
 			| InvalidKeyException 
 			| URISyntaxException e
@@ -135,8 +140,8 @@ public final class MiseAJourBDPM {
 		logger.info("Début de la mise à jour des médicaments");
 		BufferedReader listeMedicaments = importerFichier(URL_FICHIER_BDPM);
 		if (listeMedicaments == null) { return false; }
-		TreeMap<Long, TreeSet<String>> nomsMed = new TreeMap<>();
-		TreeMap<Long, String[]> caracMed = new TreeMap<>();
+		HashMap<Long, HashSet<String>> nomsMed = new HashMap<>();
+		HashMap<Long, String[]> caracMed = new HashMap<>();
 		try {
 			logger.info("Parsing en cours...");
 			String ligne;
@@ -149,7 +154,7 @@ public final class MiseAJourBDPM {
 				String autorisation = elements[4].trim();
 				String marque = elements[10].trim();
 				if (nomsMed.get(codecis) == null) { 
-					nomsMed.put(codecis, new TreeSet<>()); 
+					nomsMed.put(codecis, new HashSet<>()); 
 				}
 				nomsMed.get(codecis).add(nom);
 				caracMed.put(codecis, new String[]{forme, autorisation, marque});
@@ -158,25 +163,24 @@ public final class MiseAJourBDPM {
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms. " 
 				+ ((int) total) + " médicaments trouvés."
 			);
-			Map<Long, Set<EntiteMedicamentFrance.Presentation>> presentations = obtenirPresentations(logger);
-			logger.info("Création des entités en cours...");
-			TreeSet<EntiteMedicamentFrance> entites = new TreeSet<>();
+			Map<Long, Set<EntiteMedicamentFrance.PresentationFrance>> presentations = obtenirPresentations(logger);
+			logger.info("Mise à jour des entités précédemment créées en cours...");
+			//HashSet<EntiteMedicamentFrance> entites = new HashSet<>();
 			startTime = System.currentTimeMillis();
-			for (Entry<Long, TreeSet<String>> entree : nomsMed.entrySet()) {
+			for (Entry<Long, HashSet<String>> entree : nomsMed.entrySet()) {
 				long codecis = entree.getKey();
-				EntiteMedicamentFrance entite = new EntiteMedicamentFrance(codecis);
-				entite.definirNomsJArray(new JSONArray(entree.getValue()));
+				EntiteMedicamentFrance entite = Optional
+					.ofNullable(entitesMedsEnCours.get(codecis))
+					.orElseGet(() -> new EntiteMedicamentFrance(codecis));
+				entite.ajouterNoms(Langue.Francais, entree.getValue());
 				entite.setForme(caracMed.get(codecis)[0]);
 				entite.setAutorisation(caracMed.get(codecis)[1]);
 				entite.setMarque(caracMed.get(codecis)[2]);
-				entite.definirPresentations(presentations.get(codecis));
-				entites.add(entite);
+				entite.setPresentationsIterable(presentations.get(codecis));
 			}
-			logger.info(entites.size() + " entités Médicament créées en " + Utils.tempsDepuis(startTime) + " ms. "
-			);
-			logger.info("Mise à jour de la base de données en cours...");
+			logger.info("Mise à jour de " + entitesMedsEnCours.size() + " entités Médicament en cours...");
 			startTime = System.currentTimeMillis();
-			AbstractEntiteMedicament.mettreAJourEntitesBatch(entites);
+			AbstractEntiteMedicament.mettreAJourEntitesBatch(entitesMedsEnCours.values());
 			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms. "
 			);
 		}
@@ -196,8 +200,8 @@ public final class MiseAJourBDPM {
 	 * @param logger
 	 * @return Map avec en clé les codes CIS, en valeur un JSONObject avec pour clés les présentations
 	 */
-	private static Map<Long, Set<EntiteMedicamentFrance.Presentation>> obtenirPresentations (Logger logger) {
-		ConcurrentMap<Long, Set<EntiteMedicamentFrance.Presentation>> presentations = new ConcurrentHashMap<>();
+	private static Map<Long, Set<EntiteMedicamentFrance.PresentationFrance>> obtenirPresentations (Logger logger) {
+		ConcurrentMap<Long, Set<EntiteMedicamentFrance.PresentationFrance>> presentations = new ConcurrentHashMap<>();
 		logger.info("Récupération des presentations");
 		long startTime = System.currentTimeMillis();
 		importerFichier(URL_FICHIER_PRESENTATIONS)
@@ -222,7 +226,7 @@ public final class MiseAJourBDPM {
 				if (prixPres == null) prixPres = 0.0;
 				if (honoraires == null) honoraires = 0.0;
 				presentations.computeIfAbsent(codeCis, (k) -> new HashSet<>())
-					.add(new EntiteMedicamentFrance.Presentation(
+					.add(new EntiteMedicamentFrance.PresentationFrance(
 						presentation, 
 						prixPres, 
 						tauxRbst, 
@@ -234,29 +238,20 @@ public final class MiseAJourBDPM {
 		return presentations;
 	}
 
-	private static Set<EntiteMedicamentFrance> entitesMedicaments = new HashSet<>();
-
 	public static void importerEffetsIndesirables (Logger logger) 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		if (entitesMedicaments.isEmpty()) {
-			entitesMedicaments = StreamSupport.stream(
-				EntiteMedicamentFrance.obtenirToutesLesEntites().spliterator(), false
-			).collect(Collectors.toSet());
-		}
+		Set<EntiteMedicamentFrance> entitesMedicaments = StreamSupport.stream(
+			EntiteMedicamentFrance.obtenirToutesLesEntites().spliterator(), false
+		).collect(Collectors.toSet());
 		AtomicInteger compteur = new AtomicInteger(0);
 		int total = entitesMedicaments.size();
-		entitesMedicaments.stream().parallel().forEach((EntiteMedicamentFrance entiteM) -> {
-			try {
+		entitesMedicaments.stream().parallel().forEach(Unchecker.wrap(logger, 
+			(EntiteMedicamentFrance entiteM) -> {
 				final String url = "http://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid="
-					+ entiteM.obtenirCodeCis()
+					+ entiteM.getCodeMedicament()
 					+ "&typedoc=N";
-				/*Connection connexion = Jsoup.connect(url);
-				connexion.method(Connection.Method.GET)
-					.execute();
-				Document rep = connexion.response().parse();*/
 				Document rep = Jsoup.parse(new URL(url).openStream(), "ISO-8859-1", url);
-				//System.out.println(rep.text());
 				String texte = "";
 				Boolean balise = null;
 				for (Element el : rep.getAllElements()) {
@@ -275,16 +270,7 @@ public final class MiseAJourBDPM {
 				entiteM.setEffetsIndesirables(texte);
 				entiteM.mettreAJourEntite();
 				logger.info(compteur.incrementAndGet() + "/" + total);
-			}
-			catch (IOException e) {
-				logger.warning("Erreur d'importation des effets indésirables pour le médicament " + entiteM.obtenirCodeCis());
-				Utils.logErreur(e, logger);
-			}
-			catch (StorageException e) {
-				Utils.logErreur(e, logger);
-				throw new RuntimeException();
-			}
-		});
+			}));
 	}
 
 	private static Double formaterPrix (String prix) {

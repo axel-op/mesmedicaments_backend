@@ -55,14 +55,14 @@ public class PrivateTriggers {
 		}
 	}
 
-    @FunctionName("mettreAJourBases")
-	public HttpResponseMessage mettreAJourBases (
+    @FunctionName("miseAJourBases")
+	public HttpResponseMessage miseAJourBases (
 		@HttpTrigger(
 			name = "majTrigger", 
 			dataType = "string", 
 			authLevel = AuthorizationLevel.FUNCTION,
 			methods = {HttpMethod.GET},
-			route = "mettreAJourBases/{etape:int}")
+			route = "miseAJourBases/{etape:int}")
 		final HttpRequestMessage<Optional<String>> request,
 		@BindingName("etape") int etape,
 		final ExecutionContext context

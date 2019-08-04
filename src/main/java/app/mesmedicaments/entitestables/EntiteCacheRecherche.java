@@ -2,16 +2,14 @@ package app.mesmedicaments.entitestables;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
-import java.util.Optional;
+//import java.util.Optional;
 import java.util.stream.StreamSupport;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.CloudTable;
 import com.microsoft.azure.storage.table.TableBatchOperation;
-import com.microsoft.azure.storage.table.TableOperation;
-import com.microsoft.azure.storage.table.TableQuery;
-import com.microsoft.azure.storage.table.TableQuery.QueryComparisons;
 
 import org.json.JSONArray;
 
@@ -19,14 +17,14 @@ import app.mesmedicaments.Utils;
 
 public class EntiteCacheRecherche extends AbstractEntite {
 
-	//private static final String TABLE = "cacheRecherche";
-	private static final String TABLE = "cacheRechercheSimplifie";
+	private static final String TABLE_NOUV = "cacheRecherche";
+	private static final String TABLE_DEPR = "cacheRechercheSimplifie";
 
-	public static JSONArray obtenirResultatsCache (String terme) 
+	public static JSONArray obtenirResultatsCache (String terme, boolean depreciee) 
 		throws StorageException, InvalidKeyException, URISyntaxException
 	{
 		String resultats = "";
-		for (EntiteCacheRecherche entite : obtenirEntites(terme)) {
+		for (EntiteCacheRecherche entite : obtenirEntites(terme, depreciee)) {
 			resultats += entite.getResultats();
 			/*if (ligne == 1) {
 				entite.setNombreRequetes(entite.getNombreRequetes() + 1);
@@ -34,7 +32,7 @@ public class EntiteCacheRecherche extends AbstractEntite {
 			}*/
 		}
 		if (resultats.equals("")) {
-			EntiteCacheRecherche entite = new EntiteCacheRecherche(terme, 1);
+			EntiteCacheRecherche entite = new EntiteCacheRecherche(terme, 1, depreciee);
 			entite.setResultats(new JSONArray().toString());
 			//entite.setNombreRequetes(1);
 			entite.creerEntite();
@@ -43,23 +41,23 @@ public class EntiteCacheRecherche extends AbstractEntite {
 		return new JSONArray(resultats);
 	}
 
-	public static void mettreEnCache (String terme, JSONArray resultats) 
+	public static void mettreEnCache (String terme, JSONArray resultats, boolean depreciee) 
 		throws UnsupportedEncodingException, StorageException, URISyntaxException, InvalidKeyException
 	{
-		mettreEnCache(terme, resultats.toString());
+		mettreEnCache(terme, resultats.toString(), depreciee);
 	}
 	
-	public static void mettreEnCache (String terme, String resultats) 
+	public static void mettreEnCache (String terme, String resultats, boolean depreciee) 
 		throws UnsupportedEncodingException, StorageException, URISyntaxException, InvalidKeyException
 	{
-		final int nbrLignes = resultats.getBytes("UTF-16").length / 64000 + 1;
-		CloudTable cloudTable = obtenirCloudTable(TABLE);
+		final int nbrLignes = resultats.getBytes(StandardCharsets.UTF_16).length / 64000 + 1;
+		CloudTable cloudTable = obtenirCloudTable(depreciee ? TABLE_DEPR : TABLE_NOUV);
 		TableBatchOperation batchOp = new TableBatchOperation();
 		String[] decoupes = Utils.decouperTexte(resultats, nbrLignes);
 		for (int i = 0; i < decoupes.length; i++) {
-			EntiteCacheRecherche entite = new EntiteCacheRecherche(terme, i + 1);
+			EntiteCacheRecherche entite = new EntiteCacheRecherche(terme, i + 1, depreciee);
 			entite.setResultats(decoupes[i]);
-			//entite.mettreAJourEntite(); // TODO !!!!!!!!!!!
+			entite.checkConditions();
 			batchOp.insertOrMerge(entite);
 			if ((i + 1) % 100 == 0 || (i + 1) == decoupes.length) {
 				cloudTable.execute(batchOp);
@@ -68,18 +66,10 @@ public class EntiteCacheRecherche extends AbstractEntite {
 		}
 	}
 
-	private static Iterable<EntiteCacheRecherche> obtenirEntites (String terme)
+	private static Iterable<EntiteCacheRecherche> obtenirEntites (String terme, boolean depreciee)
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		String filtrePK = TableQuery.generateFilterCondition(
-			"PartitionKey", 
-			QueryComparisons.EQUAL, 
-			terme
-		);
-		Iterable<EntiteCacheRecherche> resNonTries = 
-			obtenirCloudTable(TABLE)
-				.execute(new TableQuery<>(EntiteCacheRecherche.class)
-					.where(filtrePK));
+		Iterable<EntiteCacheRecherche> resNonTries = obtenirToutesLesEntites(depreciee ? TABLE_DEPR : TABLE_NOUV, terme, EntiteCacheRecherche.class);
 		return (Iterable<EntiteCacheRecherche>) () -> 
 			StreamSupport.stream(resNonTries.spliterator(), false)
 				.sorted((e1, e2) -> Integer.valueOf(e1.getRowKey()).compareTo(Integer.valueOf(e2.getRowKey())))
@@ -87,33 +77,20 @@ public class EntiteCacheRecherche extends AbstractEntite {
 				.iterator();
 	}
 
+	/*
     private static Optional<EntiteCacheRecherche> obtenirEntite (String terme, int ligne)
-		throws URISyntaxException, InvalidKeyException
+		throws URISyntaxException, InvalidKeyException, StorageException
 	{
-		try {
-			TableOperation operation = TableOperation.retrieve(
-				terme, 
-				String.valueOf(ligne), 
-				EntiteCacheRecherche.class);
-			return Optional.ofNullable(
-				obtenirCloudTable(TABLE)
-				.execute(operation)
-				.getResultAsType()
-			);
-		}
-		catch (StorageException e) {
-			return Optional.empty();
-		}
+		return obtenirEntite(TABLE, terme, String.valueOf(ligne), EntiteCacheRecherche.class);
 	}
+	*/
 	
 	String resultats;
 	int nombreRequetes;
     
-    public EntiteCacheRecherche (String terme, int ligne) 
-		throws StorageException, InvalidKeyException, URISyntaxException
-	{
+    public EntiteCacheRecherche (String terme, int ligne, boolean depreciee) {
 		super(
-			TABLE,
+			depreciee ? TABLE_DEPR : TABLE_NOUV,
 			terme, 
 			String.valueOf(ligne)
 		);
@@ -121,14 +98,9 @@ public class EntiteCacheRecherche extends AbstractEntite {
 
 	/**
 	 * NE PAS UTILISER
-	 * @throws StorageException
-	 * @throws URISyntaxException
-	 * @throws InvalidKeyException
 	 */
-	public EntiteCacheRecherche () 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		super(TABLE);
+	public EntiteCacheRecherche () {
+		super(TABLE_NOUV);
 	}
 
 	// Setters
@@ -140,5 +112,10 @@ public class EntiteCacheRecherche extends AbstractEntite {
 
 	public String getResultats () { return this.resultats; }
 	public int getNombreRequetes () { return this.nombreRequetes; }
+
+	@Override
+	public boolean conditionsARemplir () {
+		return !getResultats().equals("");
+	}
 
 }

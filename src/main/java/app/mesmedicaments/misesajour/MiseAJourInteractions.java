@@ -5,26 +5,23 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import com.google.common.collect.Sets;
 import com.microsoft.azure.storage.StorageException;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -34,69 +31,73 @@ import org.apache.pdfbox.text.TextPosition;
 import app.mesmedicaments.Utils;
 import app.mesmedicaments.entitestables.EntiteDateMaj;
 import app.mesmedicaments.entitestables.EntiteInteraction;
+import app.mesmedicaments.entitestables.EntiteSubstance;
 
 public final class MiseAJourInteractions {
 
-    private static final Charset CHARSET_1252;
-    private static final float TAILLE_NOM_SUBSTANCE;
-	private static final float TAILLE_INTERACTION_SUBSTANCE;
-	private static final float TAILLE_DESCRIPTION_PT;
-	private static final String URL_FICHIER_INTERACTIONS;
-	private static final AtomicBoolean executionEnCours;
-	private static final Map<String, Set<Long>> correspondancesSubstances;
-	private static final Map<String, Set<String>> classesSubstances;
-	private static final Map<Long, Set<EntiteInteraction>> entitesInteractionsParPartition;
+    private static final Charset CHARSET_1252 = Charset.forName("cp1252");
+    private static final float TAILLE_NOM_SUBSTANCE = (float) 10;
+	private static final float TAILLE_INTERACTION_SUBSTANCE = (float) 8;
+	private static final float TAILLE_DESCRIPTION_PT = (float) 6;
+	private static final String URL_FICHIER_INTERACTIONS = System.getenv("url_interactions");
+	private static final AtomicBoolean executionEnCours = new AtomicBoolean();
 	private static final String REGEX_RISQUE1 = "((?i:((a|à) prendre en compte))|(.*APEC))";
 	private static final String REGEX_RISQUE2 = "((?i:pr(e|é)caution d'emploi)|(.*PE))";
 	private static final String REGEX_RISQUE3 = "((?i:(association d(e|é)conseill(e|é)e))|(.*ASDEC))";
 	private static final String REGEX_RISQUE4 = "((?i:(contre(-| )indication))|(.*CI))";
 	private static final String[] regexRisques = new String[] { REGEX_RISQUE1, REGEX_RISQUE2, REGEX_RISQUE3, REGEX_RISQUE4 };
+
+	private static final Map<String, Set<EntiteSubstance>> correspondancesSubstances = new HashMap<>();
+	private static final Map<String, Set<String>> classesSubstances = new HashMap<>();
+	private static final Map<String, EntiteInteraction> entitesCreeesParCle = new HashMap<>();
+	private static final List<String> substances2EnCours = new ArrayList<>(); // doit maintenir l'ordre
+	private static final Set<InteractionBrouillon> interactionsBrouillon = new HashSet<>();
+	private static final Map<String, Set<EntiteSubstance>> nomsSubImporteesNormalises = new HashMap<>();
+	
 	private static Logger logger;
-	private static Map<String, Set<Long>> substances;
+	private static String ajoutSubstances;
+	private static String substance1EnCours;
+	private static Integer risqueEnCours;
+	private static String descriptifEnCours;
+	private static String conduiteATenirEnCours;
+	private static Float valeurInconnueDesc;
+	private static Float valeurInconnueCond;
+	private static String classeEnCours;
+	
+	private static boolean reussite = true;
+	private static boolean ignorerLigne = false;
 
-    private boolean ignorerLigne;
-	private String ajoutSubstances;
-	private HashSet<String> substancesEnCours;
-	private String interactionEnCours;
-	private Integer risqueEnCours;
-	private String descriptifEnCours;
-	private String conduiteATenirEnCours;
-	private Float valeurInconnueDesc;
-	private Float valeurInconnueCond;
-	private String classeEnCours;
-	private boolean reussite;
-
-	static {
-		executionEnCours = new AtomicBoolean();
-		URL_FICHIER_INTERACTIONS = System.getenv("url_interactions");
-		CHARSET_1252 = Charset.forName("cp1252");
-		TAILLE_NOM_SUBSTANCE = (float) 10;
-		TAILLE_INTERACTION_SUBSTANCE = (float) 8;
-		TAILLE_DESCRIPTION_PT = (float) 6;
-		correspondancesSubstances = new HashMap<>();
-		classesSubstances = new HashMap<>();
-		entitesInteractionsParPartition = new TreeMap<>();
-	}
-
-	private MiseAJourInteractions () {
-		ignorerLigne = false;
-		reussite = true;
-	}
+	private MiseAJourInteractions () {}
 	
 	public static boolean handler (Logger logger) {
 		if (executionEnCours.compareAndSet(false, true)) {
 			MiseAJourInteractions.logger = logger;
-			MiseAJourInteractions majInstance = new MiseAJourInteractions();
 			logger.info("Début de la mise à jour des interactions");
-			if (substances == null || substances.isEmpty()) { 
-				substances = MiseAJourClassesSubstances.importerSubstances(logger); 
+			if (nomsSubImporteesNormalises.isEmpty()) { 
+				MiseAJourClassesSubstances.importerSubstances(logger).entrySet()
+					.stream()
+					.map(e -> new AbstractMap.SimpleEntry<>(
+						Texte.normaliser.apply(e.getKey()),
+						e.getValue()
+					))
+					.forEach(e -> nomsSubImporteesNormalises
+						.computeIfAbsent(e.getKey(), k -> new HashSet<>())
+						.addAll(e.getValue())
+					);
 			}
-			majInstance.nouveauxChamps();
+			nouveauxChamps();
 			try {
 				long startTime = System.currentTimeMillis();
-				if (!majInstance.mettreAJourInteractions()) { return false; }
+				PDDocument fichier = recupererFichier();
+				if (!parserFichier(fichier)) { return false; }
 				logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms");
-				exporterEntitesInteractions(entitesInteractionsParPartition);
+				logger.info(interactionsBrouillon.size() + " potentielles interactions trouvées");
+				creerEntitesInteraction();
+				logger.info("Mise à jour de la base de données en cours...");
+				startTime = System.currentTimeMillis();
+				int total = entitesCreeesParCle.size();
+				EntiteInteraction.mettreAJourEntitesBatch(logger, entitesCreeesParCle.values());
+				logger.info(total + " entités mises à jour en " + Utils.tempsDepuis(startTime) + " ms");
 			}
 			catch (Exception e)
 			{
@@ -115,189 +116,155 @@ public final class MiseAJourInteractions {
 		return false;
 	}
 
-	private boolean mettreAJourInteractions () 
-		throws StorageException, URISyntaxException, InvalidKeyException, IOException 
-	{
+	private static PDDocument recupererFichier () throws IOException {
 		logger.info("Récupération du fichier des interactions (url = " + URL_FICHIER_INTERACTIONS + ")");
+		long startTime = System.currentTimeMillis();
 		HttpsURLConnection connexion = (HttpsURLConnection) new URL(URL_FICHIER_INTERACTIONS)
 			.openConnection();
 		connexion.setRequestMethod("GET");
 		PDDocument document = PDDocument.load(connexion.getInputStream());
-		logger.info("Fichier récupéré ; début du parsing");
+		logger.info("Fichier récupéré en " + Utils.tempsDepuis(startTime) + " ms");
+		return document;
+	}
+
+	private static boolean parserFichier (PDDocument fichier) throws IOException {
+		logger.info("Début du parsing");
+		long startTime = System.currentTimeMillis();
 		PDFTextStripper stripper = new PDFTextStripper() {
 			@Override
 			protected void writeString (String text, List<TextPosition> textPositions) throws IOException {
-				if (reussite) { analyseLigne(text, textPositions); }
+				if (reussite) { analyserLigne(text, textPositions); }
 				super.writeString(text, textPositions);
 			}
 		};
-		int nombrePages = document.getNumberOfPages();
+		int nombrePages = fichier.getNumberOfPages();
 		for (int page = 2; page <= nombrePages; page++) {
-			logger.info("Parsing de la page " + page + "/" + nombrePages + "..."
-			);
+			logger.info("Parsing de la page " + page + "/" + nombrePages + "...");
 			stripper.setStartPage(page);
 			stripper.setEndPage(page);
-			stripper.getText(document);
+			stripper.getText(fichier);
+			if (!reussite) return false;
 		}
-		if (!reussite) { return false; }
-		if (risqueEnCours != null) { 
-			for (String substance : substancesEnCours) {
-				ajouterInteraction(
-					interactionEnCours, 
-					substance, 
-					risqueEnCours, 
-					descriptifEnCours, 
-					conduiteATenirEnCours
-				); 
-			}
-		}
+		ajouterInteractionsBrouillon();
 		nouveauxChamps();
-		document.close();
+		fichier.close();
+		logger.info("Fin du parsing en " + Utils.tempsDepuis(startTime) + " ms");
 		return true;
 	}
     
-	private void analyseLigne (String texte, List<TextPosition> textPositions) {
+	private static void analyserLigne (String texte, List<TextPosition> textPositions) {
 		Float taille = textPositions.get(0).getFontSize();
 		Float tailleInPt = textPositions.get(0).getFontSizeInPt();
-		
-		try {
-			if (!ignorerLigne) {
-				String ligne = Texte.normaliser.apply(texte);
-				if (ligne.matches("(?i:thesaurus .*)")) { ignorerLigne = true; }
-				else if (!ligne.matches("(?i:ansm .*)")) {
-					if (taille.equals(TAILLE_NOM_SUBSTANCE)) {
-						if (risqueEnCours != null) { 
-							for (String substance : substancesEnCours) {
-								ajouterInteraction(
-									interactionEnCours, 
-									substance, 
-									risqueEnCours, 
-									descriptifEnCours, 
-									conduiteATenirEnCours
-								); 
-							}
-						}
-						nouveauxChamps();
-						substancesEnCours.add(ligne.trim());
-					}
-					else if (taille.equals(TAILLE_INTERACTION_SUBSTANCE)) {
-						if (!ligne.matches("\\+")) {
-							if (risqueEnCours != null) { 
-								for (String substance : substancesEnCours) {
-									ajouterInteraction(
-										interactionEnCours, 
-										substance, 
-										risqueEnCours, 
-										descriptifEnCours, 
-										conduiteATenirEnCours
-									); 
-								}
-							}
-							HashSet<String> sec = substancesEnCours;
-							nouveauxChamps();
-							substancesEnCours = sec;
-							interactionEnCours = ligne;
-						}
-					}
-					else if (tailleInPt.equals(TAILLE_DESCRIPTION_PT)) {
-						if (interactionEnCours != null) {
-							if (risqueEnCours == null) {
-								for (int i = regexRisques.length - 1; i >= 0; i--) {
-									String regex = regexRisques[i];
-									if (texte.matches(regex + ".*")) {
-										risqueEnCours = i + 1; 
-										if (texte.matches(regex)) { 
-											texte = ""; 
-										}
-										if (texte.matches(regex + "[a-zA-Z].*")) { 
-											texte = texte.replaceFirst(regex, ""); 
-										}
-										break;
-									}
-								}
-							}
-							if (!texte.equals("")) { 
-								Float xposition = textPositions.get(0).getX();
-								float[][] matrice = textPositions.get(0).getTextMatrix().getValues();
-								float colonneGauche = (float) 97.68;
-								//float colonneDroite = (float) 317.3999;
-								if (xposition.compareTo(colonneGauche) <= 0) {
-									if (valeurInconnueDesc == null) { valeurInconnueDesc = matrice[2][1]; }
-									if (valeurInconnueCond != null && valeurInconnueDesc.compareTo(valeurInconnueCond) < 0) {
-										descriptifEnCours = conduiteATenirEnCours + descriptifEnCours;
-										conduiteATenirEnCours = "";
-									}
-									if (!descriptifEnCours.equals("") && texte.matches("[-A-Z].*")) { 
-										texte = "\n" + texte; 
-									}
-									descriptifEnCours += texte + " "; 
-								} else { 
-									if (valeurInconnueCond == null) { valeurInconnueCond = matrice[2][1]; }
-									if (!conduiteATenirEnCours.equals("") && ligne.matches("[-A-Z].*")) { 
-										texte = "\n" + texte; 
-									}
-									conduiteATenirEnCours += texte + " ";
-								}
-							}
-						} else if (
-								(texte.startsWith("(") && !texte.matches("\\( ?(V|v)oir aussi.*")) 
-								|| ajoutSubstances != null
-							) {
-							if (ligne.startsWith("(") && ajoutSubstances == null) { 
-								String classe = "";
-								for (String s : substancesEnCours) { classe += s; }
-								nouveauxChamps();
-								classeEnCours = classe;
-								ligne = ligne.substring(1); 
-							}
-							int d = 0;
-							if (!ligne.endsWith(")")) { ajoutSubstances = ""; } 
-							else { 
-								ligne = ligne.substring(0, ligne.length() - 1);
-								if (ajoutSubstances != null) { 
-									String aAjouter = "";
-									if (ligne.split(",").length > 0) { aAjouter = ligne.split(",")[0]; }
-									substancesEnCours.add(ajoutSubstances + " " + aAjouter); 
-									d = 1;
-								}
-								ajoutSubstances = null; 
-							}
-							String[] substances = ligne.split(",");
-							for (int i = d; i < substances.length; i++) {
-								String substance = substances[i].trim();
-								if (!substance.matches(" *")) {
-									if (i == substances.length - 1 && ajoutSubstances != null) { 
-										ajoutSubstances = substance; 
-									}
-									else { substancesEnCours.add(substance); }
-								}
-							}
-						}
-					} else {
-						/* Ici ne doit se trouver aucune ligne du pdf */
-						logger.warning(
-							"LIGNE IGNOREE (il ne devrait pas y en avoir) : "
-							+ Utils.NEWLINE + "\"" + texte + "\""
-						);
-					}						
+		if (ignorerLigne) ignorerLigne = false;
+		else {
+			String ligne = Texte.normaliser.apply(texte);
+			if (ligne.matches("(?i:thesaurus .*)")) ignorerLigne = true;
+			else if (!ligne.matches("(?i:ansm .*)")) {
+				if (taille.equals(TAILLE_NOM_SUBSTANCE)) {
+					ajouterInteractionsBrouillon();
+					nouveauxChamps();
+					substances2EnCours.add(ligne.trim());
 				}
-			} else { ignorerLigne = false; }
-		}
-		catch (StorageException | URISyntaxException | InvalidKeyException e) {
-			Utils.logErreur(e, logger);
-			reussite = false;
+				else if (taille.equals(TAILLE_INTERACTION_SUBSTANCE)) {
+					if (!ligne.matches("\\+")) {
+						ajouterInteractionsBrouillon();
+						List<String> sauvegarde = new ArrayList<>(substances2EnCours);
+						nouveauxChamps();
+						substances2EnCours.addAll(sauvegarde);
+						substance1EnCours = ligne;
+					}
+				}
+				else if (tailleInPt.equals(TAILLE_DESCRIPTION_PT)) {
+					if (substance1EnCours != null) {
+						if (risqueEnCours == null) {
+							for (int i = regexRisques.length - 1; i >= 0; i--) {
+								String regex = regexRisques[i];
+								if (texte.matches(regex + ".*")) {
+									risqueEnCours = i + 1; 
+									if (texte.matches(regex)) texte = ""; 
+									else if (texte.matches(regex + "[a-zA-Z].*"))
+										texte = texte.replaceFirst(regex, ""); 
+									break;
+								}
+							}
+						}
+						if (!texte.equals("")) { 
+							float xposition = textPositions.get(0).getX();
+							float[][] matrice = textPositions.get(0).getTextMatrix().getValues();
+							float colonneGauche = (float) 97.68;
+							//float colonneDroite = (float) 317.3999;
+							if (Float.compare(xposition, colonneGauche) <= 0) {
+								if (valeurInconnueDesc == null) valeurInconnueDesc = matrice[2][1];
+								if (valeurInconnueCond != null && valeurInconnueDesc.compareTo(valeurInconnueCond) < 0) {
+									descriptifEnCours = conduiteATenirEnCours + descriptifEnCours;
+									conduiteATenirEnCours = "";
+								}
+								if (!descriptifEnCours.equals("") && texte.matches("[-A-Z].*")) { 
+									texte = "\n" + texte; 
+								}
+								descriptifEnCours += texte + " "; 
+							} else { 
+								if (valeurInconnueCond == null) valeurInconnueCond = matrice[2][1];
+								if (!conduiteATenirEnCours.equals("") && ligne.matches("[-A-Z].*")) { 
+									texte = "\n" + texte; 
+								}
+								conduiteATenirEnCours += texte + " ";
+							}
+						}
+					} else if (
+						ajoutSubstances != null
+						|| (texte.startsWith("(") && !texte.matches("\\( ?(V|v)oir aussi.*"))
+					) {
+						if (ajoutSubstances == null && ligne.startsWith("(")) { 
+							String classe = String.join("", substances2EnCours);
+							nouveauxChamps();
+							classeEnCours = classe;
+							ligne = ligne.substring(1); 
+						}
+						int d = 0;
+						if (!ligne.endsWith(")")) ajoutSubstances = "";
+						else { 
+							ligne = ligne.substring(0, ligne.length() - 1);
+							if (ajoutSubstances != null) { 
+								String aAjouter = "";
+								String[] decoupe = ligne.split(",");
+								if (decoupe.length > 0) aAjouter = decoupe[0];
+								substances2EnCours.add(ajoutSubstances + " " + aAjouter); 
+								d = 1;
+							}
+							ajoutSubstances = null; 
+						}
+						String[] substances = ligne.split(",");
+						for (int i = d; i < substances.length; i++) {
+							String substance = substances[i].trim();
+							if (!substance.matches(" *")) {
+								if (i == substances.length - 1 && ajoutSubstances != null) { 
+									ajoutSubstances = substance; 
+								}
+								else substances2EnCours.add(substance);
+							}
+						}
+					}
+				} else {
+					/* Ici ne doit se trouver aucune ligne du pdf */
+					logger.warning(
+						"LIGNE IGNOREE (il ne devrait pas y en avoir) : "
+						+ Utils.NEWLINE + "\"" + texte + "\""
+					);
+				}						
+			}
 		}
     }
 
-    private void nouveauxChamps () {
+    private static void nouveauxChamps () {
 		if (classeEnCours != null) { 
             classesSubstances.put(
                 Texte.normaliser.apply(classeEnCours).toLowerCase(), 
-                substancesEnCours
+                new HashSet<>(substances2EnCours)
             ); 
         }
-		substancesEnCours = new HashSet<>();
-		interactionEnCours = null;
+		substances2EnCours.clear();
+		substance1EnCours = null;
 		risqueEnCours = null;
 		descriptifEnCours = "";
 		conduiteATenirEnCours = "";
@@ -306,151 +273,109 @@ public final class MiseAJourInteractions {
 		ajoutSubstances = null;
 		classeEnCours = null;
 	}
-	
-	private static void ajouterInteraction (String substance1, String substance2, int risque, String descriptif, String conduite) 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		// Si le descriptif commence par "ainsi que", "et pendant", remplacer "ainsi que" par "Cette interaction se poursuit"
-		// Voir aussi ceux qui commencent avec "Dans l'indication..."
-		if (descriptif == null) { descriptif = ""; }
-		if (conduite == null) { conduite = ""; }
-		if (descriptif.matches(" *")) {
-			descriptif = conduite;
-			conduite = ""; 
-		}
-		conduite = conduite.replaceAll(
-			"((CI ?)"
-			+ "|(ASDEC ?)"
-			+ "|(PE )"
-			+ "|(APEC ?))", 
-			"");
-		conduite = conduite.replaceFirst(" ?(- )+\n", "");
-		descriptif = Texte.corrigerApostrophes.apply(descriptif);
-		conduite = Texte.corrigerApostrophes.apply(conduite);
-		Set<Long> substances1 = Recherche.obtenirCorrespondances.apply(substance1);
-		Set<Long> substances2 = Recherche.obtenirCorrespondances.apply(substance2);
-		for (long code1 : substances1) {
-			for (long code2 : substances2) {
-				EntiteInteraction entite = new EntiteInteraction(code1, code2);
-				entite.setRisque(risque);
-				entite.setDescriptif(descriptif);
-				entite.setConduite(conduite);
-				long clePartition = Math.min(code1, code2);
-				if (!entitesInteractionsParPartition.containsKey(clePartition)) {
-					entitesInteractionsParPartition.put(clePartition, new HashSet<>());
-				}
-				entitesInteractionsParPartition.get(clePartition).add(entite);
+
+	private static void ajouterInteractionsBrouillon () {
+		if (risqueEnCours != null) {
+			for (String substance2 : substances2EnCours) {
+				interactionsBrouillon.add(new InteractionBrouillon(
+					substance1EnCours, 
+					substance2, 
+					risqueEnCours, 
+					descriptifEnCours, 
+					conduiteATenirEnCours
+				));
 			}
 		}
 	}
 
-	/**
-	 * Filtre la {@link Collection} d'{@link EntiteInteraction}s en ne retenant que celles avec le plus haut niveau de risque en cas de doublon
-	 * @see EntiteInteraction
-	 * @see EntiteInteraction#risque
-	 * @param entites La {@link Collection} d'entités à filtrer
-	 * @return La liste de toutes les entités supprimées
-	 */
-	private static List<EntiteInteraction> supprimerDoublons (Collection<EntiteInteraction> entites) {
-		ArrayList<EntiteInteraction> listeEntites = new ArrayList<>(entites);
-		ArrayList<EntiteInteraction> supprimees = new ArrayList<>();
-		for (int i = 0; i < listeEntites.size(); i++) {
-			for (int j = i + 1; j < listeEntites.size(); j++) {
-				EntiteInteraction e1 = listeEntites.get(i);
-				EntiteInteraction e2 = listeEntites.get(j);
-				if (e1.getPartitionKey().equals(e2.getPartitionKey())
-					&& e1.getRowKey().equals(e2.getRowKey())) 
-				{
-					if (e1.getRisque() > e2.getRisque()) {
-						if (entites.contains(e2)) {
-							supprimees.add(e2);
-							entites.remove(e2);
-						}
-					}
-					else { 
-						if (entites.contains(e1)) {
-							supprimees.add(e1);
-							entites.remove(e1); 
-						}
-					}
-				}
-			}
-		}
-		return supprimees;
-	}
-	
-	/**
-	 * 
-	 * @param entitesRegroupees Les entités appartiennent à une même partition pour une même clé
-	 * @throws StorageException
-	 * @throws URISyntaxException
-	 * @throws InvalidKeyException
-	 * @throws IllegalArgumentException Si les entités n'appartiennent pas à la même partition pour une même clé 
-	 */
-	private static void exporterEntitesInteractions (Map<? extends Object, ? extends Collection<EntiteInteraction>> entitesRegroupees) 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		logger.info("Suppression des doublons...");
+	private static void creerEntitesInteraction () {
+		// Si le descriptif commence par "ainsi que", "et pendant", remplacer "ainsi que" par "Cette interaction se poursuit"
+		// Voir aussi ceux qui commencent avec "Dans l'indication..."
+		logger.info("Création des entités...");
 		long startTime = System.currentTimeMillis();
-		List<EntiteInteraction> supprimes = new ArrayList<>();
-		entitesRegroupees.values().stream().forEach((entites) -> {
-			supprimes.addAll(supprimerDoublons(entites));
-		});
-		logger.info(supprimes.size() + " doublons supprimés en " + Utils.tempsDepuis(startTime) + " ms");
-		logger.info("Mise à jour de la base de données en cours...");
-		startTime = System.currentTimeMillis();
-		AtomicInteger total = new AtomicInteger(0);
-		entitesRegroupees.values().stream().parallel()
-			.forEach((entites) -> {
-				total.addAndGet(entites.size());
-				try { EntiteInteraction.mettreAJourEntitesBatch(entites); }
-				catch (StorageException | URISyntaxException | InvalidKeyException e) {
-					Utils.logErreur(e, logger);
-					throw new RuntimeException();
-				}
-			});
-		logger.info(total.get() + " entités mises à jour en " + Utils.tempsDepuis(startTime) + " ms");
+		for (InteractionBrouillon intBrouillon : interactionsBrouillon) {
+			String descriptif;
+			String conduite;
+			if (intBrouillon.descriptif.matches(" *")) {
+				descriptif = Texte.corrigerApostrophes.apply(intBrouillon.conduite);
+				conduite = "";
+			} else {
+				descriptif = Texte.corrigerApostrophes.apply(intBrouillon.descriptif);
+				conduite = Texte.corrigerApostrophes.apply(intBrouillon.conduite
+					.replaceAll(
+					"((CI ?)"
+					+ "|(ASDEC ?)"
+					+ "|(PE )"
+					+ "|(APEC ?))", 
+					"")
+					.replaceFirst(" ?(- )+\n", "")
+				);
+			}
+			Set<EntiteSubstance> substances1 = Recherche.obtenirCorrespondances.apply(intBrouillon.substance1);
+			Set<EntiteSubstance> substances2 = Recherche.obtenirCorrespondances.apply(intBrouillon.substance2);
+			Set<List<EntiteSubstance>> combinaisons = Sets.cartesianProduct(substances1, substances2);
+			combinaisons.stream()
+				.map(c -> {
+					EntiteInteraction entite = new EntiteInteraction(c.get(0), c.get(1));
+					entite.setRisque(intBrouillon.risque);
+					entite.setDescriptif(descriptif);
+					entite.setConduite(conduite);
+					return entite;
+				})
+				.forEach(e -> {
+					String cleUnique = e.getPartitionKey() + e.getRowKey();
+					EntiteInteraction doublon = entitesCreeesParCle.get(cleUnique);
+					if (doublon == null || doublon.getRisque() < e.getRisque())
+						entitesCreeesParCle.put(cleUnique, e);
+				});
+		}
+		logger.info(entitesCreeesParCle.size() + " entités créées en " + Utils.tempsDepuis(startTime) + " ms");
+	}
+
+	private static class InteractionBrouillon {
+		final String substance1;
+		final String substance2;
+		final int risque;
+		final String descriptif;
+		final String conduite;
+		InteractionBrouillon (String substance1, String substance2, int risque, String descriptif, String conduite) {
+			this.substance1 = substance1;
+			this.substance2 = substance2;
+			this.risque = risque;
+			this.descriptif = Optional.ofNullable(descriptif).orElse("");
+			this.conduite = Optional.ofNullable(conduite).orElse("");
+		}
 	}
 
 	private static class Recherche {
 
-		private static final Map<String, Set<Long>> cacheCorrespondances = new HashMap<>();
-		private static final Map<String, Set<String>> cacheMeilleuresSubstances = new HashMap<>();
+		private static final Map<String, Set<EntiteSubstance>> cacheCorrespondances = new HashMap<>();
+		private static final Map<String, Set<EntiteSubstance>> cacheMeilleuresSubstances = new HashMap<>();
 		private static final Map<String, Set<String>> cacheSousExpressions = new HashMap<>();
-		private static final Map<String, Set<String>> cacheRechercheSubstances = new HashMap<>();
+		private static final Map<String, Set<EntiteSubstance>> cacheRechercheSubstances = new HashMap<>();
 
-		protected static Function<String, Set<Long>> obtenirCorrespondances = recherche -> 
+		protected static Function<String, Set<EntiteSubstance>> obtenirCorrespondances = recherche -> 
 			cacheCorrespondances.computeIfAbsent(recherche, exp -> {
-				if (exp == null) { return new HashSet<>(); }
+				if (exp == null) return new HashSet<>();
 				exp = exp.toLowerCase();
-				if (exp.matches("(?i:autres .*)")) { exp = exp.replaceFirst("autres ", ""); }
+				if (exp.startsWith("autres ")) exp = exp.replaceFirst("autres ", "");
 				if (classesSubstances.containsKey(exp)) { 
 					return classesSubstances.get(exp).stream()
 						.flatMap(substance -> 
 							Recherche.obtenirCorrespondances.apply(substance).stream())
 						.collect(Collectors.toSet());
 				}
-				if (correspondancesSubstances.containsKey(exp)) { 
-					return correspondancesSubstances.get(exp); 
-				}
-				Set<Long> codesSubstances = rechercherMeilleuresSubstances(exp)
-					.stream()
-					.flatMap(substance -> Optional.ofNullable(substances.get(substance))
-						.orElseGet(HashSet::new)
-						.stream())
-					.collect(Collectors.toSet());
-				correspondancesSubstances.put(exp, codesSubstances);
-				return codesSubstances;
+				return correspondancesSubstances.computeIfAbsent(exp, e -> rechercherMeilleuresSubstances(e));
 			})
 		;
 
-		private static Set<String> rechercherMeilleuresSubstances (String recherche) {
+		private static Set<EntiteSubstance> rechercherMeilleuresSubstances (String recherche) {
 			return cacheMeilleuresSubstances.computeIfAbsent(recherche, terme -> {
-				HashMap<String, Double> classement = new HashMap<>();
+				HashMap<EntiteSubstance, Double> classement = new HashMap<>();
 				if (terme.matches(".+\\(.+\\)")) {
 					String debut = terme.split("\\(")[0];
-					Set<String> resultats1 = rechercherMeilleuresSubstances(debut);
-					if (resultats1.isEmpty()) { return resultats1; }
+					Set<EntiteSubstance> resultats1 = rechercherMeilleuresSubstances(debut);
+					if (resultats1.isEmpty()) return resultats1;
 					return rechercherMeilleuresSubstances(terme.replaceFirst(debut, ""))
 						.stream()
 						.filter(resultats1::contains)
@@ -469,14 +394,16 @@ public final class MiseAJourInteractions {
 						.filter(exp -> exp.equals("fer") || !exp.matches("([^ ]{1,3} ?\\b)+"))
 						.iterator()
 				) {
-					if (expression.matches("(?i:(sauf)|(hors))")) { break; }
+					if (expression.matches("(?i:(sauf)|(hors))")) break;
 					if (expression.matches("(?i:[^ ]*s)")) { 
 						expression = expression.substring(0, expression.length() - 1); 
 					}
-					Set<String> resultats = rechercherSubstances(expression);
-					for (String resultat : resultats) { 
+					Set<EntiteSubstance> resultats = rechercheSimple(expression);
+					for (EntiteSubstance resultat : resultats) { 
 						double score = (1.0 * expression.length()) / resultats.size();
-						double scorePrecedent = Optional.ofNullable(classement.get(resultat)).orElse(0.0);
+						double scorePrecedent = Optional
+							.ofNullable(classement.get(resultat))
+							.orElse(0.0);
 						classement.put(resultat, score + scorePrecedent); 
 					}
 				}
@@ -502,17 +429,16 @@ public final class MiseAJourInteractions {
 			});
 		}
 
-		private static Set<String> rechercherSubstances (String recherche) {
+		private static Set<EntiteSubstance> rechercheSimple (String recherche) {
 			return cacheRechercheSubstances.computeIfAbsent(recherche, mot -> {
-				Supplier<Stream<String>> noms = () -> substances.keySet().stream()
-					.map(Texte.normaliser::apply);
-				return Optional.ofNullable(
-					noms.get()
-						.filter(nom -> nom.matches("(?i:.*" + mot + "\\b.*)"))
+				return Optional.ofNullable(nomsSubImporteesNormalises.entrySet().stream()
+						.filter(e -> e.getKey().matches("(?i:.*" + mot + "\\b.*)"))
+						.flatMap(e -> e.getValue().stream())
 						.collect(Collectors.toSet())
 				)
-					.orElseGet(() -> noms.get()
-						.filter(nom -> nom.matches("(?i:.*" + mot + ".*)"))
+					.orElseGet(() -> nomsSubImporteesNormalises.entrySet().stream()
+						.filter(e -> e.getKey().matches("(?i:.*" + mot + ".*)"))
+						.flatMap(e -> e.getValue().stream())
 						.collect(Collectors.toSet()));
 			});
 		}

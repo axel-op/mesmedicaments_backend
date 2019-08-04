@@ -2,100 +2,80 @@ package app.mesmedicaments.entitestables;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
-import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.table.Ignore;
 
 import org.json.JSONObject;
 
-public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<EntiteMedicamentFrance.Presentation> {
+import app.mesmedicaments.entitestables.AbstractEntiteMedicament.Presentation;
 
-    private static final String PARTITION = "medicament-france";
+public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<EntiteMedicamentFrance.PresentationFrance> {
 
-    public static Optional<EntiteMedicamentFrance> obtenirEntite(long codeCIS)
-        throws StorageException, URISyntaxException, InvalidKeyException 
-    {
-        return AbstractEntiteProduit.obtenirEntite(
-            PARTITION, 
-            codeCIS, 
-            EntiteMedicamentFrance.class
-        );
+    private static final Pays PAYS = Pays.France;
+
+    /**
+     * Les codes CIS non trouvés lèvent une exception
+     * @param codesCis
+     * @return
+     */
+    public static Set<EntiteMedicamentFrance> obtenirEntites (Set<Long> codesCis, Logger logger) {
+        return obtenirEntites(PAYS, codesCis, EntiteMedicamentFrance.class, logger);
     }
 
-    public static Iterable<EntiteMedicamentFrance> obtenirToutesLesEntites()
+    public static Optional<EntiteMedicamentFrance> obtenirEntite (long codeCis)
         throws StorageException, URISyntaxException, InvalidKeyException 
     {
-        return AbstractEntiteProduit.obtenirToutesLesEntites(PARTITION, EntiteMedicamentFrance.class);
+        return obtenirEntite(PAYS, codeCis, EntiteMedicamentFrance.class);
+    }
+
+    public static Iterable<EntiteMedicamentFrance> obtenirToutesLesEntites ()
+        throws StorageException, URISyntaxException, InvalidKeyException 
+    {
+        return obtenirToutesLesEntites(PAYS, EntiteMedicamentFrance.class);
     }
 
     // Constructeurs
 
-    public EntiteMedicamentFrance (long codeCis)
-        throws StorageException, URISyntaxException, InvalidKeyException
-    {
-        super(PARTITION, codeCis);
+    public EntiteMedicamentFrance (long codeCis) {
+        super(PAYS, codeCis);
     }
 
     /**
      * NE PAS UTILISER
-     * @throws StorageException
-     * @throws URISyntaxException
-     * @throws InvalidKeyException
      */
-    public EntiteMedicamentFrance () throws StorageException, URISyntaxException, InvalidKeyException
-    {
-        super();
-    }
-
-    // Getters
+    public EntiteMedicamentFrance () { super(); }
 
     @Override
-    public Set<Presentation> obtenirPresentations () {
-        if (presentations == null) return new HashSet<>();
-        JSONObject json = new JSONObject(presentations);
-        return json.keySet().stream().map(nom -> {
-            JSONObject jsonPres = json.getJSONObject(nom);
-            return new Presentation(
-                nom, 
-                jsonPres.getDouble("prix"), 
-                jsonPres.getInt("tauxRemboursement"),
-                jsonPres.getDouble("honorairesDispensation"), 
-                jsonPres.getString("conditionsRemboursement")
-            );
-        }).collect(Collectors.toSet());
+    public boolean conditionsARemplir() {
+        return forme != null
+            && !getNomsParLangue().isEmpty()
+            && !getMarque().equals("");
     }
 
-    // Setters
-
+    @Ignore
     @Override
-    public void definirPresentations (Iterable<Presentation> presentations) {
-        if (presentations == null) this.presentations = new JSONObject().toString();
-        else {
-            JSONObject json = new JSONObject();
-            for (Presentation presentation : presentations) {
-                json.put(presentation.nom,
-                new JSONObject()
-                    .put("prix", presentation.prix)
-                    .put("tauxRemboursement", presentation.tauxRemboursement)
-                    .put("honorairesDispensation", presentation.honorairesDispensation)
-                    .put("conditionsRemboursement", presentation.conditionsRemboursement));
-            }
-            this.presentations = json.toString();
-        }
+    public void setPresentationsJson (Set<JSONObject> presJson) {
+        this.presentationsSet.clear();
+        this.presentationsSet.addAll(presJson.stream()
+            .map(PresentationFrance::new)
+            .collect(Collectors.toSet())
+        );
     }
     
 
-    public static class Presentation {
-        public final String nom;
-        public final Double prix;
-        public final Integer tauxRemboursement;
-        public final Double honorairesDispensation;
-        public final String conditionsRemboursement;
+    public static class PresentationFrance extends Presentation {
+        private String nom;
+        private double prix;
+        private int tauxRemboursement;
+        private double honorairesDispensation;
+        private String conditionsRemboursement;
 
-        public Presentation(
+        public PresentationFrance (
             String nom, 
             double prix, 
             int tauxRemboursement, 
@@ -109,5 +89,39 @@ public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<Entit
             this.honorairesDispensation = honorairesDispensation;
             this.conditionsRemboursement = conditionsRemboursement != null ? conditionsRemboursement : "";
         }
+
+        protected PresentationFrance (JSONObject json) {
+            super(json);
+        }
+
+        @Override
+        protected void fromJson (JSONObject json) {
+            this.nom = json.getString("nom");
+            this.prix = json.getDouble("prix");
+            this.tauxRemboursement = json.getInt("tauxRemboursement");
+            this.honorairesDispensation = json.getDouble("honorairesDispensation");
+            this.conditionsRemboursement = json.getString("conditionsRemboursement");
+        }
+
+        @Override
+        public JSONObject toJson () {
+            return new JSONObject()
+                .put("nom", nom)
+                .put("prix", prix)
+                .put("tauxRemboursement", tauxRemboursement)
+                .put("honorairesDispensation", honorairesDispensation)
+                .put("conditionsRemboursement", conditionsRemboursement);
+        }
+
+        @Ignore
+        public String getNom () { return nom; }
+        @Ignore
+        public double getPrix () { return prix; }
+        @Ignore
+        public int getTauxRemboursement () { return tauxRemboursement; }
+        @Ignore
+        public double getHonoraires () { return honorairesDispensation; }
+        @Ignore
+        public String getConditionsRemboursement () { return conditionsRemboursement; }
     }
 }

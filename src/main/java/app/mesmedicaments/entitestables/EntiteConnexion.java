@@ -7,8 +7,6 @@ import java.util.Optional;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.TableOperation;
-import com.microsoft.azure.storage.table.TableQuery;
-import com.microsoft.azure.storage.table.TableQuery.QueryComparisons;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -22,14 +20,7 @@ public class EntiteConnexion extends AbstractEntite {
 	public static Iterable<EntiteConnexion> obtenirToutesLesEntites () 
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
-		String filtrePK = TableQuery.generateFilterCondition(
-			"PartitionKey", 
-			QueryComparisons.EQUAL, 
-			CLE_PARTITION
-		);
-		return obtenirCloudTable(TABLE)
-			.execute(new TableQuery<>(EntiteConnexion.class)
-				.where(filtrePK));
+		return obtenirToutesLesEntites(TABLE, CLE_PARTITION, EntiteConnexion.class);
 	}
 
 	public static Optional<EntiteConnexion> obtenirEntite (String id)
@@ -56,21 +47,14 @@ public class EntiteConnexion extends AbstractEntite {
 	String cookies;
 	String urlFichierRemboursements;
 
-	public EntiteConnexion (String id) 
-		throws StorageException, InvalidKeyException, URISyntaxException
-	{
+	public EntiteConnexion (String id) {
 		super(TABLE, CLE_PARTITION, id);
 	}
 
 	/**
 	 * NE PAS UTILISER
-	 * @throws StorageException
-	 * @throws URISyntaxException
-	 * @throws InvalidKeyException
 	 */
-	public EntiteConnexion () 
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
+	public EntiteConnexion () {
 		super(TABLE);
 	}
 
@@ -134,15 +118,7 @@ public class EntiteConnexion extends AbstractEntite {
 	//public void setInscriptionRequise (boolean inscriptionRequise) { this.inscriptionRequise = inscriptionRequise; }
 	public void setUrlFichierRemboursements (String url) { urlFichierRemboursements = url; }
 
-	// Affichage
-	public String toString () {
-		String s = "***EntiteConnexion***\nid = " + rowKey 
-			+ "\nsid = " + sid 
-			+ "\ntformdata = " + tformdata 
-			+ "\ntimestamp = " + getTimestamp().toString()
-			+ "\ncookies = " + cookies
-			+ "\n******************";
-		return s;
-	}
+	@Override
+	public boolean conditionsARemplir () { return true; }
 
 }

@@ -62,23 +62,19 @@ public class EntiteDateMaj extends AbstractEntite {
 
     /**
      * NE PAS UTILISER
-     * @throws StorageException
-     * @throws URISyntaxException
-     * @throws InvalidKeyException
      */
-    public EntiteDateMaj () 
-        throws StorageException, URISyntaxException, InvalidKeyException
-    {
+    public EntiteDateMaj () {
         super(TABLE);
     }
 
-    private EntiteDateMaj (String rowKey) 
-        throws StorageException, URISyntaxException, InvalidKeyException
-    {
+    private EntiteDateMaj (String rowKey) {
         super(TABLE, CLE_PARTITION, rowKey);
     }
 
     public String getDate () { return date; }
 
     public void setDate (String date) { this.date = date; }
+
+    @Override
+    public boolean conditionsARemplir () { return true; }
 }

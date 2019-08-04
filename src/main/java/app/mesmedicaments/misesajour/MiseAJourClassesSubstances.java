@@ -6,13 +6,14 @@ import java.io.StringReader;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.InvalidKeyException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -22,22 +23,20 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 
 import app.mesmedicaments.Utils;
-import app.mesmedicaments.entitestables.ClassesSubstancesService;
+import app.mesmedicaments.entitestables.EntiteClasseSubstances;
 import app.mesmedicaments.entitestables.EntiteSubstance;
+import app.mesmedicaments.entitestables.AbstractEntite.Langue;
+import app.mesmedicaments.entitestables.AbstractEntite.Pays;
 
 public final class MiseAJourClassesSubstances {
 
-	private static final String URL_CLASSES;
+	private static final String URL_CLASSES = System.getenv("url_classes");
 
 	private static Logger logger;
-	private static Map<String, Set<Long>> classes = new HashMap<>();
-	private static Map<String, Set<Long>> nomsSubstancesNormalisesMin = new HashMap<>();
-	private static Map<String, Set<Long>> cacheRecherche = new HashMap<>();
+	private static Map<String, Set<EntiteSubstance>> classes = new HashMap<>();
+	private static Map<String, Set<EntiteSubstance>> nomsSubstancesNormalisesMin = new HashMap<>();
+	private static Map<String, Set<EntiteSubstance>> cacheRecherche = new HashMap<>();
 
-	static {
-		URL_CLASSES = System.getenv("url_classes");
-	}
-		
 	private MiseAJourClassesSubstances () {}
 
 	public static boolean handler (Logger logger) {
@@ -51,7 +50,7 @@ public final class MiseAJourClassesSubstances {
 	}
 
 	private static boolean importerClasses () {
-		Integer nbrClassesTrouvees = 0;
+		int nbrClassesTrouvees = 0;
 		try {
 			logger.info("Récupération du fichier des classes de substances (url = " + URL_CLASSES + ")");
 			HttpsURLConnection connexion = (HttpsURLConnection) new URL(URL_CLASSES).openConnection();
@@ -61,37 +60,36 @@ public final class MiseAJourClassesSubstances {
 			PDFTextStripper stripper = new PDFTextStripper();
 			stripper.setStartPage(2);
 			stripper.setParagraphStart("/t");
-			String classeencours = "";
-			HashSet<Long> substancesEnCours = new HashSet<>();
 			String[] paragraphes = stripper.getText(document).split(stripper.getParagraphStart());
+			String classeencours = "";
+			HashSet<EntiteSubstance> substancesEnCours = new HashSet<>();
 			int c = 0;
 			long startTime = System.currentTimeMillis();
 			for (String paragraphe : paragraphes) { 
-				c++;
-				logger.info("Parsing du paragraphe " + c + "/" + paragraphes.length + "...");
+				logger.info("Parsing du paragraphe " + (c++) + "/" + paragraphes.length + "...");
 				BufferedReader br = new BufferedReader(new StringReader(paragraphe));
 				String ligne = br.readLine();
 				if (ligne != null && !(ligne.matches("(Page .*)|(Thésaurus .*)|(Index .*)|(ANSM .*)"))) {
 					if (!classeencours.equals("")) { 
-						if (classes.get(classeencours) == null) {
-							classes.put(classeencours, new HashSet<>());
-						}
-						for (long codesubstance : substancesEnCours) {
-							classes.get(classeencours).add(codesubstance);
+						for (EntiteSubstance entite : substancesEnCours) {
+							classes.computeIfAbsent(classeencours, k -> new HashSet<>())
+								.add(entite);
 						}
 						nbrClassesTrouvees += 1;
 					}
-					substancesEnCours = new HashSet<>();
+					substancesEnCours.clear();
 					classeencours = ligne.trim();
 				}
 				while ((ligne = br.readLine()) != null) {
 					if (!(ligne.matches("(Page .*)|(Thésaurus .*)|(Index .*)|(ANSM .*)"))) {
 						for (String substance : ligne.split(",")) {
-							substance = substance.replaceAll("\\s", " ");
-							substance = substance.replaceAll("[^- \\p{ASCII}\\p{IsLatin}]|\\(|\\)", "");
-							substance = substance.replaceAll("(acide)|(virus)", "");
-							substance = substance.replaceAll("\\brota\\b", "rotavirus");
-							substance = substance.trim();
+							substance = substance
+								.replaceAll("\\s", " ")
+								.replaceAll("[^- \\p{ASCII}\\p{IsLatin}]|\\(|\\)", "")
+								.replaceAll("(acide)|(virus)", "")
+								.replaceAll("\\brota\\b", "rotavirus")
+								.toLowerCase()
+								.trim();
 							if (substance.matches(".*[a-z].*")) {
 								rechercherSubstances(substance)
 									.forEach(substancesEnCours::add);
@@ -114,12 +112,14 @@ public final class MiseAJourClassesSubstances {
 		logger.info("Mise à jour de la base de données en cours...");
 		try {
 			long startTime = System.currentTimeMillis();
-			for (Entry<String, Set<Long>> entree : classes.entrySet()) {
-				ClassesSubstancesService.mettreAJourClasseBatch(
-					entree.getKey(),
-					entree.getValue()
-				);				
-			}
+			Set<EntiteClasseSubstances> entitesClasses = classes.entrySet().stream()
+				.map(e -> {
+					EntiteClasseSubstances entite = new EntiteClasseSubstances(e.getKey());
+					entite.ajouterSubstances(e.getValue());
+					return entite;
+				})
+				.collect(Collectors.toSet());
+			EntiteClasseSubstances.mettreAJourEntitesBatch(entitesClasses);
 			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms");
 		} 
 		catch (StorageException
@@ -132,39 +132,36 @@ public final class MiseAJourClassesSubstances {
 		return true;
 	}
 
-	private static Set<Long> rechercherSubstances (String recherche) {
+	private static Set<EntiteSubstance> rechercherSubstances (String recherche) {
 		final String rechercheNorm = Utils.normaliser(recherche)
 			.replaceAll("  ", " ")
 			.toLowerCase()
 			.trim();
-		Set<Long> resultats = Optional
-			.ofNullable(cacheRecherche.get(recherche))
-			.orElseGet(HashSet::new);
-		nomsSubstancesNormalisesMin.keySet().stream()
-			.filter(nom -> nom.matches("(?i:.*" + rechercheNorm + ".*)"))
-			.forEach(nom -> resultats.addAll(nomsSubstancesNormalisesMin.get(nom)));
-		cacheRecherche.put(recherche, resultats);
-		logger.fine(resultats.size() + " substances trouvées à la recherche : " + recherche);
-		return resultats;
+		return cacheRecherche.computeIfAbsent(rechercheNorm, r -> {
+			Set<EntiteSubstance> resultats = nomsSubstancesNormalisesMin.keySet().stream()
+				.filter(nom -> nom.contains(r))
+				.map(nomsSubstancesNormalisesMin::get)
+				.flatMap(Collection::stream)
+				.collect(Collectors.toSet());
+			logger.fine(resultats.size() + " substances trouvées à la recherche : " + recherche);
+			return resultats;
+		});
 	}
 	
-	protected static HashMap<String, Set<Long>> importerSubstances (Logger logger) {
-		HashMap<String, Set<Long>> resultats = new HashMap<>();
+	/**
+	 * Clés : noms. Valeurs : ensemble des codes des substances associées. 
+	 */
+	protected static Map<String, Set<EntiteSubstance>> importerSubstances (Logger logger) {
+		HashMap<String, Set<EntiteSubstance>> resultats = new HashMap<>();
 		try {
-			for (EntiteSubstance entite : EntiteSubstance.obtenirToutesLesEntites()) {
-				for (String nom : (Iterable<String>) () -> 
-					entite.obtenirNomsJArray().toList()
-						.stream()
-						.map(String::valueOf)
-						.map(Utils::normaliser)
-						.map(String::toLowerCase)
-						.iterator()
+			for (EntiteSubstance entite : EntiteSubstance.obtenirToutesLesEntites(Pays.France)) {
+				for (String nom : Optional
+					.ofNullable(entite.getNomsParLangue().get(Langue.Francais))
+					.orElseGet(HashSet::new)
 				) {
-					if (!resultats.containsKey(nom)) {
-						resultats.put(nom, new HashSet<>());
-					}
-					long codeSubstance = entite.obtenirCodeSubstance();
-					resultats.get(nom).add(codeSubstance);
+					resultats
+						.computeIfAbsent(nom, k -> new HashSet<>())
+						.add(entite);
 				}
 			}
 		}

@@ -49,7 +49,7 @@ public final class Utils {
 			medsParDate.get(date).stream().parallel()
 				.forEach(Unchecker.wrap(logger, (Long codeCis) -> {
 					EntiteMedicamentFrance entiteM = EntiteMedicamentFrance.obtenirEntite(codeCis).get();
-					enJson.put(Utils.medicamentFranceEnJson(entiteM, logger));
+					enJson.put(Utils.medicamentFranceEnJsonDepreciee(entiteM, logger));
 				}));
 			medsEnJson.put(date.toString(), enJson);
 		}
@@ -142,6 +142,8 @@ public final class Utils {
 		throws StorageException, URISyntaxException, InvalidKeyException, NoSuchElementException
 	{
 		ImmutableList<EntiteSubstance> entitesS = entiteI.getEntitesSubstance(logger);
+		// TODO effacer après débogage
+		logger.info("(débogage) (interactionEnJsonDepreciee) entiteI " + entiteI.getPartitionKey() + " " + entiteI.getRowKey() + " entiteS.size = " + entitesS.size());
 		JSONObject jsonSubstances = new JSONObject();
 		entitesS.forEach(e -> jsonSubstances.put(
 			String.valueOf(e.getCode()),
@@ -160,7 +162,7 @@ public final class Utils {
 	}
 
 	//@Deprecated
-	public static JSONObject medicamentFranceEnJson (EntiteMedicamentFrance entiteM, Logger logger)
+	public static JSONObject medicamentFranceEnJsonDepreciee (EntiteMedicamentFrance entiteM, Logger logger)
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{
 		Set<AbstractEntiteMedicament.SubstanceActive> substances = entiteM.getSubstancesActivesSet();

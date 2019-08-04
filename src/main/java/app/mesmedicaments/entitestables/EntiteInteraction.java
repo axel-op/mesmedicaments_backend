@@ -99,6 +99,7 @@ public class EntiteInteraction extends AbstractEntite {
         Set<String> clesSub2 = subEnCles.apply(medicament2);
         Set<List<String>> requetes = Sets.cartesianProduct(clesSub1, clesSub2);
         return requetes.stream().parallel()
+            .filter(cles -> !cles.get(0).equals(cles.get(1)))
             .flatMap(Unchecker.wrap(logger, (List<String> cles) -> obtenirEntite(cles.get(0), cles.get(1))
                 .map(e -> {
                     e.setMedicament1(medicament1);

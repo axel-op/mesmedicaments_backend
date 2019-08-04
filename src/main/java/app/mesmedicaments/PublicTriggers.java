@@ -171,7 +171,7 @@ public final class PublicTriggers {
 		try {
 			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			if (parametres.length == 3)
-				reponse.put("medicament", Utils.medicamentFranceEnJson(
+				reponse.put("medicament", Utils.medicamentFranceEnJsonDepreciee(
 					EntiteMedicamentFrance.obtenirEntite(Long.parseLong(parametres[2])).get(), 
 					logger
 				));

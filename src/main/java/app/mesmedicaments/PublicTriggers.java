@@ -9,6 +9,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -326,11 +327,14 @@ public final class PublicTriggers {
 			if (utiliserDepreciees)
 				codesParPays.put(Pays.France, JSONArrays.toSetLong(corpsRequete.getJSONArray("medicaments")));
 			else {
-				JSONObject codesParPaysJson = corpsRequete.getJSONObject("medicaments");
-				codesParPaysJson.keySet().forEach(k -> codesParPays.put(
-					Pays.obtenirPays(k), 
-					JSONArrays.toSetLong(codesParPaysJson.getJSONArray(k)))
-				);
+				JSONArray medicaments = corpsRequete.getJSONArray("medicaments");
+				for (int i = 0; i < medicaments.length(); i++) {
+					JSONObject details = medicaments.getJSONObject(i);
+					codesParPays.computeIfAbsent(
+						Pays.obtenirPays(details.getString("pays")), 
+						k -> new HashSet<>()
+					).add(details.getLong("code"));
+				}
 			}
 			Set<? extends AbstractEntiteMedicament<? extends Presentation>> entitesMedicament = codesParPays
 				.entrySet()

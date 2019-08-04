@@ -41,7 +41,7 @@ public final class Utils {
 
 	private Utils () {}
 
-	@Deprecated
+	//@Deprecated
 	public static JSONObject mapDatesCodesEnJsonDatesDetails (Map<LocalDate, Set<Long>> medsParDate, Logger logger) {
 		JSONObject medsEnJson = new JSONObject();
 		for (LocalDate date : medsParDate.keySet()) {
@@ -137,7 +137,7 @@ public final class Utils {
 	-> à utiliser si le code de version reçu est null ou inférieur
 	*/
 
-	@Deprecated
+	//@Deprecated
 	public static JSONObject interactionEnJsonDepreciee (EntiteInteraction entiteI, Logger logger) 
 		throws StorageException, URISyntaxException, InvalidKeyException, NoSuchElementException
 	{
@@ -159,7 +159,7 @@ public final class Utils {
 			);
 	}
 
-	@Deprecated
+	//@Deprecated
 	public static JSONObject medicamentFranceEnJson (EntiteMedicamentFrance entiteM, Logger logger)
 		throws StorageException, URISyntaxException, InvalidKeyException
 	{

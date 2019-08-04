@@ -6,7 +6,7 @@
     "direction" : "in",
     "name" : "medicamentTrigger",
     "route" : "medicament/{code:int?}",
-    "methods" : [ "GET" ],
+    "methods" : [ "GET", "POST" ],
     "authLevel" : "ANONYMOUS"
   }, {
     "type" : "http",

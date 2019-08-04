@@ -187,6 +187,7 @@ public final class PublicTriggers {
 			codeHttp = HttpStatus.OK;
 		}
 		catch (IllegalArgumentException | NoSuchElementException e) {
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
 		}
 		catch (Exception e) {

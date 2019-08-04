@@ -196,7 +196,7 @@ public final class PublicTriggers {
 			name = "medicamentTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET},
-			route = "medicament/{code:alpha}"
+			route = "medicament/{code}"
 		) final HttpRequestMessage<Optional<String>> request,
 		@BindingName("code") final String codeStr,
 		final ExecutionContext context

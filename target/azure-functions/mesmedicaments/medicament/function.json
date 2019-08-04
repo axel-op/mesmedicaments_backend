@@ -5,7 +5,7 @@
     "type" : "httpTrigger",
     "direction" : "in",
     "name" : "medicamentTrigger",
-    "route" : "medicament/{code:alpha}",
+    "route" : "medicament/{code}",
     "methods" : [ "GET" ],
     "authLevel" : "ANONYMOUS"
   }, {

@@ -160,7 +160,7 @@ public final class PublicTriggers {
 			name = "medicamentTrigger",
 			authLevel = AuthorizationLevel.ANONYMOUS,
 			methods = {HttpMethod.GET, HttpMethod.POST},
-			route = "medicament/{code?}"
+			route = "medicament/{code:int?}"
 		) final HttpRequestMessage<Optional<String>> request,
 		final ExecutionContext context
 	) {

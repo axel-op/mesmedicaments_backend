@@ -289,7 +289,17 @@ public final class PublicTriggers {
 				EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
 				entiteU.ajouterMedicamentsDMP(medsParDate);
 				entiteU.mettreAJourEntite();
-				JSONObject medsEnJson = Utils.mapDatesCodesEnJsonDatesDetails(medsParDate, logger);
+				JSONObject medsEnJson = new JSONObject();
+				medsParDate.entrySet().parallelStream()
+					.forEach(e -> medsEnJson.put(
+						e.getKey().toString(), 
+						EntiteMedicamentFrance.obtenirEntites(e.getValue(), logger).stream()
+							.map(Unchecker.wrap(logger, entite -> utiliserDepreciees(request)
+								? Utils.medicamentFranceEnJsonDepreciee(entite, logger)
+								: Utils.medicamentEnJson(entite, logger)
+							))
+							.collect(Collectors.toSet())
+					));
 				corpsReponse.put("medicaments", medsEnJson);
 				codeHttp = HttpStatus.OK;
 			}

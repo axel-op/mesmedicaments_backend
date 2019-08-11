@@ -113,6 +113,7 @@ public final class Utils {
 			.put("marque", entiteMedicament.getMarque())
 			.put("autorisation", entiteMedicament.getAutorisation())
 			.put("codeMedicament", entiteMedicament.getCodeMedicament())
+			.put("effetsIndesirables", entiteMedicament.getEffetsIndesirables())
 			.put("substances", jsonSubstances)
 			.put("presentations", jsonPresentations)
 			.put("expressionsCles", entiteMedicament.getExpressionsClesEffetsSet(logger));
@@ -142,8 +143,6 @@ public final class Utils {
 		throws StorageException, URISyntaxException, InvalidKeyException, NoSuchElementException
 	{
 		ImmutableList<EntiteSubstance> entitesS = entiteI.getEntitesSubstance(logger);
-		// TODO effacer après débogage
-		logger.info("(débogage) (interactionEnJsonDepreciee) entiteI " + entiteI.getPartitionKey() + " " + entiteI.getRowKey() + " entiteS.size = " + entitesS.size());
 		JSONObject jsonSubstances = new JSONObject();
 		entitesS.forEach(e -> jsonSubstances.put(
 			String.valueOf(e.getCode()),

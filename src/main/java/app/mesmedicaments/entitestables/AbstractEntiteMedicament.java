@@ -29,6 +29,7 @@ import app.mesmedicaments.unchecked.Unchecker;
 public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicament.Presentation> extends AbstractEntite {
 
     protected static final String TABLE = System.getenv("tableazure_medicaments");
+    //protected static final String TABLE = "tableMedBelgiqueTest";
 
     protected static <P extends Presentation, E extends AbstractEntiteMedicament<P>> Optional<E> 
         obtenirEntite (Pays pays, long code, Class<E> clazzType)
@@ -237,6 +238,10 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
             presentations.forEach(presentationsSet::add);
     }
 
+    public void ajouterPresentation (P presentation) {
+        presentationsSet.add(presentation);
+    }
+
     public void setNoms (String noms) {
         this.noms = noms;
         JSONObject nomsJson = new JSONObject(noms);
@@ -266,6 +271,10 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
     @Ignore
     public void setSubstancesActivesIterable (Iterable<SubstanceActive> substances) {
         substances.forEach(substancesSet::add);
+    }
+
+    public void ajouterSubstanceActive (SubstanceActive substance) {
+        substancesSet.add(substance);
     }
 
 

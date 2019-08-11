@@ -42,14 +42,6 @@ public final class EntiteMedicamentBelgique extends AbstractEntiteMedicament<Ent
      */
     public EntiteMedicamentBelgique () { super(); }
 
-
-    @Ignore
-    @Override
-    public Set<PresentationBelgique> getPresentationsSet() {
-        // TODO
-        return null;
-    }
-
     @Ignore
     @Override
     public void setPresentationsJson (Set<JSONObject> presJson) {
@@ -62,11 +54,26 @@ public final class EntiteMedicamentBelgique extends AbstractEntiteMedicament<Ent
 
     @Override
     public boolean conditionsARemplir() {
-        // TODO
-		return false;
+        return forme != null
+            && !getNomsParLangue().isEmpty()
+            && !getMarque().equals("");
     }
 
     public static class PresentationBelgique extends Presentation {
+        private String nom;
+        private double prix;
+        private int codeCNK;
+
+        public PresentationBelgique (
+            String nom,
+            Double prix,
+            int codeCNK
+        ) {
+            if (nom == null) throw new IllegalArgumentException("Le nom de la présentation ne peut pas être null");
+            this.nom = nom;
+            this.prix = prix != null ? prix : 0;
+            this.codeCNK = codeCNK;
+        }
 
         protected PresentationBelgique (JSONObject json) {
             super(json);
@@ -74,14 +81,23 @@ public final class EntiteMedicamentBelgique extends AbstractEntiteMedicament<Ent
 
         @Override
         public JSONObject toJson() {
-            // TODO
-            return null;
+            return new JSONObject()
+                .put("nom", nom)
+                .put("prix", prix)
+                .put("codeCNK", codeCNK);
         }
 
         @Override
         protected void fromJson(JSONObject json) {
-			// TODO
-		}
+            this.nom = json.getString("nom");
+            this.prix = json.getDouble("prix");
+            this.codeCNK = json.getInt("codeCNK");
+        }
+        
+        @Ignore
+        public String getNom () { return nom; }
+        @Ignore
+        public double getPrix () { return prix; }
 
     }
 }

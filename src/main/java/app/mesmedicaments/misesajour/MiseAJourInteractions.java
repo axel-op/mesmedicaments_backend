@@ -431,21 +431,21 @@ public final class MiseAJourInteractions {
 
 		private static Set<EntiteSubstance> rechercheSimple (String recherche) {
 			return cacheRechercheSubstances.computeIfAbsent(recherche, mot -> {
-				return Optional.ofNullable(nomsSubImporteesNormalises.entrySet().stream()
-						.filter(e -> e.getKey().matches("(?i:.*" + mot + "\\b.*)"))
-						.flatMap(e -> e.getValue().stream())
-						.collect(Collectors.toSet())
-				)
-					.orElseGet(() -> nomsSubImporteesNormalises.entrySet().stream()
-						.filter(e -> e.getKey().matches("(?i:.*" + mot + ".*)"))
-						.flatMap(e -> e.getValue().stream())
-						.collect(Collectors.toSet()));
+				Set<EntiteSubstance> matchPrecis = nomsSubImporteesNormalises.entrySet().stream()
+					.filter(e -> e.getKey().matches("(?i:.*" + mot + "\\b.*)"))
+					.flatMap(e -> e.getValue().stream())
+					.collect(Collectors.toSet());
+				if (!matchPrecis.isEmpty()) return matchPrecis;
+				return nomsSubImporteesNormalises.entrySet().stream()
+					.filter(e -> e.getKey().matches("(?i:.*" + mot + ".*)"))
+					.flatMap(e -> e.getValue().stream())
+					.collect(Collectors.toSet());
 			});
 		}
 	}
 
 	private static <T> Set<T> trouverMeilleurs (HashMap<T, Double> classement) {
-		if (classement.isEmpty()) { return new HashSet<>(); }
+		if (classement.isEmpty()) return new HashSet<>();
 		if (classement.size() == 1) { 
 			return classement.keySet();
 		}

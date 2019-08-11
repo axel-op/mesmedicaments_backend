@@ -33,8 +33,11 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import app.mesmedicaments.Utils;
+import app.mesmedicaments.entitestables.AbstractEntiteMedicament;
 import app.mesmedicaments.entitestables.EntiteMedicamentBelgique;
 import app.mesmedicaments.entitestables.AbstractEntite.Langue;
+import app.mesmedicaments.entitestables.AbstractEntiteMedicament.SubstanceActive;
+import app.mesmedicaments.entitestables.EntiteMedicamentBelgique.PresentationBelgique;
 
 public final class MiseAJourBelgique {
 
@@ -46,8 +49,8 @@ public final class MiseAJourBelgique {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 logger.info("zipentry name = " + entry.getName());
-                //if (entry.getName().startsWith("CMP"))
-                    //parserXMLSubstances(obtenirReader(zis), logger);
+                if (entry.getName().startsWith("AMP"))
+                    parserXMLproduits(obtenirReader(zis), logger);
             }
         }
         catch (Exception e) {
@@ -151,30 +154,135 @@ public final class MiseAJourBelgique {
         XMLStreamReader reader = factory.createXMLStreamReader(xmlAMP);
         EntiteMedicamentBelgique medEnCours = null;
         boolean nomsEnCours = false;
+        boolean nomsFormeEnCours = false;
+        boolean prescNameEnCours = false;
+        boolean companyEnCours = false;
+        boolean pharmaFormEnCours = false;
+        boolean raiEnCours = false;
+        boolean dansAMPC = false;
+        boolean dansAMPP = false;
+        boolean substanceActive = false;
+        Integer codeSubEnCours = null;
+        String dosageSubEnCours = null;
+        String nomPresEnCours = null;
+        Double prixPresEnCours = null;
         while (reader.hasNext()) {
             int eventType = reader.next();
             if (eventType == XMLStreamReader.START_ELEMENT) {
                 switch (reader.getLocalName()) {
                     case "Amp":
-                        if (medEnCours != null) entitesCreees.add(medEnCours);
                         String code = reader.getAttributeValue(null, "code");
-                        medEnCours = new EntiteMedicamentBelgique(formaterCodeAMP(code));
+                        medEnCours = new EntiteMedicamentBelgique(formaterCodeAMP(code)); // TODO modifier pour recup entité existante
                         break;
+                    case "AmpComponent":
+                        dansAMPC = true;
+                        break;
+                    case "Ampp":
+                        dansAMPP = true;
+                        break;
+                    case "PrescriptionName":
+                        if (dansAMPP) prescNameEnCours = true;
+                        break;
+                    case "Company":
+                        companyEnCours = true;
+                        break;
+                    case "PharmaceuticalForm":
+                        if (dansAMPC) pharmaFormEnCours = true;
+                        break;
+                    case "RealActualIngredient":
+                        raiEnCours = true;
+                        break;
+                    case "Type":
+                        if (raiEnCours) substanceActive = reader.getElementText().equals("ACTIVE_SUBSTANCE");
+                        break;
+                    case "Substance":
+                        codeSubEnCours = Integer.parseInt(reader.getAttributeValue(null, "code"));
+                        break;
+                    case "Strength":
+                        if (raiEnCours) {
+                            String unite = reader.getAttributeValue(null, "unit");
+                            Double quantite = Double.parseDouble(reader.getElementText());
+                            dosageSubEnCours = quantite + unite;
+                        }
                     case "Name":
-                        nomsEnCours = true;
+                        if (pharmaFormEnCours) nomsFormeEnCours = true;
+                        if (!(dansAMPC || dansAMPP)) nomsEnCours = true;
+                        break;
+                    case "Status":
+                        if (!(dansAMPC || dansAMPP)) medEnCours.setAutorisation(reader.getElementText());
+                        break;
+                    case "Denomination":
+                        if (companyEnCours) medEnCours.setMarque(reader.getElementText());
+                        break;
+                    case "ExFactoryPrice":
+                        prixPresEnCours = Double.parseDouble(reader.getElementText());
                         break;
                     case "Fr":
                         if (nomsEnCours) medEnCours.ajouterNom(Langue.Francais, reader.getElementText());
+                        if (prescNameEnCours) nomPresEnCours = reader.getElementText();
+                        if (nomsFormeEnCours) {
+                            String nouvForme = reader.getElementText();
+                            String forme = medEnCours.getForme();
+                            if (forme == null) forme = "";
+                            String[] formes = forme.split(", ");
+                            boolean deja = false;
+                            for (String f : formes) if (f.equalsIgnoreCase(nouvForme)) deja = true;
+                            if (!deja) {
+                                if (forme.length() > 0) forme += ", ";
+                                forme += nouvForme;
+                                medEnCours.setForme(forme);
+                            }
+                        }
+                        break;
                 }
             }
             if (eventType == XMLStreamReader.END_ELEMENT) {
                 switch (reader.getLocalName()) {
                     case "Name":
-                        nomsEnCours = false;
+                        if (nomsFormeEnCours) nomsFormeEnCours = false;
+                        else nomsEnCours = false;
+                        break;
+                    case "Amp":
+                        entitesCreees.add(medEnCours);
+                        break;
+                    case "AmpComponent":
+                        dansAMPC = false;
+                        break;
+                    case "Ampp":
+                        /* TODO à terminer
+                        if (nomPresEnCours != null) medEnCours.ajouterPresentation(new PresentationBelgique(
+                            nomPresEnCours, 
+                            prixPresEnCours
+                        ));*/
+                        nomPresEnCours = null;
+                        prixPresEnCours = null;
+                        dansAMPP = false;
+                        break;
+                    case "PrescriptionName":
+                        if (dansAMPP) prescNameEnCours = false;
+                        break;
+                    case "Company":
+                        companyEnCours = false;
+                        break;
+                    case "RealActualIngredient":
+                        if (substanceActive) medEnCours.ajouterSubstanceActive(new SubstanceActive(
+                            codeSubEnCours, 
+                            dosageSubEnCours, 
+                            null
+                        ));
+                        dosageSubEnCours = null;
+                        codeSubEnCours = null;
+                        substanceActive = false;
+                        raiEnCours = false;
+                        break;
+                    case "PharmaceuticalForm":
+                        if (pharmaFormEnCours) pharmaFormEnCours = false;
                         break;
                 }
             }
         }
+        logger.info("XML AMP parsé en " + Utils.tempsDepuis(startTime) + " ms");
+        AbstractEntiteMedicament.mettreAJourEntitesBatch(entitesCreees);
     }
 
     private static long formaterCodeAMP (String code) {

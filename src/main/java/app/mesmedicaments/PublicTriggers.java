@@ -129,7 +129,10 @@ public final class PublicTriggers {
 							entitesM.addAll(EntiteMedicamentBelgique.obtenirEntites(parPays.get(Pays.Belgique), logger));
 						medsPerso.put(
 							e.getKey().toString(), 
-							entitesM.parallelStream().map(entite -> Utils.medicamentEnJson(entite, logger)));
+							entitesM.parallelStream()
+								.map(entite -> Utils.medicamentEnJson(entite, logger))
+								.collect(Collectors.toSet())
+						);
 					});
 				JSONObject corpsReponse = new JSONObject().put("medicamentsPerso", medsPerso);
 				return construireReponse(HttpStatus.OK, corpsReponse, request);

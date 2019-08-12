@@ -3,7 +3,6 @@ package app.mesmedicaments;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.text.Normalizer;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
@@ -40,21 +39,6 @@ public final class Utils {
 	private static final Map<String, String> cacheNormalisation = new ConcurrentHashMap<>();
 
 	private Utils () {}
-
-	//@Deprecated
-	public static JSONObject mapDatesCodesEnJsonDatesDetails (Map<LocalDate, Set<Long>> medsParDate, Logger logger) {
-		JSONObject medsEnJson = new JSONObject();
-		for (LocalDate date : medsParDate.keySet()) {
-			JSONArray enJson = new JSONArray();
-			medsParDate.get(date).stream().parallel()
-				.forEach(Unchecker.wrap(logger, (Long codeCis) -> {
-					EntiteMedicamentFrance entiteM = EntiteMedicamentFrance.obtenirEntite(codeCis).get();
-					enJson.put(Utils.medicamentFranceEnJsonDepreciee(entiteM, logger));
-				}));
-			medsEnJson.put(date.toString(), enJson);
-		}
-		return medsEnJson;
-	}
 
 	/**
 	 * A utiliser à partir de la version 25 de l'application

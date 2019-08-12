@@ -18,6 +18,7 @@ import com.google.common.collect.Sets;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.Ignore;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.JSONArrays;
@@ -51,8 +52,8 @@ public class EntiteUtilisateur extends AbstractEntite {
     String medicamentsPerso;
     String idAnalytics;
 
-    private final Map<LocalDate, Set<Long>> medicamentsDMPParDate = new HashMap<>();
-    private final Map<LocalDate, Set<Long>> medicamentsPersoParDate = new HashMap<>();
+    private final Map<LocalDate, Map<Pays, Set<Long>>> medicamentsDMPParDate = new HashMap<>();
+    private final Map<LocalDate, Map<Pays, Set<Long>>> medicamentsPersoParDate = new HashMap<>();
 
     /**
      * NE PAS UTILISER
@@ -91,12 +92,12 @@ public class EntiteUtilisateur extends AbstractEntite {
     }
 
     @Ignore
-    public Map<LocalDate, Set<Long>> getMedicamentsDMPMap () {
+    public Map<LocalDate, Map<Pays, Set<Long>>> getMedicamentsDMPMap () {
         return new HashMap<>(medicamentsDMPParDate);
     }
 
     @Ignore
-    public Map<LocalDate, Set<Long>> getMedicamentsPersoMap () {
+    public Map<LocalDate, Map<Pays, Set<Long>>> getMedicamentsPersoMap () {
         return new HashMap<>(medicamentsPersoParDate);
     }
 
@@ -139,20 +140,40 @@ public class EntiteUtilisateur extends AbstractEntite {
     }
 
     @Ignore
-    private Map<LocalDate, Set<Long>> medicamentsParDateFromJson (JSONObject json) {
-        Map<LocalDate, Set<Long>> medsParDate = new HashMap<>();
+    private Map<LocalDate, Map<Pays, Set<Long>>> medicamentsParDateFromJson (JSONObject json) {
+        Map<LocalDate, Map<Pays, Set<Long>>> medsParDate = new HashMap<>();
         json.keySet().forEach(cleDate -> {
             LocalDate date = LocalDate.parse(cleDate);
-            Set<Long> codesMeds = JSONArrays.toSetLong(json.getJSONArray(cleDate));
-            medsParDate.put(date, codesMeds);
+            try {
+                JSONObject codesParPays = json.getJSONObject(cleDate);
+                codesParPays.keySet().forEach(codePays -> {
+                    Pays pays = Pays.obtenirPays(codePays);
+                    Set<Long> codesMeds = JSONArrays.toSetLong(codesParPays.getJSONArray(codePays));
+                    medsParDate.computeIfAbsent(date, k -> new HashMap<>())
+                        .computeIfAbsent(pays, k -> new HashSet<>())
+                        .addAll(codesMeds);
+                });
+            }
+            catch (JSONException e) {
+                Set<Long> codesMeds = JSONArrays.toSetLong(json.getJSONArray(cleDate));
+                medsParDate.computeIfAbsent(date, k -> new HashMap<>())
+                    .computeIfAbsent(Pays.France, k -> new HashSet<>())
+                    .addAll(codesMeds);
+            }
         });
         return medsParDate;
     }
 
-    private JSONObject medicamentsParDateToJson (Map<LocalDate, Set<Long>> medsParDate) {
+    private JSONObject medicamentsParDateToJson (Map<LocalDate, Map<Pays, Set<Long>>> medsParDate) {
         JSONObject json = new JSONObject();
         medsParDate.entrySet()
-            .forEach(e -> json.put(e.getKey().toString(), e.getValue()));
+            .forEach(e -> {
+                LocalDate date = e.getKey();
+                Map<Pays, Set<Long>> medsParPays = e.getValue();
+                JSONObject jsonDate = new JSONObject();
+                medsParPays.entrySet().forEach(e2 -> jsonDate.put(e2.getKey().code, e2.getValue()));
+                json.put(date.toString(), jsonDate);
+            });
         return json;
     }
 
@@ -162,7 +183,8 @@ public class EntiteUtilisateur extends AbstractEntite {
      */
     public void ajouterMedicamentsDMP (Map<LocalDate, Set<Long>> medsParDate) {
         for (Entry<LocalDate, Set<Long>> entree : medsParDate.entrySet()) {
-            medicamentsDMPParDate.computeIfAbsent(entree.getKey(), k -> new HashSet<>())
+            medicamentsDMPParDate.computeIfAbsent(entree.getKey(), k -> new HashMap<>())
+                .computeIfAbsent(Pays.France, k -> new HashSet<>())
                 .addAll(entree.getValue());
         }
     }
@@ -171,20 +193,22 @@ public class EntiteUtilisateur extends AbstractEntite {
      * La date d'achat est définie implicitement sur la date actuelle
      * @param codeCis
      */
-    public void ajouterMedicamentPerso (long codeCis) {
+    public void ajouterMedicamentPerso (Pays pays, long code) {
         LocalDate dateAchat = LocalDate.now();
-        medicamentsPersoParDate.computeIfAbsent(dateAchat, k -> new HashSet<>())
-            .add(codeCis);
+        medicamentsPersoParDate.computeIfAbsent(dateAchat, k -> new HashMap<>())
+            .computeIfAbsent(pays, k -> new HashSet<>())
+            .add(code);
     }
 
     /**
      * La date d'achat est définie implicitement sur la date actuelle
      * @param codesCis
      */
-    public void ajouterMedicamentsPerso (Iterable<Long> codesCis) {
+    public void ajouterMedicamentsPerso (Pays pays, Iterable<Long> codes) {
         LocalDate dateAchat = LocalDate.now();
-        medicamentsPersoParDate.computeIfAbsent(dateAchat, k -> new HashSet<>())
-            .addAll(Sets.newHashSet(codesCis));
+        medicamentsPersoParDate.computeIfAbsent(dateAchat, k -> new HashMap<>())
+            .computeIfAbsent(pays, k -> new HashSet<>())
+            .addAll(Sets.newHashSet(codes));
     }
 
     /**
@@ -192,8 +216,11 @@ public class EntiteUtilisateur extends AbstractEntite {
      * @param codeCis
      * @param dateAchat
      */
-    public void retirerMedicamentPerso (long codeCis, LocalDate dateAchat) {
-        Set<Long> codes = medicamentsPersoParDate.get(dateAchat);
-        if (codes != null) codes.remove(codeCis);
+    public void retirerMedicamentPerso (Pays pays, long code, LocalDate dateAchat) {
+        Map<Pays, Set<Long>> codesParPays = medicamentsPersoParDate.get(dateAchat);
+        if (codesParPays != null) {
+            Set<Long> codes = codesParPays.get(pays);
+            if (codes != null) codes.remove(code);
+        }
     }
 }

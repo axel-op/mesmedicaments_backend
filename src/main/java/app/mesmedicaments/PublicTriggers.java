@@ -118,25 +118,40 @@ public final class PublicTriggers {
 			String id = Authentification.getIdFromToken(accessToken);
 			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
 			if (categorie.equalsIgnoreCase("obtenir")) {
-				JSONObject corpsReponse = new JSONObject().put("medicamentsPerso",
-					Utils.mapDatesCodesEnJsonDatesDetails(entiteU.getMedicamentsPersoMap(), logger));
+				JSONObject medsPerso = new JSONObject();
+				entiteU.getMedicamentsPersoMap().entrySet().parallelStream()
+					.forEach(e -> {
+						Map<Pays, Set<Long>> parPays = e.getValue();
+						Set<AbstractEntiteMedicament<? extends Presentation>> entitesM = new HashSet<>();
+						if (parPays.containsKey(Pays.France))
+							entitesM.addAll(EntiteMedicamentFrance.obtenirEntites(parPays.get(Pays.France), logger));
+						if (parPays.containsKey(Pays.Belgique))
+							entitesM.addAll(EntiteMedicamentBelgique.obtenirEntites(parPays.get(Pays.Belgique), logger));
+						medsPerso.put(
+							e.getKey().toString(), 
+							entitesM.parallelStream().map(entite -> Utils.medicamentEnJson(entite, logger)));
+					});
+				JSONObject corpsReponse = new JSONObject().put("medicamentsPerso", medsPerso);
 				return construireReponse(HttpStatus.OK, corpsReponse, request);
 			}
 			JSONObject corpsRequete = new JSONObject(request.getBody().get());
 			if (categorie.equalsIgnoreCase("ajouter")) {
 				JSONArray medicaments = corpsRequete.getJSONArray("medicaments");
 				for (int i = 0; i < medicaments.length(); i++) {
-					long codeCis = medicaments.getJSONObject(i).getLong("codecis");
-					entiteU.ajouterMedicamentPerso(codeCis);
+					JSONObject medicament = medicaments.getJSONObject(i);
+					Pays pays = Pays.obtenirPays(medicament.getString("pays"));
+					long code = medicament.getLong("code");
+					entiteU.ajouterMedicamentPerso(pays, code);
 				}
 				entiteU.mettreAJourEntite();
 				codeHttp = HttpStatus.OK;
 			}
 			else if (categorie.equalsIgnoreCase("retirer")) {
 				JSONObject medicament = corpsRequete.getJSONObject("medicament");
-				long codeCis = medicament.getLong("codecis");
+				Pays pays = Pays.obtenirPays(corpsRequete.getString("pays"));
+				long code = medicament.getLong("code");
 				LocalDate date = LocalDate.parse(medicament.getString("dateAchat"), DateTimeFormatter.ISO_LOCAL_DATE);
-				entiteU.retirerMedicamentPerso(codeCis, date);
+				entiteU.retirerMedicamentPerso(pays, code, date);
 				entiteU.mettreAJourEntite();
 				codeHttp = HttpStatus.OK;
 			}

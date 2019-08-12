@@ -151,7 +151,7 @@ public final class PublicTriggers {
 			}
 			else if (categorie.equalsIgnoreCase("retirer")) {
 				JSONObject medicament = corpsRequete.getJSONObject("medicament");
-				Pays pays = Pays.obtenirPays(corpsRequete.getString("pays"));
+				Pays pays = Pays.obtenirPays(medicament.getString("pays"));
 				long code = medicament.getLong("code");
 				LocalDate date = LocalDate.parse(medicament.getString("dateAchat"), DateTimeFormatter.ISO_LOCAL_DATE);
 				entiteU.retirerMedicamentPerso(pays, code, date);

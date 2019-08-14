@@ -81,6 +81,7 @@ public class EntiteInteraction extends AbstractEntite {
     public static <E extends AbstractEntiteMedicament<? extends Presentation>> Set<EntiteInteraction> obtenirInteractions
         (Logger logger, Set<E> medicaments)
     {
+        if (medicaments.size() < 2) return new HashSet<>();
         return Sets.combinations(medicaments, 2).parallelStream()
             .map(ArrayList::new)
             .map(Unchecker.wrap(logger, (List<E> comb) -> obtenirInteractions(logger, comb.get(0), comb.get(1))))

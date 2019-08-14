@@ -41,6 +41,7 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
         return obtenirEntite(TABLE, pays.code, String.valueOf(code), clazzType);
     }
 
+    // TODO ne plus ignorer les non trouvés à partir de mi-octobre
     protected static <P extends Presentation, E extends AbstractEntiteMedicament<P>> Set<E>
         obtenirEntites (Pays pays, Set<Long> codes, Class<E> clazzType, Logger logger, boolean ignorerNonTrouves)
     {
@@ -48,7 +49,10 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
             .flatMap(Unchecker.wrap(logger, (Long c) -> {
                 Optional<E> optE = obtenirEntite(pays, c, clazzType);
                 return ignorerNonTrouves
-                    ? optE.map(Stream::of).orElseGet(Stream::empty)
+                    ? optE.map(Stream::of).orElseGet(() -> {
+                        logger.warning("Médicament " + pays.code + " " + c + " non trouvé");
+                        return Stream.empty();
+                    })
                     : optE.map(Stream::of).orElseThrow(NoSuchElementException::new);
             }))
             //.map(Optional::get)

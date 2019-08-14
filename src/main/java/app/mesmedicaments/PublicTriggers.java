@@ -124,9 +124,9 @@ public final class PublicTriggers {
 						Map<Pays, Set<Long>> parPays = e.getValue();
 						Set<AbstractEntiteMedicament<? extends Presentation>> entitesM = new HashSet<>();
 						if (parPays.containsKey(Pays.France))
-							entitesM.addAll(EntiteMedicamentFrance.obtenirEntites(parPays.get(Pays.France), logger));
+							entitesM.addAll(EntiteMedicamentFrance.obtenirEntites(parPays.get(Pays.France), false, logger));
 						if (parPays.containsKey(Pays.Belgique))
-							entitesM.addAll(EntiteMedicamentBelgique.obtenirEntites(parPays.get(Pays.Belgique), logger));
+							entitesM.addAll(EntiteMedicamentBelgique.obtenirEntites(parPays.get(Pays.Belgique), false, logger));
 						medsPerso.put(
 							e.getKey().toString(), 
 							entitesM.parallelStream()
@@ -311,7 +311,7 @@ public final class PublicTriggers {
 				medsParDate.entrySet().parallelStream()
 					.forEach(e -> medsEnJson.put(
 						e.getKey().toString(), 
-						EntiteMedicamentFrance.obtenirEntites(e.getValue(), logger).stream()
+						EntiteMedicamentFrance.obtenirEntites(e.getValue(), false, logger).stream()
 							.map(Unchecker.wrap(logger, entite -> utiliserDepreciees(request)
 								? Utils.medicamentFranceEnJsonDepreciee(entite, logger)
 								: Utils.medicamentEnJson(entite, logger)
@@ -370,9 +370,9 @@ public final class PublicTriggers {
 				.flatMap(e -> {
 					Pays pays = e.getKey();
 					if (pays == Pays.France) 
-						return EntiteMedicamentFrance.obtenirEntites(e.getValue(), logger).stream();
+						return EntiteMedicamentFrance.obtenirEntites(e.getValue(), true, logger).stream();
 					else if (pays == Pays.Belgique) 
-						return EntiteMedicamentBelgique.obtenirEntites(e.getValue(), logger).stream();
+						return EntiteMedicamentBelgique.obtenirEntites(e.getValue(), true, logger).stream();
 					else throw new NotImplementedException("Il n'est pas encore possible de détecter les interactions avec les médicaments de ce pays");
 				})
 				.collect(Collectors.toSet());

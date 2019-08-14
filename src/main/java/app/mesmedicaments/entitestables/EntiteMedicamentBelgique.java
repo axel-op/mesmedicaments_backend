@@ -29,8 +29,8 @@ public final class EntiteMedicamentBelgique extends AbstractEntiteMedicament<Ent
      * @param codes
      * @return
      */
-    public static Set<EntiteMedicamentBelgique> obtenirEntites (Set<Long> codes, Logger logger) {
-        return obtenirEntites(PAYS, codes, EntiteMedicamentBelgique.class, logger);
+    public static Set<EntiteMedicamentBelgique> obtenirEntites (Set<Long> codes, boolean ignorerNonTrouves, Logger logger) {
+        return obtenirEntites(PAYS, codes, EntiteMedicamentBelgique.class, logger, ignorerNonTrouves);
     }
 
     public EntiteMedicamentBelgique (long codeAMP) {

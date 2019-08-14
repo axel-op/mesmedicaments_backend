@@ -19,7 +19,7 @@ import com.microsoft.azure.functions.annotation.TimerTrigger;
 import com.microsoft.azure.storage.StorageException;
 
 import app.mesmedicaments.entitestables.EntiteConnexion;
-import app.mesmedicaments.misesajour.MiseAJourBDPM;
+import app.mesmedicaments.misesajour.MiseAJourFrance;
 import app.mesmedicaments.misesajour.MiseAJourBelgique;
 import app.mesmedicaments.misesajour.MiseAJourClassesSubstances;
 import app.mesmedicaments.misesajour.MiseAJourInteractions;
@@ -73,7 +73,7 @@ public class PrivateTriggers {
 		Logger logger = context.getLogger();
 		switch (etape) {
 			case 1:
-				if (MiseAJourBDPM.handler(logger)) {
+				if (MiseAJourFrance.handler(logger)) {
 					codeHttp = HttpStatus.OK;
 					corps = "Mise à jour des médicaments français et des substances terminée.";
 				}
@@ -92,7 +92,7 @@ public class PrivateTriggers {
 				break;
 			case 4:
 				try {
-					MiseAJourBDPM.importerEffetsIndesirables(logger);
+					MiseAJourFrance.importerEffetsIndesirables(logger);
 					codeHttp = HttpStatus.OK;
 				}
 				catch (StorageException | URISyntaxException | InvalidKeyException e) {

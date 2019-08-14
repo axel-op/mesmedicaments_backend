@@ -6,12 +6,14 @@ import java.security.InvalidKeyException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.CloudTable;
@@ -28,7 +30,9 @@ import app.mesmedicaments.unchecked.Unchecker;
 
 public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicament.Presentation> extends AbstractEntite {
 
-    protected static final String TABLE = System.getenv("tableazure_medicaments");
+    //protected static final String TABLE = System.getenv("tableazure_medicaments");
+    // TODO rétablir
+    protected static final String TABLE = "tableMedBelgiqueTest";
 
     protected static <P extends Presentation, E extends AbstractEntiteMedicament<P>> Optional<E> 
         obtenirEntite (Pays pays, long code, Class<E> clazzType)
@@ -38,11 +42,16 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
     }
 
     protected static <P extends Presentation, E extends AbstractEntiteMedicament<P>> Set<E>
-        obtenirEntites (Pays pays, Set<Long> codes, Class<E> clazzType, Logger logger)
+        obtenirEntites (Pays pays, Set<Long> codes, Class<E> clazzType, Logger logger, boolean ignorerNonTrouves)
     {
         return codes.parallelStream()
-            .map(Unchecker.wrap(logger, (Long c) -> obtenirEntite(pays, c, clazzType)))
-            .map(Optional::get)
+            .flatMap(Unchecker.wrap(logger, (Long c) -> {
+                Optional<E> optE = obtenirEntite(pays, c, clazzType);
+                return ignorerNonTrouves
+                    ? optE.map(Stream::of).orElseGet(Stream::empty)
+                    : optE.map(Stream::of).orElseThrow(NoSuchElementException::new);
+            }))
+            //.map(Optional::get)
             .collect(Collectors.toSet());
     }
 

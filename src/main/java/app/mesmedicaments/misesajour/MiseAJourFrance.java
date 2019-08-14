@@ -39,7 +39,7 @@ import app.mesmedicaments.unchecked.Unchecker;
 /**
  * Met à jour la base de données à partir des informations récupérées sur la base publique des médicaments.
  */
-public final class MiseAJourBDPM {
+public final class MiseAJourFrance {
 
 	private static final String URL_FICHIER_BDPM;
 	private static final String URL_FICHIER_COMPO;
@@ -53,13 +53,13 @@ public final class MiseAJourBDPM {
 		URL_FICHIER_PRESENTATIONS = System.getenv("url_cis_cip_bdpm");
 	}
 
-	private MiseAJourBDPM () {}
+	private MiseAJourFrance () {}
 
 	public static boolean handler (Logger logger) {
-		MiseAJourBDPM.logger = logger;
+		MiseAJourFrance.logger = logger;
 		if (!majSubstances()) return false;
 		if (!majMedicaments()) return false;
-		try { EntiteDateMaj.definirDateMajBDPM(); }
+		try { EntiteDateMaj.definirDateMajFrance(); }
 		catch (StorageException | URISyntaxException | InvalidKeyException e) {
 			Utils.logErreur(e, logger);
 		}

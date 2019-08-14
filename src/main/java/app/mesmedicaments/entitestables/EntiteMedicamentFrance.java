@@ -23,8 +23,8 @@ public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<Entit
      * @param codesCis
      * @return
      */
-    public static Set<EntiteMedicamentFrance> obtenirEntites (Set<Long> codesCis, Logger logger) {
-        return obtenirEntites(PAYS, codesCis, EntiteMedicamentFrance.class, logger);
+    public static Set<EntiteMedicamentFrance> obtenirEntites (Set<Long> codesCis, boolean ignorerNonTrouves, Logger logger) {
+        return obtenirEntites(PAYS, codesCis, EntiteMedicamentFrance.class, logger, ignorerNonTrouves);
     }
 
     public static Optional<EntiteMedicamentFrance> obtenirEntite (long codeCis)

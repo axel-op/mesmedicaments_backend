@@ -21,7 +21,7 @@ public class EntiteDateMaj extends AbstractEntite {
         definirDateMaj(ROWKEY_INTERACTIONS, LocalDate.now());
     }
 
-    public static void definirDateMajBDPM ()
+    public static void definirDateMajFrance ()
         throws StorageException, URISyntaxException, InvalidKeyException
     {
         definirDateMaj(ROWKEY_BDPM, LocalDate.now());

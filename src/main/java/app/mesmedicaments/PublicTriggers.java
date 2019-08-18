@@ -113,7 +113,7 @@ public final class PublicTriggers {
 		Logger logger = context.getLogger();
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		try {
-			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			String accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
 			String id = Authentification.getIdFromToken(accessToken);
 			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
@@ -161,9 +161,11 @@ public final class PublicTriggers {
 			else throw new IllegalArgumentException("La catégorie de route n'existe pas");
 		}
 		catch (JSONException e) {
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.UNAUTHORIZED;
 		}
 		catch (NoSuchElementException | IllegalArgumentException e) {
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
 		}
 		catch (Exception e) {
@@ -187,7 +189,7 @@ public final class PublicTriggers {
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject reponse = new JSONObject();
 		try {
-			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			JSONObject med = new JSONObject(request.getBody().get()).getJSONObject("medicament");
 			Pays pays = Pays.obtenirPays(med.getString("pays"));
 			Long code = med.getLong("code");
@@ -225,7 +227,7 @@ public final class PublicTriggers {
 		JSONObject reponse = new JSONObject();
 		//String[] parametres = request.getUri().getPath().split("/");
 		try {
-			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			reponse.put("medicament", Utils.medicamentFranceEnJsonDepreciee(
 				EntiteMedicamentFrance.obtenirEntite(Long.parseLong(codeStr)).get(), 
 				logger
@@ -258,7 +260,7 @@ public final class PublicTriggers {
 		HttpStatus codeHttp = HttpStatus.OK;
 		JSONObject corpsReponse = new JSONObject();
 		try {
-			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			if (recherche.length() > 100) throw new IllegalArgumentException();
 			recherche = Utils.normaliser(recherche).toLowerCase();
 			logger.info("Recherche de \"" + recherche + "\"");
@@ -267,6 +269,7 @@ public final class PublicTriggers {
 			logger.info(resultats.length() + " résultats trouvés");
 		}	
 		catch (IllegalArgumentException e) {
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
 		}
 		catch (Exception e) {
@@ -294,7 +297,7 @@ public final class PublicTriggers {
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
-			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			String id = Authentification.getIdFromToken(accessToken);
 			if (categorie.equalsIgnoreCase("medicaments")) {
 				Optional<EntiteConnexion> optEntiteC = EntiteConnexion.obtenirEntite(id);
@@ -348,7 +351,7 @@ public final class PublicTriggers {
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
-			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			JSONObject corpsRequete = new JSONObject(request.getBody().get());
 			Map<Pays, Set<Long>> codesParPays = new HashMap<>();
 			boolean utiliserDepreciees = utiliserDepreciees(request);
@@ -387,6 +390,7 @@ public final class PublicTriggers {
 			codeHttp = HttpStatus.OK;
 		}
 		catch (IllegalArgumentException | JSONException | NoSuchElementException e) {
+			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
 		}
 		catch (Exception e) {
@@ -412,7 +416,7 @@ public final class PublicTriggers {
 		JSONObject corpsReponse = new JSONObject();
 		Logger logger = context.getLogger();
 		try {
-			verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			JSONObject corpsRequete = new JSONObject(request.getBody().get());
 			if (etape == 1) { // Première étape de la connexion
 				final String id = corpsRequete.getString("id");

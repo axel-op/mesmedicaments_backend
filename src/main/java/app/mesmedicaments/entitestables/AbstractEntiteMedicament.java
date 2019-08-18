@@ -31,6 +31,8 @@ import app.mesmedicaments.unchecked.Unchecker;
 public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicament.Presentation> extends AbstractEntite {
 
     protected static final String TABLE = System.getenv("tableazure_medicaments");
+    // TODO table de test uniquement
+    //protected static final String TABLE = "tableMedBelgiqueTest";
 
     protected static <P extends Presentation, E extends AbstractEntiteMedicament<P>> Optional<E> 
         obtenirEntite (Pays pays, long code, Class<E> clazzType)

@@ -77,17 +77,21 @@ public class LetsEncrypt {
         final String userName = "$" + functionAppName;
         final String userPwd = System.getenv("letsencrypt_userpwd");
         final String pfxPassword = System.getenv("letsencrypt_pfxpwd");
+        final String clientId = System.getenv("letsencrypt:ClientId");
         final String clientSecret = System.getenv("letsencrypt:ClientSecret");
+        final String tenant = System.getenv("letsencrypt:Tenant");
+        final String resourceGroupName = System.getenv("letsencrypt:ResourceGroupName");
+        final String subscriptionId = System.getenv("letsencrypt:SubscriptionId");
         final Config configBody = new Config(
             new AzureEnvironment(
                 "mesmedicaments", 
-                "8f13bfe0-6910-4e00-b8a6-ceec2cb7102b", 
+                clientId, 
                 clientSecret,
-                "mesmedicaments", 
-                "cc55b04e-512c-49db-a5e6-aaed2abf0fcc", 
-                "mesmedicaments.app"
+                resourceGroupName,
+                subscriptionId,
+                tenant
             ),
-            new AcmeConfig("contact@mesmedicaments.app", "", new String[] {}, 2048, pfxPassword, true),
+            new AcmeConfig("contact@mesmedicaments.app", "", new String[]{}, 2048, pfxPassword, true),
             new CertificateSettings(false), 
             new AuthorizationChallengeProviderConfig(false)
         );
@@ -156,7 +160,7 @@ public class LetsEncrypt {
     private class AzureEnvironment {
         private String webAppName;
         private String clientId;
-        private String clientSecret; //// !!!!!!!! J'ai oublié ça !!!!! Réessayer avec (je l'ai rajouté mais pas testé)
+        private String clientSecret;
         private String resourceGroupName;
         private String subscriptionId;
         private String tenant;

@@ -281,7 +281,6 @@ public final class MiseAJourFrance {
 			// log("Encodage du fichier récupéré : " + isr.getEncoding());
 		} catch (IOException e) {
 			Utils.logErreur(e, logger);
-			;
 			return null;
 		}
 		return br;

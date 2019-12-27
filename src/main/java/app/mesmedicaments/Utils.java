@@ -170,6 +170,7 @@ public final class Utils {
 		return LocalDateTime.ofInstant(date.toInstant(), Utils.TIMEZONE);
 	}
 
+	// TODO : améliorer cette méthode
 	public static void logErreur(Throwable t, Logger logger) {
 		String message = t.toString();
 		try {

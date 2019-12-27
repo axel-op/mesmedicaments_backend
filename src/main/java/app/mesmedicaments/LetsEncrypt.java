@@ -31,19 +31,14 @@ import org.json.JSONObject;
 public class LetsEncrypt {
 
     @FunctionName("letsEncryptChallenge")
-    public HttpResponseMessage letsEncryptChallenge (
-        @HttpTrigger(
-            name = "letsEncryptChallengeTrigger",
-            authLevel = AuthorizationLevel.ANONYMOUS,
-            methods = {HttpMethod.GET},
-            route = ".well-known/acme-challenge/{code}"
-        ) final HttpRequestMessage<Optional<String>> request,
-        @BindingName("code") String code,
-        final ExecutionContext context
-    ) {
+    public HttpResponseMessage letsEncryptChallenge(
+            @HttpTrigger(name = "letsEncryptChallengeTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
+                    HttpMethod.GET }, route = ".well-known/acme-challenge/{code}") final HttpRequestMessage<Optional<String>> request,
+            @BindingName("code") String code, final ExecutionContext context) {
         Logger logger = context.getLogger();
-        //String functionDirectory = System.getenv("EXECUTION_CONTEXT_FUNCTIONDIRECTORY");
-        //logger.info("function directory = " + functionDirectory);
+        // String functionDirectory =
+        // System.getenv("EXECUTION_CONTEXT_FUNCTIONDIRECTORY");
+        // logger.info("function directory = " + functionDirectory);
         logger.info("code = " + code);
         logger.info("current relative path = " + Paths.get("").toAbsolutePath().toString());
         String file = "D:\\home\\site\\wwwroot\\.well-known\\acme-challenge\\" + code;
@@ -53,25 +48,16 @@ public class LetsEncrypt {
         try {
             String contenu = new String(Files.readAllBytes(path));
             logger.info("contenu = " + contenu);
-            return request.createResponseBuilder(HttpStatus.OK)
-                .body(contenu)
-                .build();
-        }
-        catch (IOException e) {
+            return request.createResponseBuilder(HttpStatus.OK).body(contenu).build();
+        } catch (IOException e) {
             Utils.logErreur(e, logger);
-            return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR)
-                .build();
+            return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @FunctionName("letsEncrypt")
-    public void letsEncrypt (
-        @TimerTrigger(
-            name = "letsEncryptTrigger", 
-            schedule = "0 0 0 1 * *"
-        ) final String timerInfo,
-        final ExecutionContext context
-    ) {
+    public void letsEncrypt(@TimerTrigger(name = "letsEncryptTrigger", schedule = "0 0 0 1 * *") final String timerInfo,
+            final ExecutionContext context) {
         Logger logger = context.getLogger();
         final String functionAppName = "mesmedicaments";
         final String userName = "$" + functionAppName;
@@ -83,42 +69,35 @@ public class LetsEncrypt {
         final String resourceGroupName = System.getenv("letsencrypt:ResourceGroupName");
         final String subscriptionId = System.getenv("letsencrypt:SubscriptionId");
         final Config configBody = new Config(
-            new AzureEnvironment(
-                "mesmedicaments", 
-                clientId, 
-                clientSecret,
-                resourceGroupName,
-                subscriptionId,
-                tenant
-            ),
-            new AcmeConfig("contact@mesmedicaments.app", "", new String[]{}, 2048, pfxPassword, true),
-            new CertificateSettings(false), 
-            new AuthorizationChallengeProviderConfig(false)
-        );
+                new AzureEnvironment("mesmedicaments", clientId, clientSecret, resourceGroupName, subscriptionId,
+                        tenant),
+                new AcmeConfig("contact@mesmedicaments.app", "", new String[] {}, 2048, pfxPassword, true),
+                new CertificateSettings(false), new AuthorizationChallengeProviderConfig(false));
         try {
-            HttpsURLConnection connClient = (HttpsURLConnection) new URL("https://" + functionAppName + ".scm.azurewebsites.net/letsencrypt/api/certificates/challengeprovider/http/kudu/certificateinstall/azurewebapp"
-                + "?api-version=2017-09-01")
-                .openConnection();
-            connClient.setRequestProperty("Authorization", "Basic " + Base64.getEncoder().encodeToString((userName + ":" + userPwd).getBytes("UTF-8")));
+            HttpsURLConnection connClient = (HttpsURLConnection) new URL("https://" + functionAppName
+                    + ".scm.azurewebsites.net/letsencrypt/api/certificates/challengeprovider/http/kudu/certificateinstall/azurewebapp"
+                    + "?api-version=2017-09-01").openConnection();
+            connClient.setRequestProperty("Authorization",
+                    "Basic " + Base64.getEncoder().encodeToString((userName + ":" + userPwd).getBytes("UTF-8")));
             configBody.acmeConfig.host = "api.mesmedicaments.app";
             createCertificate(configBody, functionAppName, connClient, logger);
-            /*configBody.acmeConfig.host = "legal.mesmedicaments.app";
-            createCertificate(configBody, functionAppName, connClient, logger);*/
-        }
-        catch (IOException e) {
+            /*
+             * configBody.acmeConfig.host = "legal.mesmedicaments.app";
+             * createCertificate(configBody, functionAppName, connClient, logger);
+             */
+        } catch (IOException e) {
             Utils.logErreur(e, logger);
         }
-        
+
     }
 
-    private void createCertificate (Config config, String functionAppName, HttpsURLConnection connection, Logger logger) 
-        throws IOException
-    {
+    private void createCertificate(Config config, String functionAppName, HttpsURLConnection connection, Logger logger)
+            throws IOException {
         logger.info("createCertificate starts");
         connection.setRequestProperty("Content-Type", "application/json");
         connection.setDoOutput(true);
         OutputStreamWriter ows = new OutputStreamWriter(connection.getOutputStream(), "UTF-8");
-        //String corps = new JSONObject(config).toString();
+        // String corps = new JSONObject(config).toString();
         String corps = config.toJson().toString();
         ows.write(corps);
         logger.info("Corps de la requête = " + corps);
@@ -126,9 +105,8 @@ public class LetsEncrypt {
         connection.connect();
         logger.info("response code = " + connection.getResponseCode());
         logger.info("response message = " + connection.getResponseMessage());
-        String reponse = new BufferedReader(new InputStreamReader(connection.getInputStream()))
-            .lines()
-            .collect(Collectors.joining(Utils.NEWLINE));
+        String reponse = new BufferedReader(new InputStreamReader(connection.getInputStream())).lines()
+                .collect(Collectors.joining(Utils.NEWLINE));
         logger.info("Réponse = " + reponse);
     }
 
@@ -137,23 +115,19 @@ public class LetsEncrypt {
         private AcmeConfig acmeConfig;
         private CertificateSettings certificateSettings;
         private AuthorizationChallengeProviderConfig authorizationChallengeProviderConfig;
-        Config (
-            AzureEnvironment azureEnvironment,
-            AcmeConfig acmeConfig,
-            CertificateSettings certificateSettings,
-            AuthorizationChallengeProviderConfig authorizationChallengeProviderConfig
-        ) {
+
+        Config(AzureEnvironment azureEnvironment, AcmeConfig acmeConfig, CertificateSettings certificateSettings,
+                AuthorizationChallengeProviderConfig authorizationChallengeProviderConfig) {
             this.azureEnvironment = azureEnvironment;
             this.acmeConfig = acmeConfig;
             this.certificateSettings = certificateSettings;
             this.authorizationChallengeProviderConfig = authorizationChallengeProviderConfig;
         }
-        public JSONObject toJson () {
-            return new JSONObject()
-                .put("AzureEnvironment", azureEnvironment.toJson())
-                .put("AcmeConfig", acmeConfig.toJson())
-                .put("CertificateSettings", certificateSettings.toJson())
-                .put("AuthorizationChallengeProviderConfig", authorizationChallengeProviderConfig.toJson());
+
+        public JSONObject toJson() {
+            return new JSONObject().put("AzureEnvironment", azureEnvironment.toJson())
+                    .put("AcmeConfig", acmeConfig.toJson()).put("CertificateSettings", certificateSettings.toJson())
+                    .put("AuthorizationChallengeProviderConfig", authorizationChallengeProviderConfig.toJson());
         }
     }
 
@@ -164,14 +138,9 @@ public class LetsEncrypt {
         private String resourceGroupName;
         private String subscriptionId;
         private String tenant;
-        AzureEnvironment (
-            String webAppName,
-            String clientId,
-            String clientSecret,
-            String resourceGroupname,
-            String subscriptionId,
-            String tenant
-        ) {
+
+        AzureEnvironment(String webAppName, String clientId, String clientSecret, String resourceGroupname,
+                String subscriptionId, String tenant) {
             this.webAppName = webAppName;
             this.clientId = clientId;
             this.clientSecret = clientSecret;
@@ -179,14 +148,11 @@ public class LetsEncrypt {
             this.subscriptionId = subscriptionId;
             this.tenant = tenant;
         }
-        public JSONObject toJson () {
-            return new JSONObject()
-                .put("WebAppName", webAppName)
-                .put("ClientId", clientId)
-                .put("ClientSecret", clientSecret)
-                .put("ResourceGroupName", resourceGroupName)
-                .put("SubscriptionId", subscriptionId)
-                .put("Tenant", tenant);
+
+        public JSONObject toJson() {
+            return new JSONObject().put("WebAppName", webAppName).put("ClientId", clientId)
+                    .put("ClientSecret", clientSecret).put("ResourceGroupName", resourceGroupName)
+                    .put("SubscriptionId", subscriptionId).put("Tenant", tenant);
         }
     }
 
@@ -197,14 +163,9 @@ public class LetsEncrypt {
         private int RSAKeyLength;
         private String PFXPassword;
         private boolean useProduction;
-        AcmeConfig (
-            String registrationEmail,
-            String host,
-            String[] alternateNames,
-            int RSAKeyLength,
-            String PFXPassword,
-            boolean useProduction
-        ) {
+
+        AcmeConfig(String registrationEmail, String host, String[] alternateNames, int RSAKeyLength, String PFXPassword,
+                boolean useProduction) {
             this.registrationEmail = registrationEmail;
             this.host = host;
             this.alternateNames = alternateNames;
@@ -212,33 +173,34 @@ public class LetsEncrypt {
             this.PFXPassword = PFXPassword;
             this.useProduction = useProduction;
         }
-        public JSONObject toJson () {
-            return new JSONObject()
-                .put("RegistrationEmail", registrationEmail)
-                .put("Host", host)
-                .put("AlternateNames", alternateNames)
-                .put("RSAKeyLength", RSAKeyLength)
-                .put("PFXPassword", PFXPassword)
-                .put("UseProduction", useProduction);
+
+        public JSONObject toJson() {
+            return new JSONObject().put("RegistrationEmail", registrationEmail).put("Host", host)
+                    .put("AlternateNames", alternateNames).put("RSAKeyLength", RSAKeyLength)
+                    .put("PFXPassword", PFXPassword).put("UseProduction", useProduction);
         }
     }
 
     private class CertificateSettings {
         private boolean useIPBasedSSL;
-        CertificateSettings (boolean useIPBasedSSL) {
+
+        CertificateSettings(boolean useIPBasedSSL) {
             this.useIPBasedSSL = useIPBasedSSL;
         }
-        public JSONObject toJson () {
+
+        public JSONObject toJson() {
             return new JSONObjectUneCle("UseIPBasedSSL", useIPBasedSSL);
         }
     }
 
     private class AuthorizationChallengeProviderConfig {
         private boolean disableWebConfigUpdate;
-        AuthorizationChallengeProviderConfig (boolean disableWebConfigUpdate) {
+
+        AuthorizationChallengeProviderConfig(boolean disableWebConfigUpdate) {
             this.disableWebConfigUpdate = disableWebConfigUpdate;
         }
-        public JSONObject toJson () {
+
+        public JSONObject toJson() {
             return new JSONObjectUneCle("DisableWebConfigUpdate", disableWebConfigUpdate);
         }
     }

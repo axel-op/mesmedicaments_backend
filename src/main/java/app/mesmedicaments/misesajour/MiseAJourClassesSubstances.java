@@ -37,19 +37,26 @@ public final class MiseAJourClassesSubstances {
 	private static Map<String, Set<EntiteSubstance>> nomsSubstancesNormalisesMin = new HashMap<>();
 	private static Map<String, Set<EntiteSubstance>> cacheRecherche = new HashMap<>();
 
-	private MiseAJourClassesSubstances () {}
+	private MiseAJourClassesSubstances() {
+	}
 
-	public static boolean handler (Logger logger) {
+	public static boolean handler(Logger logger) {
 		MiseAJourClassesSubstances.logger = logger;
 		logger.info("Début de la mise à jour des classes de substances");
 		nomsSubstancesNormalisesMin = importerSubstances(logger);
-		if (nomsSubstancesNormalisesMin.isEmpty()) { return false; }
-		if (!importerClasses()) { return false; }
-		if (!exporterClasses()) { return false; }
+		if (nomsSubstancesNormalisesMin.isEmpty()) {
+			return false;
+		}
+		if (!importerClasses()) {
+			return false;
+		}
+		if (!exporterClasses()) {
+			return false;
+		}
 		return true;
 	}
 
-	private static boolean importerClasses () {
+	private static boolean importerClasses() {
 		int nbrClassesTrouvees = 0;
 		try {
 			logger.info("Récupération du fichier des classes de substances (url = " + URL_CLASSES + ")");
@@ -65,15 +72,14 @@ public final class MiseAJourClassesSubstances {
 			HashSet<EntiteSubstance> substancesEnCours = new HashSet<>();
 			int c = 0;
 			long startTime = System.currentTimeMillis();
-			for (String paragraphe : paragraphes) { 
+			for (String paragraphe : paragraphes) {
 				logger.info("Parsing du paragraphe " + (c++) + "/" + paragraphes.length + "...");
 				BufferedReader br = new BufferedReader(new StringReader(paragraphe));
 				String ligne = br.readLine();
 				if (ligne != null && !(ligne.matches("(Page .*)|(Thésaurus .*)|(Index .*)|(ANSM .*)"))) {
-					if (!classeencours.equals("")) { 
+					if (!classeencours.equals("")) {
 						for (EntiteSubstance entite : substancesEnCours) {
-							classes.computeIfAbsent(classeencours, k -> new HashSet<>())
-								.add(entite);
+							classes.computeIfAbsent(classeencours, k -> new HashSet<>()).add(entite);
 						}
 						nbrClassesTrouvees += 1;
 					}
@@ -83,16 +89,12 @@ public final class MiseAJourClassesSubstances {
 				while ((ligne = br.readLine()) != null) {
 					if (!(ligne.matches("(Page .*)|(Thésaurus .*)|(Index .*)|(ANSM .*)"))) {
 						for (String substance : ligne.split(",")) {
-							substance = substance
-								.replaceAll("\\s", " ")
-								.replaceAll("[^- \\p{ASCII}\\p{IsLatin}]|\\(|\\)", "")
-								.replaceAll("(acide)|(virus)", "")
-								.replaceAll("\\brota\\b", "rotavirus")
-								.toLowerCase()
-								.trim();
+							substance = substance.replaceAll("\\s", " ")
+									.replaceAll("[^- \\p{ASCII}\\p{IsLatin}]|\\(|\\)", "")
+									.replaceAll("(acide)|(virus)", "").replaceAll("\\brota\\b", "rotavirus")
+									.toLowerCase().trim();
 							if (substance.matches(".*[a-z].*")) {
-								rechercherSubstances(substance)
-									.forEach(substancesEnCours::add);
+								rechercherSubstances(substance).forEach(substancesEnCours::add);
 							}
 						}
 					}
@@ -100,7 +102,7 @@ public final class MiseAJourClassesSubstances {
 			}
 			logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms");
 			document.close();
-		} catch (IOException e) { 
+		} catch (IOException e) {
 			Utils.logErreur(e, logger);
 			return false;
 		}
@@ -108,67 +110,48 @@ public final class MiseAJourClassesSubstances {
 		return true;
 	}
 
-	private static boolean exporterClasses () {
+	private static boolean exporterClasses() {
 		logger.info("Mise à jour de la base de données en cours...");
 		try {
 			long startTime = System.currentTimeMillis();
-			Set<EntiteClasseSubstances> entitesClasses = classes.entrySet().stream()
-				.map(e -> {
-					EntiteClasseSubstances entite = new EntiteClasseSubstances(e.getKey());
-					entite.ajouterSubstances(e.getValue());
-					return entite;
-				})
-				.collect(Collectors.toSet());
+			Set<EntiteClasseSubstances> entitesClasses = classes.entrySet().stream().map(e -> {
+				EntiteClasseSubstances entite = new EntiteClasseSubstances(e.getKey());
+				entite.ajouterSubstances(e.getValue());
+				return entite;
+			}).collect(Collectors.toSet());
 			EntiteClasseSubstances.mettreAJourEntitesBatch(entitesClasses);
 			logger.info("Base mise à jour en " + Utils.tempsDepuis(startTime) + " ms");
-		} 
-		catch (StorageException
-			| InvalidKeyException
-			| URISyntaxException e)
-		{
+		} catch (StorageException | InvalidKeyException | URISyntaxException e) {
 			Utils.logErreur(e, logger);
 			return false;
 		}
 		return true;
 	}
 
-	private static Set<EntiteSubstance> rechercherSubstances (String recherche) {
-		final String rechercheNorm = Utils.normaliser(recherche)
-			.replaceAll("  ", " ")
-			.toLowerCase()
-			.trim();
+	private static Set<EntiteSubstance> rechercherSubstances(String recherche) {
+		final String rechercheNorm = Utils.normaliser(recherche).replaceAll("  ", " ").toLowerCase().trim();
 		return cacheRecherche.computeIfAbsent(rechercheNorm, r -> {
 			Set<EntiteSubstance> resultats = nomsSubstancesNormalisesMin.keySet().stream()
-				.filter(nom -> nom.contains(r))
-				.map(nomsSubstancesNormalisesMin::get)
-				.flatMap(Collection::stream)
-				.collect(Collectors.toSet());
+					.filter(nom -> nom.contains(r)).map(nomsSubstancesNormalisesMin::get).flatMap(Collection::stream)
+					.collect(Collectors.toSet());
 			logger.fine(resultats.size() + " substances trouvées à la recherche : " + recherche);
 			return resultats;
 		});
 	}
-	
+
 	/**
-	 * Clés : noms. Valeurs : ensemble des codes des substances associées. 
+	 * Clés : noms. Valeurs : ensemble des codes des substances associées.
 	 */
-	protected static Map<String, Set<EntiteSubstance>> importerSubstances (Logger logger) {
+	protected static Map<String, Set<EntiteSubstance>> importerSubstances(Logger logger) {
 		HashMap<String, Set<EntiteSubstance>> resultats = new HashMap<>();
 		try {
 			for (EntiteSubstance entite : EntiteSubstance.obtenirToutesLesEntites(Pays.France)) {
-				for (String nom : Optional
-					.ofNullable(entite.getNomsParLangue().get(Langue.Francais))
-					.orElseGet(HashSet::new)
-				) {
-					resultats
-						.computeIfAbsent(nom, k -> new HashSet<>())
-						.add(entite);
+				for (String nom : Optional.ofNullable(entite.getNomsParLangue().get(Langue.Francais))
+						.orElseGet(HashSet::new)) {
+					resultats.computeIfAbsent(nom, k -> new HashSet<>()).add(entite);
 				}
 			}
-		}
-		catch (StorageException
-			| URISyntaxException
-			| InvalidKeyException e) 
-		{
+		} catch (StorageException | URISyntaxException | InvalidKeyException e) {
 			Utils.logErreur(e, logger);
 			return new HashMap<>();
 		}

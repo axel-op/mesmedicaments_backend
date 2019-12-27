@@ -2,5 +2,5 @@ package app.mesmedicaments.unchecked;
 
 @FunctionalInterface
 public interface ConsumerWithException<T, E extends Exception> {
-    void accept (T t) throws E;
+    void accept(T t) throws E;
 }

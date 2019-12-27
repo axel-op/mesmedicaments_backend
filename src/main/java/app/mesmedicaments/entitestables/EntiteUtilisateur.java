@@ -27,19 +27,17 @@ import app.mesmedicaments.unchecked.Unchecker;
 
 public class EntiteUtilisateur extends AbstractEntite {
 
-    //private static final CloudTable TABLE_UTILISATEURS;
+    // private static final CloudTable TABLE_UTILISATEURS;
     private static final String TABLE = System.getenv("tableazure_utilisateurs");
     private static final String CLE_PARTITION = "utilisateur";
 
-    public static Optional<EntiteUtilisateur> obtenirEntite (String id) 
-        throws StorageException, URISyntaxException, InvalidKeyException
-    {
+    public static Optional<EntiteUtilisateur> obtenirEntite(String id)
+            throws StorageException, URISyntaxException, InvalidKeyException {
         return obtenirEntite(TABLE, CLE_PARTITION, id, EntiteUtilisateur.class);
     }
 
-    public static EntiteUtilisateur obtenirEntiteOuCreer (String id, Logger logger)
-        throws StorageException, URISyntaxException, InvalidKeyException
-    {
+    public static EntiteUtilisateur obtenirEntiteOuCreer(String id, Logger logger)
+            throws StorageException, URISyntaxException, InvalidKeyException {
         return obtenirEntite(id).orElseGet(Unchecker.wrap(logger, () -> {
             EntiteUtilisateur entite = new EntiteUtilisateur(id);
             entite.creerEntite();
@@ -58,11 +56,11 @@ public class EntiteUtilisateur extends AbstractEntite {
     /**
      * NE PAS UTILISER
      */
-    public EntiteUtilisateur () {
+    public EntiteUtilisateur() {
         super(TABLE);
     }
 
-    public EntiteUtilisateur (String id) {
+    public EntiteUtilisateur(String id) {
         super(TABLE, CLE_PARTITION, id);
         dateInscription = Date.from(LocalDateTime.now().atZone(Utils.TIMEZONE).toInstant());
         idAnalytics = String.valueOf(id.hashCode());
@@ -74,30 +72,34 @@ public class EntiteUtilisateur extends AbstractEntite {
 
     @Override
     public boolean conditionsARemplir() {
-        return getIdAnalytics() != null && !getIdAnalytics().equals("")
-            && dateInscription != null;
+        return getIdAnalytics() != null && !getIdAnalytics().equals("") && dateInscription != null;
     }
 
     /* Getters */
 
-    public Date getDateInscription () { return dateInscription; }
-    public String getIdAnalytics () { return idAnalytics; }
+    public Date getDateInscription() {
+        return dateInscription;
+    }
 
-    public String getMedicamentsDMP () {
+    public String getIdAnalytics() {
+        return idAnalytics;
+    }
+
+    public String getMedicamentsDMP() {
         return medicamentsParDateToJson(medicamentsDMPParDate).toString();
     }
 
-    public String getMedicamentsPerso () {
+    public String getMedicamentsPerso() {
         return medicamentsParDateToJson(medicamentsPersoParDate).toString();
     }
 
     @Ignore
-    public Map<LocalDate, Map<Pays, Set<Long>>> getMedicamentsDMPMap () {
+    public Map<LocalDate, Map<Pays, Set<Long>>> getMedicamentsDMPMap() {
         return new HashMap<>(medicamentsDMPParDate);
     }
 
     @Ignore
-    public Map<LocalDate, Map<Pays, Set<Long>>> getMedicamentsPersoMap () {
+    public Map<LocalDate, Map<Pays, Set<Long>>> getMedicamentsPersoMap() {
         return new HashMap<>(medicamentsPersoParDate);
     }
 
@@ -105,42 +107,39 @@ public class EntiteUtilisateur extends AbstractEntite {
 
     /**
      * NE PAS UTILISER
+     * 
      * @param dateInscription
      */
-    public void setDateInscription (Date dateInscription) {
-        this.dateInscription = dateInscription; 
-    
+    public void setDateInscription(Date dateInscription) {
+        this.dateInscription = dateInscription;
+
     }
 
     /**
      * NE PAS UTILISER
      */
-    public void setIdAnalytics (String idAnalytics) {
-        this.idAnalytics = idAnalytics; 
+    public void setIdAnalytics(String idAnalytics) {
+        this.idAnalytics = idAnalytics;
     }
 
-    public void setMedicamentsDMP (String medicamentsDMP) {
+    public void setMedicamentsDMP(String medicamentsDMP) {
         this.medicamentsDMP = medicamentsDMP;
         medicamentsDMPParDate.clear();
         if (medicamentsDMP != null) {
-            medicamentsDMPParDate.putAll(
-                medicamentsParDateFromJson(new JSONObject(medicamentsDMP))
-            );
+            medicamentsDMPParDate.putAll(medicamentsParDateFromJson(new JSONObject(medicamentsDMP)));
         }
     }
 
-    public void setMedicamentsPerso (String medicamentsPerso) {
+    public void setMedicamentsPerso(String medicamentsPerso) {
         this.medicamentsPerso = medicamentsPerso;
         medicamentsPersoParDate.clear();
         if (medicamentsPerso != null) {
-            medicamentsPersoParDate.putAll(
-                medicamentsParDateFromJson(new JSONObject(medicamentsPerso))
-            );
+            medicamentsPersoParDate.putAll(medicamentsParDateFromJson(new JSONObject(medicamentsPerso)));
         }
     }
 
     @Ignore
-    private Map<LocalDate, Map<Pays, Set<Long>>> medicamentsParDateFromJson (JSONObject json) {
+    private Map<LocalDate, Map<Pays, Set<Long>>> medicamentsParDateFromJson(JSONObject json) {
         Map<LocalDate, Map<Pays, Set<Long>>> medsParDate = new HashMap<>();
         json.keySet().forEach(cleDate -> {
             LocalDate date = LocalDate.parse(cleDate);
@@ -149,78 +148,76 @@ public class EntiteUtilisateur extends AbstractEntite {
                 codesParPays.keySet().forEach(codePays -> {
                     Pays pays = Pays.obtenirPays(codePays);
                     Set<Long> codesMeds = JSONArrays.toSetLong(codesParPays.getJSONArray(codePays));
-                    medsParDate.computeIfAbsent(date, k -> new HashMap<>())
-                        .computeIfAbsent(pays, k -> new HashSet<>())
-                        .addAll(codesMeds);
+                    medsParDate.computeIfAbsent(date, k -> new HashMap<>()).computeIfAbsent(pays, k -> new HashSet<>())
+                            .addAll(codesMeds);
                 });
-            }
-            catch (JSONException e) {
+            } catch (JSONException e) {
                 Set<Long> codesMeds = JSONArrays.toSetLong(json.getJSONArray(cleDate));
                 medsParDate.computeIfAbsent(date, k -> new HashMap<>())
-                    .computeIfAbsent(Pays.France, k -> new HashSet<>())
-                    .addAll(codesMeds);
+                        .computeIfAbsent(Pays.France, k -> new HashSet<>()).addAll(codesMeds);
             }
         });
         return medsParDate;
     }
 
-    private JSONObject medicamentsParDateToJson (Map<LocalDate, Map<Pays, Set<Long>>> medsParDate) {
+    private JSONObject medicamentsParDateToJson(Map<LocalDate, Map<Pays, Set<Long>>> medsParDate) {
         JSONObject json = new JSONObject();
-        medsParDate.entrySet()
-            .forEach(e -> {
-                LocalDate date = e.getKey();
-                Map<Pays, Set<Long>> medsParPays = e.getValue();
-                JSONObject jsonDate = new JSONObject();
-                medsParPays.entrySet().forEach(e2 -> jsonDate.put(e2.getKey().code, e2.getValue()));
-                json.put(date.toString(), jsonDate);
-            });
+        medsParDate.entrySet().forEach(e -> {
+            LocalDate date = e.getKey();
+            Map<Pays, Set<Long>> medsParPays = e.getValue();
+            JSONObject jsonDate = new JSONObject();
+            medsParPays.entrySet().forEach(e2 -> jsonDate.put(e2.getKey().code, e2.getValue()));
+            json.put(date.toString(), jsonDate);
+        });
         return json;
     }
 
     /**
      * Ajoute les médicaments à ceux existant déjà
+     * 
      * @param nouveaux
      */
-    public void ajouterMedicamentsDMP (Map<LocalDate, Set<Long>> medsParDate) {
+    public void ajouterMedicamentsDMP(Map<LocalDate, Set<Long>> medsParDate) {
         for (Entry<LocalDate, Set<Long>> entree : medsParDate.entrySet()) {
             medicamentsDMPParDate.computeIfAbsent(entree.getKey(), k -> new HashMap<>())
-                .computeIfAbsent(Pays.France, k -> new HashSet<>())
-                .addAll(entree.getValue());
+                    .computeIfAbsent(Pays.France, k -> new HashSet<>()).addAll(entree.getValue());
         }
     }
 
     /**
      * La date d'achat est définie implicitement sur la date actuelle
+     * 
      * @param codeCis
      */
-    public void ajouterMedicamentPerso (Pays pays, long code) {
+    public void ajouterMedicamentPerso(Pays pays, long code) {
         LocalDate dateAchat = LocalDate.now();
         medicamentsPersoParDate.computeIfAbsent(dateAchat, k -> new HashMap<>())
-            .computeIfAbsent(pays, k -> new HashSet<>())
-            .add(code);
+                .computeIfAbsent(pays, k -> new HashSet<>()).add(code);
     }
 
     /**
      * La date d'achat est définie implicitement sur la date actuelle
+     * 
      * @param codesCis
      */
-    public void ajouterMedicamentsPerso (Pays pays, Iterable<Long> codes) {
+    public void ajouterMedicamentsPerso(Pays pays, Iterable<Long> codes) {
         LocalDate dateAchat = LocalDate.now();
         medicamentsPersoParDate.computeIfAbsent(dateAchat, k -> new HashMap<>())
-            .computeIfAbsent(pays, k -> new HashSet<>())
-            .addAll(Sets.newHashSet(codes));
+                .computeIfAbsent(pays, k -> new HashSet<>()).addAll(Sets.newHashSet(codes));
     }
 
     /**
      * Ne fait rien si le médicament n'est pas trouvé
+     * 
      * @param codeCis
      * @param dateAchat
      */
-    public void retirerMedicamentPerso (Pays pays, long code, LocalDate dateAchat) {
+    public void retirerMedicamentPerso(Pays pays, long code, LocalDate dateAchat) {
         Map<Pays, Set<Long>> codesParPays = medicamentsPersoParDate.get(dateAchat);
         if (codesParPays != null) {
             Set<Long> codes = codesParPays.get(pays);
-            if (codes != null) codes.remove(code);
+            if (codes != null)
+                codes.remove(code);
         }
     }
 }

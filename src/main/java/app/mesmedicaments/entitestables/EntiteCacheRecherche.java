@@ -20,36 +20,33 @@ public class EntiteCacheRecherche extends AbstractEntite {
 	private static final String TABLE_NOUV = "cacheRecherche";
 	private static final String TABLE_DEPR = "cacheRechercheSimplifie";
 
-	public static JSONArray obtenirResultatsCache (String terme, boolean depreciee) 
-		throws StorageException, InvalidKeyException, URISyntaxException
-	{
+	public static JSONArray obtenirResultatsCache(String terme, boolean depreciee)
+			throws StorageException, InvalidKeyException, URISyntaxException {
 		String resultats = "";
 		for (EntiteCacheRecherche entite : obtenirEntites(terme, depreciee)) {
 			resultats += entite.getResultats();
-			/*if (ligne == 1) {
-				entite.setNombreRequetes(entite.getNombreRequetes() + 1);
-				entite.mettreAJourEntite();
-			}*/
+			/*
+			 * if (ligne == 1) { entite.setNombreRequetes(entite.getNombreRequetes() + 1);
+			 * entite.mettreAJourEntite(); }
+			 */
 		}
 		if (resultats.equals("")) {
 			EntiteCacheRecherche entite = new EntiteCacheRecherche(terme, 1, depreciee);
 			entite.setResultats(new JSONArray().toString());
-			//entite.setNombreRequetes(1);
+			// entite.setNombreRequetes(1);
 			entite.creerEntite();
 			resultats = entite.getResultats();
 		}
 		return new JSONArray(resultats);
 	}
 
-	public static void mettreEnCache (String terme, JSONArray resultats, boolean depreciee) 
-		throws UnsupportedEncodingException, StorageException, URISyntaxException, InvalidKeyException
-	{
+	public static void mettreEnCache(String terme, JSONArray resultats, boolean depreciee)
+			throws UnsupportedEncodingException, StorageException, URISyntaxException, InvalidKeyException {
 		mettreEnCache(terme, resultats.toString(), depreciee);
 	}
-	
-	public static void mettreEnCache (String terme, String resultats, boolean depreciee) 
-		throws UnsupportedEncodingException, StorageException, URISyntaxException, InvalidKeyException
-	{
+
+	public static void mettreEnCache(String terme, String resultats, boolean depreciee)
+			throws UnsupportedEncodingException, StorageException, URISyntaxException, InvalidKeyException {
 		final int nbrLignes = resultats.getBytes(StandardCharsets.UTF_16).length / 64000 + 1;
 		CloudTable cloudTable = obtenirCloudTable(depreciee ? TABLE_DEPR : TABLE_NOUV);
 		TableBatchOperation batchOp = new TableBatchOperation();
@@ -61,60 +58,64 @@ public class EntiteCacheRecherche extends AbstractEntite {
 			batchOp.insertOrMerge(entite);
 			if ((i + 1) % 100 == 0 || (i + 1) == decoupes.length) {
 				cloudTable.execute(batchOp);
-				if ((i + 1) != decoupes.length) batchOp.clear();
+				if ((i + 1) != decoupes.length)
+					batchOp.clear();
 			}
 		}
 	}
 
-	private static Iterable<EntiteCacheRecherche> obtenirEntites (String terme, boolean depreciee)
-		throws StorageException, URISyntaxException, InvalidKeyException
-	{
-		Iterable<EntiteCacheRecherche> resNonTries = obtenirToutesLesEntites(depreciee ? TABLE_DEPR : TABLE_NOUV, terme, EntiteCacheRecherche.class);
-		return (Iterable<EntiteCacheRecherche>) () -> 
-			StreamSupport.stream(resNonTries.spliterator(), false)
+	private static Iterable<EntiteCacheRecherche> obtenirEntites(String terme, boolean depreciee)
+			throws StorageException, URISyntaxException, InvalidKeyException {
+		Iterable<EntiteCacheRecherche> resNonTries = obtenirToutesLesEntites(depreciee ? TABLE_DEPR : TABLE_NOUV, terme,
+				EntiteCacheRecherche.class);
+		return (Iterable<EntiteCacheRecherche>) () -> StreamSupport.stream(resNonTries.spliterator(), false)
 				.sorted((e1, e2) -> Integer.valueOf(e1.getRowKey()).compareTo(Integer.valueOf(e2.getRowKey())))
-				.map(EntiteCacheRecherche.class::cast)
-				.iterator();
+				.map(EntiteCacheRecherche.class::cast).iterator();
 	}
 
 	/*
-    private static Optional<EntiteCacheRecherche> obtenirEntite (String terme, int ligne)
-		throws URISyntaxException, InvalidKeyException, StorageException
-	{
-		return obtenirEntite(TABLE, terme, String.valueOf(ligne), EntiteCacheRecherche.class);
-	}
-	*/
-	
+	 * private static Optional<EntiteCacheRecherche> obtenirEntite (String terme,
+	 * int ligne) throws URISyntaxException, InvalidKeyException, StorageException {
+	 * return obtenirEntite(TABLE, terme, String.valueOf(ligne),
+	 * EntiteCacheRecherche.class); }
+	 */
+
 	String resultats;
 	int nombreRequetes;
-    
-    public EntiteCacheRecherche (String terme, int ligne, boolean depreciee) {
-		super(
-			depreciee ? TABLE_DEPR : TABLE_NOUV,
-			terme, 
-			String.valueOf(ligne)
-		);
+
+	public EntiteCacheRecherche(String terme, int ligne, boolean depreciee) {
+		super(depreciee ? TABLE_DEPR : TABLE_NOUV, terme, String.valueOf(ligne));
 	}
 
 	/**
 	 * NE PAS UTILISER
 	 */
-	public EntiteCacheRecherche () {
+	public EntiteCacheRecherche() {
 		super(TABLE_NOUV);
 	}
 
 	// Setters
 
-	public void setResultats (String resultats) { this.resultats = resultats; }
-	public void setNombreRequetes (int nombreRequetes) { this.nombreRequetes = nombreRequetes; }
+	public void setResultats(String resultats) {
+		this.resultats = resultats;
+	}
+
+	public void setNombreRequetes(int nombreRequetes) {
+		this.nombreRequetes = nombreRequetes;
+	}
 
 	// Getters
 
-	public String getResultats () { return this.resultats; }
-	public int getNombreRequetes () { return this.nombreRequetes; }
+	public String getResultats() {
+		return this.resultats;
+	}
+
+	public int getNombreRequetes() {
+		return this.nombreRequetes;
+	}
 
 	@Override
-	public boolean conditionsARemplir () {
+	public boolean conditionsARemplir() {
 		return !getResultats().equals("");
 	}
 

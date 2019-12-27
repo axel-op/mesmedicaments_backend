@@ -57,41 +57,32 @@ public final class PublicTriggers {
 	private static final String HEADER_AUTHORIZATION = "jwt";
 
 	@FunctionName("legal")
-	public HttpResponseMessage legal (
-		@HttpTrigger(
-			name = "legalTrigger",
-			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.GET},
-			route = "legal/{fichier}"
-		) final HttpRequestMessage<Optional<String>> request,
-		@BindingName("fichier") String fichier,
-		final ExecutionContext context
-	) {
+	public HttpResponseMessage legal(
+			@HttpTrigger(name = "legalTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
+					HttpMethod.GET }, route = "legal/{fichier}") final HttpRequestMessage<Optional<String>> request,
+			@BindingName("fichier") String fichier, final ExecutionContext context) {
 		try {
 			String ressource;
 			switch (fichier) {
-				case "confidentialite":
-					ressource = "/PolitiqueConfidentialite.txt";
-					break;
-				case "mentions":
-					ressource = "/MentionsLegales.txt";
-					break;
-				case "datesmaj":
-					LocalDate majBDPM = EntiteDateMaj.obtenirDateMajBDPM().get();
-					LocalDate majInteractions = EntiteDateMaj.obtenirDateMajInteractions().get();
-					JSONObject corpsReponse = new JSONObject()
-						.put("heure", LocalDateTime.now().toString())
-						.put("dernieresMaj", new JSONObject()
-							.put("bdpm", majBDPM.toString())
-							.put("interactions", majInteractions.toString()));
-					return construireReponse(HttpStatus.OK, corpsReponse, request);
-				default:
-					return construireReponse(HttpStatus.NOT_FOUND, request);
+			case "confidentialite":
+				ressource = "/PolitiqueConfidentialite.txt";
+				break;
+			case "mentions":
+				ressource = "/MentionsLegales.txt";
+				break;
+			case "datesmaj":
+				LocalDate majBDPM = EntiteDateMaj.obtenirDateMajBDPM().get();
+				LocalDate majInteractions = EntiteDateMaj.obtenirDateMajInteractions().get();
+				JSONObject corpsReponse = new JSONObject().put("heure", LocalDateTime.now().toString())
+						.put("dernieresMaj", new JSONObject().put("bdpm", majBDPM.toString()).put("interactions",
+								majInteractions.toString()));
+				return construireReponse(HttpStatus.OK, corpsReponse, request);
+			default:
+				return construireReponse(HttpStatus.NOT_FOUND, request);
 			}
-			String corpsReponse = new BufferedReader(new InputStreamReader(
-				getClass().getResourceAsStream(ressource), "UTF-8"))
-				.lines()
-				.collect(Collectors.joining(Utils.NEWLINE));
+			String corpsReponse = new BufferedReader(
+					new InputStreamReader(getClass().getResourceAsStream(ressource), "UTF-8")).lines()
+							.collect(Collectors.joining(Utils.NEWLINE));
 			return construireReponse(HttpStatus.OK, corpsReponse, request);
 		} catch (Exception e) {
 			Utils.logErreur(e, context.getLogger());
@@ -100,40 +91,31 @@ public final class PublicTriggers {
 	}
 
 	@FunctionName("synchronisation")
-	public HttpResponseMessage synchronisation (
-		@HttpTrigger(
-			name = "synchronisationTrigger",
-			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.POST, HttpMethod.GET},
-			route = "synchronisation/{categorie:alpha}"
-		) final HttpRequestMessage<Optional<String>> request,
-		@BindingName("categorie") final String categorie,
-		final ExecutionContext context
-	) {
+	public HttpResponseMessage synchronisation(
+			@HttpTrigger(name = "synchronisationTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
+					HttpMethod.POST,
+					HttpMethod.GET }, route = "synchronisation/{categorie:alpha}") final HttpRequestMessage<Optional<String>> request,
+			@BindingName("categorie") final String categorie, final ExecutionContext context) {
 		Logger logger = context.getLogger();
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		try {
-			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			// verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			String accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
 			String id = Authentification.getIdFromToken(accessToken);
 			EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
 			if (categorie.equalsIgnoreCase("obtenir")) {
 				JSONObject medsPerso = new JSONObject();
-				entiteU.getMedicamentsPersoMap().entrySet().parallelStream()
-					.forEach(e -> {
-						Map<Pays, Set<Long>> parPays = e.getValue();
-						Set<AbstractEntiteMedicament<? extends Presentation>> entitesM = new HashSet<>();
-						if (parPays.containsKey(Pays.France))
-							entitesM.addAll(EntiteMedicamentFrance.obtenirEntites(parPays.get(Pays.France), false, logger));
-						if (parPays.containsKey(Pays.Belgique))
-							entitesM.addAll(EntiteMedicamentBelgique.obtenirEntites(parPays.get(Pays.Belgique), false, logger));
-						medsPerso.put(
-							e.getKey().toString(), 
-							entitesM.parallelStream()
-								.map(entite -> Utils.medicamentEnJson(entite, logger))
-								.collect(Collectors.toSet())
-						);
-					});
+				entiteU.getMedicamentsPersoMap().entrySet().parallelStream().forEach(e -> {
+					Map<Pays, Set<Long>> parPays = e.getValue();
+					Set<AbstractEntiteMedicament<? extends Presentation>> entitesM = new HashSet<>();
+					if (parPays.containsKey(Pays.France))
+						entitesM.addAll(EntiteMedicamentFrance.obtenirEntites(parPays.get(Pays.France), false, logger));
+					if (parPays.containsKey(Pays.Belgique))
+						entitesM.addAll(
+								EntiteMedicamentBelgique.obtenirEntites(parPays.get(Pays.Belgique), false, logger));
+					medsPerso.put(e.getKey().toString(), entitesM.parallelStream()
+							.map(entite -> Utils.medicamentEnJson(entite, logger)).collect(Collectors.toSet()));
+				});
 				JSONObject corpsReponse = new JSONObject().put("medicamentsPerso", medsPerso);
 				return construireReponse(HttpStatus.OK, corpsReponse, request);
 			}
@@ -148,8 +130,7 @@ public final class PublicTriggers {
 				}
 				entiteU.mettreAJourEntite();
 				codeHttp = HttpStatus.OK;
-			}
-			else if (categorie.equalsIgnoreCase("retirer")) {
+			} else if (categorie.equalsIgnoreCase("retirer")) {
 				JSONObject medicament = corpsRequete.getJSONObject("medicament");
 				Pays pays = Pays.obtenirPays(medicament.getString("pays"));
 				long code = medicament.getLong("code");
@@ -157,18 +138,15 @@ public final class PublicTriggers {
 				entiteU.retirerMedicamentPerso(pays, code, date);
 				entiteU.mettreAJourEntite();
 				codeHttp = HttpStatus.OK;
-			}
-			else throw new IllegalArgumentException("La catégorie de route n'existe pas");
-		}
-		catch (JSONException e) {
+			} else
+				throw new IllegalArgumentException("La catégorie de route n'existe pas");
+		} catch (JSONException e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.UNAUTHORIZED;
-		}
-		catch (NoSuchElementException | IllegalArgumentException e) {
+		} catch (NoSuchElementException | IllegalArgumentException e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
@@ -176,34 +154,27 @@ public final class PublicTriggers {
 	}
 
 	@FunctionName("medicaments")
-	public HttpResponseMessage medicaments (
-		@HttpTrigger(
-			name = "medicamentsTrigger",
-			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.POST},
-			route = "medicaments"
-		) final HttpRequestMessage<Optional<String>> request,
-		final ExecutionContext context
-	) {
+	public HttpResponseMessage medicaments(
+			@HttpTrigger(name = "medicamentsTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
+					HttpMethod.POST }, route = "medicaments") final HttpRequestMessage<Optional<String>> request,
+			final ExecutionContext context) {
 		Logger logger = context.getLogger();
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject reponse = new JSONObject();
 		try {
-			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			// verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			JSONObject med = new JSONObject(request.getBody().get()).getJSONObject("medicament");
 			Pays pays = Pays.obtenirPays(med.getString("pays"));
 			Long code = med.getLong("code");
 			AbstractEntiteMedicament<? extends Presentation> entiteM = pays == Pays.France
-				? EntiteMedicamentFrance.obtenirEntite(code).get()
-				: EntiteMedicamentBelgique.obtenirEntite(code).get();
+					? EntiteMedicamentFrance.obtenirEntite(code).get()
+					: EntiteMedicamentBelgique.obtenirEntite(code).get();
 			reponse.put("medicament", Utils.medicamentEnJson(entiteM, logger));
 			codeHttp = HttpStatus.OK;
-		}
-		catch (JSONException | NoSuchElementException | IllegalArgumentException e) {
+		} catch (JSONException | NoSuchElementException | IllegalArgumentException e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
@@ -212,33 +183,23 @@ public final class PublicTriggers {
 
 	// Maintenue uniquement pour compatibilité avec versions < 25
 	@FunctionName("medicament")
-	public HttpResponseMessage medicament (
-		@HttpTrigger(
-			name = "medicamentTrigger",
-			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.GET},
-			route = "medicament/{code}"
-		) final HttpRequestMessage<Optional<String>> request,
-		@BindingName("code") final String codeStr,
-		final ExecutionContext context
-	) {
+	public HttpResponseMessage medicament(
+			@HttpTrigger(name = "medicamentTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
+					HttpMethod.GET }, route = "medicament/{code}") final HttpRequestMessage<Optional<String>> request,
+			@BindingName("code") final String codeStr, final ExecutionContext context) {
 		Logger logger = context.getLogger();
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject reponse = new JSONObject();
-		//String[] parametres = request.getUri().getPath().split("/");
+		// String[] parametres = request.getUri().getPath().split("/");
 		try {
-			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			// verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			reponse.put("medicament", Utils.medicamentFranceEnJsonDepreciee(
-				EntiteMedicamentFrance.obtenirEntite(Long.parseLong(codeStr)).get(), 
-				logger
-			));
+					EntiteMedicamentFrance.obtenirEntite(Long.parseLong(codeStr)).get(), logger));
 			codeHttp = HttpStatus.OK;
-		}
-		catch (IllegalArgumentException | NoSuchElementException e) {
+		} catch (IllegalArgumentException | NoSuchElementException e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
@@ -246,62 +207,50 @@ public final class PublicTriggers {
 	}
 
 	@FunctionName("recherche")
-	public HttpResponseMessage recherche (
-		@HttpTrigger(
-			name = "rechercheTrigger",
-			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.GET},
-			route = "recherche/{recherche}"
-		) final HttpRequestMessage<Optional<String>> request,
-		@BindingName("recherche") String recherche,
-		final ExecutionContext context
-	) {
+	public HttpResponseMessage recherche(
+			@HttpTrigger(name = "rechercheTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
+					HttpMethod.GET }, route = "recherche/{recherche}") final HttpRequestMessage<Optional<String>> request,
+			@BindingName("recherche") String recherche, final ExecutionContext context) {
 		Logger logger = context.getLogger();
 		HttpStatus codeHttp = HttpStatus.OK;
 		JSONObject corpsReponse = new JSONObject();
 		try {
-			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-			if (recherche.length() > 100) throw new IllegalArgumentException();
+			// verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			if (recherche.length() > 100)
+				throw new IllegalArgumentException();
 			recherche = Utils.normaliser(recherche).toLowerCase();
 			logger.info("Recherche de \"" + recherche + "\"");
 			JSONArray resultats = EntiteCacheRecherche.obtenirResultatsCache(recherche, utiliserDepreciees(request));
 			corpsReponse.put("resultats", resultats);
 			logger.info(resultats.length() + " résultats trouvés");
-		}	
-		catch (IllegalArgumentException e) {
+		} catch (IllegalArgumentException e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
 		return construireReponse(codeHttp, corpsReponse, request);
-		
+
 	}
 
 	// mettre une doc
 	@FunctionName("dmp")
-	public HttpResponseMessage dmp (
-		@HttpTrigger(
-			name = "dmpTrigger",
-			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.GET},
-			route = "dmp/{categorie:alpha}")
-		final HttpRequestMessage<Optional<String>> request,
-		@BindingName("categorie") final String categorie,
-		final ExecutionContext context
-	) {
+	public HttpResponseMessage dmp(
+			@HttpTrigger(name = "dmpTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
+					HttpMethod.GET }, route = "dmp/{categorie:alpha}") final HttpRequestMessage<Optional<String>> request,
+			@BindingName("categorie") final String categorie, final ExecutionContext context) {
 		Logger logger = context.getLogger();
 		String accessToken = request.getHeaders().get(HEADER_AUTHORIZATION);
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
-			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			// verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			String id = Authentification.getIdFromToken(accessToken);
 			if (categorie.equalsIgnoreCase("medicaments")) {
 				Optional<EntiteConnexion> optEntiteC = EntiteConnexion.obtenirEntite(id);
-				if (!optEntiteC.isPresent()) throw new IllegalArgumentException("Pas d'entité Connexion trouvée");
+				if (!optEntiteC.isPresent())
+					throw new IllegalArgumentException("Pas d'entité Connexion trouvée");
 				EntiteConnexion entiteC = optEntiteC.get();
 				if (Utils.dateToLocalDateTime(entiteC.getTimestamp()).isBefore(LocalDateTime.now().minusMinutes(30)))
 					throw new IllegalArgumentException("Plus de 30 minutes se sont écoulées depuis la connexion");
@@ -312,25 +261,20 @@ public final class PublicTriggers {
 				entiteU.mettreAJourEntite();
 				JSONObject medsEnJson = new JSONObject();
 				medsParDate.entrySet().parallelStream()
-					.forEach(e -> medsEnJson.put(
-						e.getKey().toString(), 
-						EntiteMedicamentFrance.obtenirEntites(e.getValue(), false, logger).stream()
-							.map(Unchecker.wrap(logger, entite -> utiliserDepreciees(request)
-								? Utils.medicamentFranceEnJsonDepreciee(entite, logger)
-								: Utils.medicamentEnJson(entite, logger)
-							))
-							.collect(Collectors.toSet())
-					));
+						.forEach(e -> medsEnJson.put(e.getKey().toString(),
+								EntiteMedicamentFrance.obtenirEntites(e.getValue(), false, logger).stream()
+										.map(Unchecker.wrap(logger,
+												entite -> utiliserDepreciees(request)
+														? Utils.medicamentFranceEnJsonDepreciee(entite, logger)
+														: Utils.medicamentEnJson(entite, logger)))
+										.collect(Collectors.toSet())));
 				corpsReponse.put("medicaments", medsEnJson);
 				codeHttp = HttpStatus.OK;
 			}
-		}
-		catch (JwtException | IllegalArgumentException e) {
+		} catch (JwtException | IllegalArgumentException e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.UNAUTHORIZED;
-		}
-		catch (Exception e)
-		{
+		} catch (Exception e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
@@ -338,20 +282,16 @@ public final class PublicTriggers {
 	}
 
 	@FunctionName("interactions")
-	public HttpResponseMessage interactions (
-		@HttpTrigger(
-			name = "interactionsTrigger",
-			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.GET, HttpMethod.POST},
-			route = "interactions"
-		) final HttpRequestMessage<Optional<String>> request,
-		final ExecutionContext context
-	) {
+	public HttpResponseMessage interactions(
+			@HttpTrigger(name = "interactionsTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
+					HttpMethod.GET,
+					HttpMethod.POST }, route = "interactions") final HttpRequestMessage<Optional<String>> request,
+			final ExecutionContext context) {
 		Logger logger = context.getLogger();
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		try {
-			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			// verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			JSONObject corpsRequete = new JSONObject(request.getBody().get());
 			Map<Pays, Set<Long>> codesParPays = new HashMap<>();
 			boolean utiliserDepreciees = utiliserDepreciees(request);
@@ -361,39 +301,32 @@ public final class PublicTriggers {
 				JSONArray medicaments = corpsRequete.getJSONArray("medicaments");
 				for (int i = 0; i < medicaments.length(); i++) {
 					JSONObject details = medicaments.getJSONObject(i);
-					codesParPays.computeIfAbsent(
-						Pays.obtenirPays(details.getString("pays")), 
-						k -> new HashSet<>()
-					).add(details.getLong("code"));
+					codesParPays.computeIfAbsent(Pays.obtenirPays(details.getString("pays")), k -> new HashSet<>())
+							.add(details.getLong("code"));
 				}
 			}
-			Set<? extends AbstractEntiteMedicament<? extends Presentation>> entitesMedicament = codesParPays
-				.entrySet()
-				.parallelStream()
-				.flatMap(e -> {
-					Pays pays = e.getKey();
-					if (pays == Pays.France) 
-						return EntiteMedicamentFrance.obtenirEntites(e.getValue(), true, logger).stream();
-					else if (pays == Pays.Belgique) 
-						return EntiteMedicamentBelgique.obtenirEntites(e.getValue(), true, logger).stream();
-					else throw new NotImplementedException("Il n'est pas encore possible de détecter les interactions avec les médicaments de ce pays");
-				})
-				.collect(Collectors.toSet());
-			Set<JSONObject> interactions = EntiteInteraction.obtenirInteractions(logger, entitesMedicament)
-				.stream()
-				.map(Unchecker.wrap(logger, (EntiteInteraction e) -> utiliserDepreciees 
-					? Utils.interactionEnJsonDepreciee(e, logger)
-					: Utils.interactionEnJson(e, logger)
-				))
-				.collect(Collectors.toSet());
+			Set<? extends AbstractEntiteMedicament<? extends Presentation>> entitesMedicament = codesParPays.entrySet()
+					.parallelStream().flatMap(e -> {
+						Pays pays = e.getKey();
+						if (pays == Pays.France)
+							return EntiteMedicamentFrance.obtenirEntites(e.getValue(), true, logger).stream();
+						else if (pays == Pays.Belgique)
+							return EntiteMedicamentBelgique.obtenirEntites(e.getValue(), true, logger).stream();
+						else
+							throw new NotImplementedException(
+									"Il n'est pas encore possible de détecter les interactions avec les médicaments de ce pays");
+					}).collect(Collectors.toSet());
+			Set<JSONObject> interactions = EntiteInteraction.obtenirInteractions(logger, entitesMedicament).stream()
+					.map(Unchecker.wrap(logger,
+							(EntiteInteraction e) -> utiliserDepreciees ? Utils.interactionEnJsonDepreciee(e, logger)
+									: Utils.interactionEnJson(e, logger)))
+					.collect(Collectors.toSet());
 			corpsReponse.put("interactions", interactions);
 			codeHttp = HttpStatus.OK;
-		}
-		catch (IllegalArgumentException | JSONException | NoSuchElementException e) {
+		} catch (IllegalArgumentException | JSONException | NoSuchElementException e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
@@ -401,112 +334,98 @@ public final class PublicTriggers {
 	}
 
 	@FunctionName("connexion")
-	public HttpResponseMessage connexion (
-		@HttpTrigger(
-			name = "connexionTrigger",
-			authLevel = AuthorizationLevel.ANONYMOUS,
-			methods = {HttpMethod.POST},
-			dataType = "string",
-			route = "connexion/{etape:int}"
-		) final HttpRequestMessage<Optional<String>> request,
-		@BindingName("etape") int etape,
-		final ExecutionContext context
-	) {
+	public HttpResponseMessage connexion(
+			@HttpTrigger(name = "connexionTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
+					HttpMethod.POST }, dataType = "string", route = "connexion/{etape:int}") final HttpRequestMessage<Optional<String>> request,
+			@BindingName("etape") int etape, final ExecutionContext context) {
 		HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
 		JSONObject corpsReponse = new JSONObject();
 		Logger logger = context.getLogger();
 		try {
-			//verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
+			// verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
 			JSONObject corpsRequete = new JSONObject(request.getBody().get());
 			if (etape == 1) { // Première étape de la connexion
 				final String id = corpsRequete.getString("id");
 				final String mdp = corpsRequete.getString("mdp");
 				JSONObject resultat = new Authentification(logger, id).connexionDMP(mdp);
 				if (!resultat.isNull(CLE_ERREUR_AUTH)) {
-					codeHttp = resultat.get(CLE_ERREUR_AUTH).equals(ERR_INTERNE)
-						? HttpStatus.INTERNAL_SERVER_ERROR
-						: HttpStatus.CONFLICT;
+					codeHttp = resultat.get(CLE_ERREUR_AUTH).equals(ERR_INTERNE) ? HttpStatus.INTERNAL_SERVER_ERROR
+							: HttpStatus.CONFLICT;
 				} else {
 					codeHttp = HttpStatus.OK;
 					corpsReponse.put(CLE_ENVOI_CODE, resultat.getString(CLE_ENVOI_CODE));
 				}
-			}
-			else if (etape == 2) { // Deuxième étape de la connexion
+			} else if (etape == 2) { // Deuxième étape de la connexion
 				final String id = corpsRequete.getString("id");
 				final Authentification auth = new Authentification(logger, id);
 				String code = String.valueOf(corpsRequete.getInt("code"));
 				JSONObject resultat = auth.doubleAuthentification(code);
-				if (!resultat.isNull(CLE_ERREUR_AUTH)) codeHttp = HttpStatus.CONFLICT;
+				if (!resultat.isNull(CLE_ERREUR_AUTH))
+					codeHttp = HttpStatus.CONFLICT;
 				else {
 					EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntiteOuCreer(id, logger);
 					corpsReponse.put("idAnalytics", entiteU.getIdAnalytics());
 					corpsReponse.put("accessToken", auth.createAccessToken());
-					if (resultat.has("genre")) corpsReponse.put("genre", resultat.get("genre"));
+					if (resultat.has("genre"))
+						corpsReponse.put("genre", resultat.get("genre"));
 					codeHttp = HttpStatus.OK;
 				}
-			} else { throw new IllegalArgumentException(); }
-		}
-		catch (JSONException 
-			| NullPointerException 
-			| NoSuchElementException
-			| IllegalArgumentException e) 
-		{
+			} else {
+				throw new IllegalArgumentException();
+			}
+		} catch (JSONException | NullPointerException | NoSuchElementException | IllegalArgumentException e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.BAD_REQUEST;
-		}
-		catch (JwtException e) 
-		{
+		} catch (JwtException e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.UNAUTHORIZED;
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			Utils.logErreur(e, logger);
 			codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
 		}
 		return construireReponse(codeHttp, corpsReponse, request);
 	}
 
-	private boolean utiliserDepreciees (HttpRequestMessage<Optional<String>> request) {
+	private boolean utiliserDepreciees(HttpRequestMessage<Optional<String>> request) {
 		int version = Integer.parseInt(request.getHeaders().getOrDefault(CLE_VERSION, "0"));
 		return version < 25;
 	}
 
-	private HttpResponseMessage construireReponse (HttpStatus codeHttp, String corpsReponse, HttpRequestMessage<Optional<String>> request) {
-		return request.createResponseBuilder(codeHttp)
-			.header("Content-Type", "text/plain")
-			.header("Content-Length", String.valueOf(corpsReponse.getBytes(StandardCharsets.UTF_8).length))
-			.body(corpsReponse)
-			.build();
+	private HttpResponseMessage construireReponse(HttpStatus codeHttp, String corpsReponse,
+			HttpRequestMessage<Optional<String>> request) {
+		return request.createResponseBuilder(codeHttp).header("Content-Type", "text/plain")
+				.header("Content-Length", String.valueOf(corpsReponse.getBytes(StandardCharsets.UTF_8).length))
+				.body(corpsReponse).build();
 	}
 
-	private HttpResponseMessage construireReponse (HttpStatus codeHttp, JSONObject corpsReponse, HttpRequestMessage<Optional<String>> request) {
+	private HttpResponseMessage construireReponse(HttpStatus codeHttp, JSONObject corpsReponse,
+			HttpRequestMessage<Optional<String>> request) {
 		corpsReponse.put("heure", obtenirHeure().toString());
-		return request.createResponseBuilder(codeHttp)
-			.header("Content-Type", "application/json")
-			.header("Content-Length", String.valueOf(corpsReponse.toString().getBytes(StandardCharsets.UTF_8).length))
-			.body(corpsReponse.toString())
-			.build();
+		return request.createResponseBuilder(codeHttp).header("Content-Type", "application/json")
+				.header("Content-Length",
+						String.valueOf(corpsReponse.toString().getBytes(StandardCharsets.UTF_8).length))
+				.body(corpsReponse.toString()).build();
 	}
 
-	private HttpResponseMessage construireReponse (HttpStatus codeHttp, HttpRequestMessage<Optional<String>> request) {
+	private HttpResponseMessage construireReponse(HttpStatus codeHttp, HttpRequestMessage<Optional<String>> request) {
 		return construireReponse(codeHttp, new JSONObjectUneCle("heure", obtenirHeure().toString()), request);
 	}
 
-	private LocalDateTime obtenirHeure () {
+	private LocalDateTime obtenirHeure() {
 		return LocalDateTime.now(ZoneId.of("ECT", ZoneId.SHORT_IDS));
 	}
 
-	private void verifierHeure (String heure, long intervalle) throws IllegalArgumentException {
+	private void verifierHeure(String heure, long intervalle) throws IllegalArgumentException {
 		LocalDateTime heureObtenue;
 		LocalDateTime maintenant = obtenirHeure();
 		if (heure != null && heure.length() <= 50) {
 			try {
 				heureObtenue = LocalDateTime.parse(heure);
 				if (heureObtenue.isAfter(maintenant.minusMinutes(intervalle))
-					&& heureObtenue.isBefore(maintenant.plusMinutes(2))
-				) return;
+						&& heureObtenue.isBefore(maintenant.plusMinutes(2)))
+					return;
+			} catch (DateTimeParseException e) {
 			}
-			catch (DateTimeParseException e) {}
 		}
 		throw new IllegalArgumentException("Heure incorrecte");
 	}

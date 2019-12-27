@@ -20,53 +20,49 @@ public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<Entit
 
     /**
      * Les codes CIS non trouvés lèvent une exception
+     * 
      * @param codesCis
      * @return
      */
-    public static Set<EntiteMedicamentFrance> obtenirEntites (Set<Long> codesCis, boolean ignorerNonTrouves, Logger logger) {
+    public static Set<EntiteMedicamentFrance> obtenirEntites(Set<Long> codesCis, boolean ignorerNonTrouves,
+            Logger logger) {
         return obtenirEntites(PAYS, codesCis, EntiteMedicamentFrance.class, logger, ignorerNonTrouves);
     }
 
-    public static Optional<EntiteMedicamentFrance> obtenirEntite (long codeCis)
-        throws StorageException, URISyntaxException, InvalidKeyException 
-    {
+    public static Optional<EntiteMedicamentFrance> obtenirEntite(long codeCis)
+            throws StorageException, URISyntaxException, InvalidKeyException {
         return obtenirEntite(PAYS, codeCis, EntiteMedicamentFrance.class);
     }
 
-    public static Iterable<EntiteMedicamentFrance> obtenirToutesLesEntites ()
-        throws StorageException, URISyntaxException, InvalidKeyException 
-    {
+    public static Iterable<EntiteMedicamentFrance> obtenirToutesLesEntites()
+            throws StorageException, URISyntaxException, InvalidKeyException {
         return obtenirToutesLesEntites(PAYS, EntiteMedicamentFrance.class);
     }
 
     // Constructeurs
 
-    public EntiteMedicamentFrance (long codeCis) {
+    public EntiteMedicamentFrance(long codeCis) {
         super(PAYS, codeCis);
     }
 
     /**
      * NE PAS UTILISER
      */
-    public EntiteMedicamentFrance () { super(); }
+    public EntiteMedicamentFrance() {
+        super();
+    }
 
     @Override
     public boolean conditionsARemplir() {
-        return forme != null
-            && !getNomsParLangue().isEmpty()
-            && !getMarque().equals("");
+        return forme != null && !getNomsParLangue().isEmpty() && !getMarque().equals("");
     }
 
     @Ignore
     @Override
-    public void setPresentationsJson (Set<JSONObject> presJson) {
+    public void setPresentationsJson(Set<JSONObject> presJson) {
         this.presentationsSet.clear();
-        this.presentationsSet.addAll(presJson.stream()
-            .map(PresentationFrance::new)
-            .collect(Collectors.toSet())
-        );
+        this.presentationsSet.addAll(presJson.stream().map(PresentationFrance::new).collect(Collectors.toSet()));
     }
-    
 
     public static class PresentationFrance extends Presentation {
         private String nom;
@@ -75,14 +71,10 @@ public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<Entit
         private double honorairesDispensation;
         private String conditionsRemboursement;
 
-        public PresentationFrance (
-            String nom, 
-            double prix, 
-            int tauxRemboursement, 
-            double honorairesDispensation,
-            String conditionsRemboursement
-        ) {
-            if (nom == null) throw new IllegalArgumentException();
+        public PresentationFrance(String nom, double prix, int tauxRemboursement, double honorairesDispensation,
+                String conditionsRemboursement) {
+            if (nom == null)
+                throw new IllegalArgumentException();
             this.nom = nom;
             this.prix = prix;
             this.tauxRemboursement = tauxRemboursement;
@@ -90,12 +82,12 @@ public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<Entit
             this.conditionsRemboursement = conditionsRemboursement != null ? conditionsRemboursement : "";
         }
 
-        protected PresentationFrance (JSONObject json) {
+        protected PresentationFrance(JSONObject json) {
             super(json);
         }
 
         @Override
-        protected void fromJson (JSONObject json) {
+        protected void fromJson(JSONObject json) {
             this.nom = json.getString("nom");
             this.prix = json.getDouble("prix");
             this.tauxRemboursement = json.getInt("tauxRemboursement");
@@ -104,24 +96,35 @@ public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<Entit
         }
 
         @Override
-        public JSONObject toJson () {
-            return new JSONObject()
-                .put("nom", nom)
-                .put("prix", prix)
-                .put("tauxRemboursement", tauxRemboursement)
-                .put("honorairesDispensation", honorairesDispensation)
-                .put("conditionsRemboursement", conditionsRemboursement);
+        public JSONObject toJson() {
+            return new JSONObject().put("nom", nom).put("prix", prix).put("tauxRemboursement", tauxRemboursement)
+                    .put("honorairesDispensation", honorairesDispensation)
+                    .put("conditionsRemboursement", conditionsRemboursement);
         }
 
         @Ignore
-        public String getNom () { return nom; }
+        public String getNom() {
+            return nom;
+        }
+
         @Ignore
-        public double getPrix () { return prix; }
+        public double getPrix() {
+            return prix;
+        }
+
         @Ignore
-        public int getTauxRemboursement () { return tauxRemboursement; }
+        public int getTauxRemboursement() {
+            return tauxRemboursement;
+        }
+
         @Ignore
-        public double getHonoraires () { return honorairesDispensation; }
+        public double getHonoraires() {
+            return honorairesDispensation;
+        }
+
         @Ignore
-        public String getConditionsRemboursement () { return conditionsRemboursement; }
+        public String getConditionsRemboursement() {
+            return conditionsRemboursement;
+        }
     }
 }

@@ -21,21 +21,19 @@ public class AnalyseTexte {
     private static final String ADRESSE_API = System.getenv("analysetexte_adresseapi");
     private static final String CLE_API = System.getenv("analysetexte_cleapi");
 
-    public static Set<String> obtenirExpressionsCles (String texte) 
-        throws IOException
-    {
-        if (texte == null || texte.equals("")) return new HashSet<>();
+    public static Set<String> obtenirExpressionsCles(String texte) throws IOException {
+        if (texte == null || texte.equals(""))
+            return new HashSet<>();
         int limiteParDoc = 5110 - " ".length();
-        String[] tokens =  texte.split(" ");
+        String[] tokens = texte.split(" ");
         List<String> decoupes = new ArrayList<>();
         String decoupeEnCours = "";
         for (String token : tokens) {
-            if (token.length() > limiteParDoc) 
+            if (token.length() > limiteParDoc)
                 throw new RuntimeException(" (AnalyseTexte) Un token à lui seul dépasse la limite de taille");
             if (decoupeEnCours.length() + token.length() < limiteParDoc) {
                 decoupeEnCours += token + " ";
-            }
-            else {
+            } else {
                 decoupes.add(decoupeEnCours);
                 decoupeEnCours = token;
             }
@@ -43,11 +41,8 @@ public class AnalyseTexte {
         decoupes.add(decoupeEnCours);
         JSONArray documents = new JSONArray();
         for (int i = 0; i < decoupes.size(); i++) {
-            documents.put(new JSONObject()
-                .put("language", "fr")
-                .put("id", String.valueOf(i + 1))
-                .put("text", decoupes.get(i))
-            );
+            documents.put(new JSONObject().put("language", "fr").put("id", String.valueOf(i + 1)).put("text",
+                    decoupes.get(i)));
         }
         URL url = new URL(ADRESSE_API);
         HttpsURLConnection connexion = (HttpsURLConnection) url.openConnection();
@@ -60,7 +55,8 @@ public class AnalyseTexte {
         dos.write(encodedText, 0, encodedText.length);
         dos.flush();
         dos.close();
-        if (connexion.getResponseCode() != 200) throw new IOException(connexion.getResponseMessage());
+        if (connexion.getResponseCode() != 200)
+            throw new IOException(connexion.getResponseMessage());
         String corpsRep = CharStreams.toString(new InputStreamReader(connexion.getInputStream(), "UTF-8"));
         Set<String> expressions = new HashSet<>();
         JSONArray reponse = new JSONObject(corpsRep).getJSONArray("documents");

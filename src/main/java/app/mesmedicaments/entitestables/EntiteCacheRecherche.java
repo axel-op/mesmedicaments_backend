@@ -4,7 +4,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
-//import java.util.Optional;
 import java.util.stream.StreamSupport;
 
 import com.microsoft.azure.storage.StorageException;

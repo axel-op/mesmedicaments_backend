@@ -1,12 +1,11 @@
 package app.mesmedicaments.entitestables;
 
+import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.table.TableOperation;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.LocalDate;
 import java.util.Optional;
-
-import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.table.TableOperation;
 
 public class EntiteDateMaj extends AbstractEntite {
 
@@ -15,11 +14,13 @@ public class EntiteDateMaj extends AbstractEntite {
     private static final String ROWKEY_BDPM = "bdpm";
     private static final String ROWKEY_INTERACTIONS = "interactions";
 
-    public static void definirDateMajInteractions() throws StorageException, URISyntaxException, InvalidKeyException {
+    public static void definirDateMajInteractions()
+            throws StorageException, URISyntaxException, InvalidKeyException {
         definirDateMaj(ROWKEY_INTERACTIONS, LocalDate.now());
     }
 
-    public static void definirDateMajFrance() throws StorageException, URISyntaxException, InvalidKeyException {
+    public static void definirDateMajFrance()
+            throws StorageException, URISyntaxException, InvalidKeyException {
         definirDateMaj(ROWKEY_BDPM, LocalDate.now());
     }
 
@@ -42,18 +43,16 @@ public class EntiteDateMaj extends AbstractEntite {
 
     private static Optional<LocalDate> obtenirDateMaj(String rowKey)
             throws StorageException, URISyntaxException, InvalidKeyException {
-        TableOperation operation = TableOperation.retrieve(CLE_PARTITION, rowKey, EntiteDateMaj.class);
+        TableOperation operation =
+                TableOperation.retrieve(CLE_PARTITION, rowKey, EntiteDateMaj.class);
         EntiteDateMaj entite = obtenirCloudTable(TABLE).execute(operation).getResultAsType();
-        if (entite == null)
-            return Optional.empty();
+        if (entite == null) return Optional.empty();
         return Optional.of(LocalDate.parse(entite.getDate()));
     }
 
     String date;
 
-    /**
-     * NE PAS UTILISER
-     */
+    /** NE PAS UTILISER */
     public EntiteDateMaj() {
         super(TABLE);
     }

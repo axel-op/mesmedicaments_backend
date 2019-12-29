@@ -1,32 +1,31 @@
 package app.mesmedicaments.entitestables;
 
+import app.mesmedicaments.entitestables.AbstractEntiteMedicament.Presentation;
+import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.table.Ignore;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-
-import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.table.Ignore;
-
 import org.json.JSONObject;
 
-import app.mesmedicaments.entitestables.AbstractEntiteMedicament.Presentation;
-
-public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<EntiteMedicamentFrance.PresentationFrance> {
+public final class EntiteMedicamentFrance
+        extends AbstractEntiteMedicament<EntiteMedicamentFrance.PresentationFrance> {
 
     private static final Pays PAYS = Pays.France;
 
     /**
      * Les codes CIS non trouvés lèvent une exception
-     * 
+     *
      * @param codesCis
      * @return
      */
-    public static Set<EntiteMedicamentFrance> obtenirEntites(Set<Long> codesCis, boolean ignorerNonTrouves,
-            Logger logger) {
-        return obtenirEntites(PAYS, codesCis, EntiteMedicamentFrance.class, logger, ignorerNonTrouves);
+    public static Set<EntiteMedicamentFrance> obtenirEntites(
+            Set<Long> codesCis, boolean ignorerNonTrouves, Logger logger) {
+        return obtenirEntites(
+                PAYS, codesCis, EntiteMedicamentFrance.class, logger, ignorerNonTrouves);
     }
 
     public static Optional<EntiteMedicamentFrance> obtenirEntite(long codeCis)
@@ -45,9 +44,7 @@ public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<Entit
         super(PAYS, codeCis);
     }
 
-    /**
-     * NE PAS UTILISER
-     */
+    /** NE PAS UTILISER */
     public EntiteMedicamentFrance() {
         super();
     }
@@ -61,7 +58,8 @@ public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<Entit
     @Override
     public void setPresentationsJson(Set<JSONObject> presJson) {
         this.presentationsSet.clear();
-        this.presentationsSet.addAll(presJson.stream().map(PresentationFrance::new).collect(Collectors.toSet()));
+        this.presentationsSet.addAll(
+                presJson.stream().map(PresentationFrance::new).collect(Collectors.toSet()));
     }
 
     public static class PresentationFrance extends Presentation {
@@ -71,15 +69,19 @@ public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<Entit
         private double honorairesDispensation;
         private String conditionsRemboursement;
 
-        public PresentationFrance(String nom, double prix, int tauxRemboursement, double honorairesDispensation,
+        public PresentationFrance(
+                String nom,
+                double prix,
+                int tauxRemboursement,
+                double honorairesDispensation,
                 String conditionsRemboursement) {
-            if (nom == null)
-                throw new IllegalArgumentException();
+            if (nom == null) throw new IllegalArgumentException();
             this.nom = nom;
             this.prix = prix;
             this.tauxRemboursement = tauxRemboursement;
             this.honorairesDispensation = honorairesDispensation;
-            this.conditionsRemboursement = conditionsRemboursement != null ? conditionsRemboursement : "";
+            this.conditionsRemboursement =
+                    conditionsRemboursement != null ? conditionsRemboursement : "";
         }
 
         protected PresentationFrance(JSONObject json) {
@@ -97,7 +99,10 @@ public final class EntiteMedicamentFrance extends AbstractEntiteMedicament<Entit
 
         @Override
         public JSONObject toJson() {
-            return new JSONObject().put("nom", nom).put("prix", prix).put("tauxRemboursement", tauxRemboursement)
+            return new JSONObject()
+                    .put("nom", nom)
+                    .put("prix", prix)
+                    .put("tauxRemboursement", tauxRemboursement)
                     .put("honorairesDispensation", honorairesDispensation)
                     .put("conditionsRemboursement", conditionsRemboursement);
         }

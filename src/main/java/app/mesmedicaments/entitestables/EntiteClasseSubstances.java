@@ -1,19 +1,16 @@
 package app.mesmedicaments.entitestables;
 
+import app.mesmedicaments.JSONArrays;
+import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.table.CloudTable;
+import com.microsoft.azure.storage.table.TableBatchOperation;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.table.CloudTable;
-import com.microsoft.azure.storage.table.TableBatchOperation;
-
 import org.json.JSONObject;
-
-import app.mesmedicaments.JSONArrays;
 
 public class EntiteClasseSubstances extends AbstractEntite {
 
@@ -32,8 +29,7 @@ public class EntiteClasseSubstances extends AbstractEntite {
                 batchOp.clear();
             }
         }
-        if (!batchOp.isEmpty())
-            cloudTable.execute(batchOp);
+        if (!batchOp.isEmpty()) cloudTable.execute(batchOp);
     }
 
     String substances;
@@ -43,9 +39,7 @@ public class EntiteClasseSubstances extends AbstractEntite {
         super(TABLE, PARTITION, nomClasse);
     }
 
-    /**
-     * NE PAS UTILISER
-     */
+    /** NE PAS UTILISER */
     public EntiteClasseSubstances() {
         super(TABLE);
     }
@@ -71,11 +65,12 @@ public class EntiteClasseSubstances extends AbstractEntite {
     }
 
     public void ajouterSubstance(EntiteSubstance entite) {
-        substancesMap.computeIfAbsent(entite.getPartitionKey(), k -> new HashSet<>()).add(entite.getRowKey());
+        substancesMap
+                .computeIfAbsent(entite.getPartitionKey(), k -> new HashSet<>())
+                .add(entite.getRowKey());
     }
 
     public void ajouterSubstances(Iterable<EntiteSubstance> entites) {
         entites.forEach(this::ajouterSubstance);
     }
-
 }

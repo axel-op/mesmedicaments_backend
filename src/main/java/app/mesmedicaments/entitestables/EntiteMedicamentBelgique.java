@@ -1,18 +1,15 @@
 package app.mesmedicaments.entitestables;
 
+import app.mesmedicaments.entitestables.AbstractEntiteMedicament.Presentation;
+import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.table.Ignore;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-
-import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.table.Ignore;
-
 import org.json.JSONObject;
-
-import app.mesmedicaments.entitestables.AbstractEntiteMedicament.Presentation;
 
 public final class EntiteMedicamentBelgique
         extends AbstractEntiteMedicament<EntiteMedicamentBelgique.PresentationBelgique> {
@@ -26,22 +23,21 @@ public final class EntiteMedicamentBelgique
 
     /**
      * Les codes non trouvés lèvent une exception
-     * 
+     *
      * @param codes
      * @return
      */
-    public static Set<EntiteMedicamentBelgique> obtenirEntites(Set<Long> codes, boolean ignorerNonTrouves,
-            Logger logger) {
-        return obtenirEntites(PAYS, codes, EntiteMedicamentBelgique.class, logger, ignorerNonTrouves);
+    public static Set<EntiteMedicamentBelgique> obtenirEntites(
+            Set<Long> codes, boolean ignorerNonTrouves, Logger logger) {
+        return obtenirEntites(
+                PAYS, codes, EntiteMedicamentBelgique.class, logger, ignorerNonTrouves);
     }
 
     public EntiteMedicamentBelgique(long codeAMP) {
         super(PAYS, codeAMP);
     }
 
-    /**
-     * NE PAS UTILISER
-     */
+    /** NE PAS UTILISER */
     public EntiteMedicamentBelgique() {
         super();
     }
@@ -50,8 +46,10 @@ public final class EntiteMedicamentBelgique
     @Override
     public void setPresentationsJson(Set<JSONObject> presJson) {
         this.presentationsSet.clear();
-        this.presentationsSet
-                .addAll(presJson.stream().map(j -> new PresentationBelgique(j)).collect(Collectors.toSet()));
+        this.presentationsSet.addAll(
+                presJson.stream()
+                        .map(j -> new PresentationBelgique(j))
+                        .collect(Collectors.toSet()));
     }
 
     @Override
@@ -66,7 +64,8 @@ public final class EntiteMedicamentBelgique
 
         public PresentationBelgique(String nom, Double prix, int codeCNK) {
             if (nom == null)
-                throw new IllegalArgumentException("Le nom de la présentation ne peut pas être null");
+                throw new IllegalArgumentException(
+                        "Le nom de la présentation ne peut pas être null");
             this.nom = nom;
             this.prix = prix != null ? prix : 0;
             this.codeCNK = codeCNK;
@@ -97,6 +96,5 @@ public final class EntiteMedicamentBelgique
         public double getPrix() {
             return prix;
         }
-
     }
 }

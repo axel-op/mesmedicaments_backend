@@ -1,81 +1,102 @@
 package app.mesmedicaments.entitestables;
 
+import app.mesmedicaments.AnalyseTexte;
+import app.mesmedicaments.JSONArrays;
+import app.mesmedicaments.Utils;
+import app.mesmedicaments.unchecked.Unchecker;
+import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.table.CloudTable;
+import com.microsoft.azure.storage.table.Ignore;
+import com.microsoft.azure.storage.table.TableBatchOperation;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.table.CloudTable;
-import com.microsoft.azure.storage.table.Ignore;
-import com.microsoft.azure.storage.table.TableBatchOperation;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import app.mesmedicaments.AnalyseTexte;
-import app.mesmedicaments.JSONArrays;
-import app.mesmedicaments.Utils;
-import app.mesmedicaments.unchecked.Unchecker;
-
-public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicament.Presentation> extends AbstractEntite {
+public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicament.Presentation>
+        extends AbstractEntite {
 
     protected static final String TABLE = System.getenv("tableazure_medicaments");
     // TODO table de test uniquement
     // protected static final String TABLE = "tableMedBelgiqueTest";
 
-    protected static <P extends Presentation, E extends AbstractEntiteMedicament<P>> Optional<E> obtenirEntite(
-            Pays pays, long code, Class<E> clazzType) throws StorageException, URISyntaxException, InvalidKeyException {
+    protected static <P extends Presentation, E extends AbstractEntiteMedicament<P>>
+            Optional<E> obtenirEntite(Pays pays, long code, Class<E> clazzType)
+                    throws StorageException, URISyntaxException, InvalidKeyException {
         return obtenirEntite(TABLE, pays.code, String.valueOf(code), clazzType);
     }
 
     // TODO ne plus ignorer les non trouvés à partir de mi-octobre
-    protected static <P extends Presentation, E extends AbstractEntiteMedicament<P>> Set<E> obtenirEntites(Pays pays,
-            Set<Long> codes, Class<E> clazzType, Logger logger, boolean ignorerNonTrouves) {
-        return codes.parallelStream().flatMap(Unchecker.wrap(logger, (Long c) -> {
-            Optional<E> optE = obtenirEntite(pays, c, clazzType);
-            return ignorerNonTrouves ? optE.map(Stream::of).orElseGet(() -> {
-                logger.warning("Médicament " + pays.code + " " + c + " non trouvé");
-                return Stream.empty();
-            }) : optE.map(Stream::of).orElseThrow(NoSuchElementException::new);
-        }))
+    protected static <P extends Presentation, E extends AbstractEntiteMedicament<P>>
+            Set<E> obtenirEntites(
+                    Pays pays,
+                    Set<Long> codes,
+                    Class<E> clazzType,
+                    Logger logger,
+                    boolean ignorerNonTrouves) {
+        return codes.parallelStream()
+                .flatMap(
+                        Unchecker.wrap(
+                                logger,
+                                (Long c) -> {
+                                    Optional<E> optE = obtenirEntite(pays, c, clazzType);
+                                    return ignorerNonTrouves
+                                            ? optE.map(Stream::of)
+                                                    .orElseGet(
+                                                            () -> {
+                                                                logger.warning(
+                                                                        "Médicament "
+                                                                                + pays.code
+                                                                                + " "
+                                                                                + c
+                                                                                + " non trouvé");
+                                                                return Stream.empty();
+                                                            })
+                                            : optE.map(Stream::of)
+                                                    .orElseThrow(NoSuchElementException::new);
+                                }))
                 // .map(Optional::get)
                 .collect(Collectors.toSet());
     }
 
-    public static <P extends Presentation, E extends AbstractEntiteMedicament<P>> Iterable<E> obtenirToutesLesEntites(
-            Pays pays, Class<E> clazzType) throws StorageException, URISyntaxException, InvalidKeyException {
+    public static <P extends Presentation, E extends AbstractEntiteMedicament<P>>
+            Iterable<E> obtenirToutesLesEntites(Pays pays, Class<E> clazzType)
+                    throws StorageException, URISyntaxException, InvalidKeyException {
         return obtenirToutesLesEntites(TABLE, pays.code, clazzType);
     }
 
     /**
      * Possibilité de mélanger les partitions, car un tri est effectué.
-     * 
-     * @param <P>     Type de l'objet Présentation
-     * @param <E>     Type de l'entité Médicament
-     * @param entites Entités Médicament, éventuellement de partitions (pays)
-     *                différentes
+     *
+     * @param <P> Type de l'objet Présentation
+     * @param <E> Type de l'entité Médicament
+     * @param entites Entités Médicament, éventuellement de partitions (pays) différentes
      * @throws StorageException
      * @throws InvalidKeyException
      * @throws URISyntaxException
      */
-    public static <P extends Presentation, E extends AbstractEntiteMedicament<P>> void mettreAJourEntitesBatch(
-            Iterable<E> entites) throws StorageException, InvalidKeyException, URISyntaxException {
+    public static <P extends Presentation, E extends AbstractEntiteMedicament<P>>
+            void mettreAJourEntitesBatch(Iterable<E> entites)
+                    throws StorageException, InvalidKeyException, URISyntaxException {
         CloudTable cloudTable = obtenirCloudTable(TABLE);
         Map<String, Set<E>> parPartition = new ConcurrentHashMap<>();
         for (E entite : entites) {
             entite.checkConditions();
-            parPartition.computeIfAbsent(entite.getPartitionKey(), k -> new HashSet<>()).add(entite);
+            parPartition
+                    .computeIfAbsent(entite.getPartitionKey(), k -> new HashSet<>())
+                    .add(entite);
         }
         for (Entry<String, Set<E>> entree : parPartition.entrySet()) {
             Set<E> entitesPartition = entree.getValue();
@@ -87,8 +108,7 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
                     batchOp.clear();
                 }
             }
-            if (!batchOp.isEmpty())
-                cloudTable.execute(batchOp);
+            if (!batchOp.isEmpty()) cloudTable.execute(batchOp);
         }
     }
 
@@ -112,9 +132,7 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
         super(TABLE, pays.code, String.valueOf(code));
     }
 
-    /**
-     * NE PAS UTILISER
-     */
+    /** NE PAS UTILISER */
     public AbstractEntiteMedicament() {
         super(TABLE);
     }
@@ -219,10 +237,13 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
     }
 
     public void setEffetsIndesirables(String effets) {
-        this.effetsIndesirables = effets.replaceFirst(
-                "Comme tous les médicaments, ce médicament peut provoquer des effets indésirables, mais ils ne surviennent pas systématiquement chez tout le monde\\.",
-                "").replaceAll("\\?dème", "œdème").replaceAll("c\\?ur", "cœur"); // TODO Ajouter ce que j'ai mis dans
-                                                                                 // l'appli
+        this.effetsIndesirables =
+                effets.replaceFirst(
+                                "Comme tous les médicaments, ce médicament peut provoquer des effets indésirables, mais ils ne surviennent pas systématiquement chez tout le monde\\.",
+                                "")
+                        .replaceAll("\\?dème", "œdème")
+                        .replaceAll("c\\?ur", "cœur"); // TODO Ajouter ce que j'ai mis dans
+        // l'appli
     }
 
     public void setExpressionsClesEffets(String expressionsCles) {
@@ -234,7 +255,8 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
     }
 
     public void setPresentations(String presentations) {
-        this.presentations = Optional.ofNullable(presentations).orElseGet(() -> new JSONArray().toString());
+        this.presentations =
+                Optional.ofNullable(presentations).orElseGet(() -> new JSONArray().toString());
         JSONArray arrayPres = new JSONArray(this.presentations);
         Set<JSONObject> presJson = new HashSet<>();
         for (int i = 0; i < arrayPres.length(); i++) {
@@ -248,14 +270,13 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
 
     /**
      * Cela effacera les présentations déjà présentes
-     * 
+     *
      * @param presentations
      */
     @Ignore
     public void setPresentationsIterable(Iterable<P> presentations) {
         presentationsSet.clear();
-        if (presentations != null)
-            presentations.forEach(presentationsSet::add);
+        if (presentations != null) presentations.forEach(presentationsSet::add);
     }
 
     public void ajouterPresentation(P presentation) {
@@ -303,7 +324,9 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
         public final String referenceDosage;
 
         static SubstanceActive fromJson(JSONObject json) {
-            return new SubstanceActive(json.getLong("code"), json.getString("dosage"),
+            return new SubstanceActive(
+                    json.getLong("code"),
+                    json.getString("dosage"),
                     json.getString("referenceDosage"));
         }
 
@@ -314,14 +337,15 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
         }
 
         JSONObject toJson() {
-            return new JSONObject().put("code", codeSubstance).put("dosage", dosage).put("referenceDosage",
-                    referenceDosage);
+            return new JSONObject()
+                    .put("code", codeSubstance)
+                    .put("dosage", dosage)
+                    .put("referenceDosage", referenceDosage);
         }
 
         @Override
         public boolean equals(Object o) {
-            if (!(o instanceof SubstanceActive))
-                return false;
+            if (!(o instanceof SubstanceActive)) return false;
             SubstanceActive other = (SubstanceActive) o;
             return Long.compare(this.codeSubstance, other.codeSubstance) == 0;
         }
@@ -332,18 +356,16 @@ public abstract class AbstractEntiteMedicament<P extends AbstractEntiteMedicamen
         }
     }
 
-    public static abstract class Presentation {
+    public abstract static class Presentation {
 
         Presentation(JSONObject json) {
             fromJson(json);
         }
 
-        protected Presentation() {
-        }
+        protected Presentation() {}
 
         public abstract JSONObject toJson();
 
         protected abstract void fromJson(JSONObject json);
     }
-
 }

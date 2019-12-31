@@ -16,7 +16,7 @@ final class NettoyageConnexions {
     private NettoyageConnexions() {}
 
     @FunctionName("nettoyageConnexions")
-    public void nettoyageConnexions(
+    public static void nettoyageConnexions(
             @TimerTrigger(name = "nettoyageConnexionsTrigger", schedule = "0 */15 * * * *")
                     final String timerInfo,
             final ExecutionContext context) {

@@ -21,7 +21,7 @@ final class Recherche {
     private Recherche() {}
 
     @FunctionName("recherche")
-    public HttpResponseMessage recherche(
+    public static HttpResponseMessage recherche(
             @HttpTrigger(
                             name = "rechercheTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

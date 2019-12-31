@@ -35,7 +35,7 @@ final class Synchronisation {
     private Synchronisation() {}
 
     @FunctionName("synchronisation")
-    public HttpResponseMessage synchronisation(
+    public static HttpResponseMessage synchronisation(
             @HttpTrigger(
                             name = "synchronisationTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

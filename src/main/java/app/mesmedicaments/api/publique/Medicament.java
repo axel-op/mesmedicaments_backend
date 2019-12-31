@@ -22,7 +22,7 @@ final class Medicament {
 
     // Maintenue uniquement pour compatibilité avec versions < 25
     @FunctionName("medicament")
-    public HttpResponseMessage medicament(
+    public static HttpResponseMessage medicament(
             @HttpTrigger(
                             name = "medicamentTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

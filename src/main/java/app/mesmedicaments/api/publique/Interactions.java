@@ -35,7 +35,7 @@ final class Interactions {
     private Interactions() {}
 
     @FunctionName("interactions")
-    public HttpResponseMessage interactions(
+    public static HttpResponseMessage interactions(
             @HttpTrigger(
                             name = "interactionsTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,
@@ -73,7 +73,7 @@ final class Interactions {
         return Commun.construireReponse(codeHttp, corpsReponse, request);
     }
 
-    private Map<Pays, Set<Long>> obtenirCodesParPaysDepuisRequete(
+    private static Map<Pays, Set<Long>> obtenirCodesParPaysDepuisRequete(
             HttpRequestMessage<Optional<String>> requete) {
         final JSONObject corpsRequete = new JSONObject(requete.getBody().get());
         final Map<Pays, Set<Long>> codesParPays = new HashMap<>();
@@ -93,7 +93,7 @@ final class Interactions {
         return codesParPays;
     }
 
-    private Set<? extends AbstractEntiteMedicament<? extends Presentation>>
+    private static Set<? extends AbstractEntiteMedicament<? extends Presentation>>
             obtenirEntitesMedicament(Map<Pays, Set<Long>> codesParPays, Logger logger) {
         return codesParPays
                 .entrySet()

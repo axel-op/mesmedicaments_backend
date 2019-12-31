@@ -25,7 +25,7 @@ final class Medicaments {
     private Medicaments() {}
 
     @FunctionName("medicaments")
-    public HttpResponseMessage medicaments(
+    public static HttpResponseMessage medicaments(
             @HttpTrigger(
                             name = "medicamentsTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

@@ -24,7 +24,7 @@ final class Connexion {
     private Connexion() {}
 
     @FunctionName("connexion")
-    public HttpResponseMessage connexion(
+    public static HttpResponseMessage connexion(
             @HttpTrigger(
                             name = "connexionTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

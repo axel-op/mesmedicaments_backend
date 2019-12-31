@@ -32,7 +32,7 @@ final class Dmp {
 
     // mettre une doc
     @FunctionName("dmp")
-    public HttpResponseMessage dmp(
+    public static HttpResponseMessage dmp(
             @HttpTrigger(
                             name = "dmpTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

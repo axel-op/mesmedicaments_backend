@@ -20,10 +20,10 @@ import app.mesmedicaments.unchecked.Unchecker;
 
 public final class Indexeur {
 
-    private final Set<AbstractEntiteMedicament<?>> medicamentsAIndexer;
+    private final Set<? extends AbstractEntiteMedicament<?>> medicamentsAIndexer;
     private final Logger logger;
 
-    public Indexeur(Set<AbstractEntiteMedicament<?>> medicamentsAIndexer, Logger logger) {
+    public Indexeur(Set<? extends AbstractEntiteMedicament<?>> medicamentsAIndexer, Logger logger) {
         this.medicamentsAIndexer = medicamentsAIndexer;
         this.logger = logger;
     }

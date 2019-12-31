@@ -13,26 +13,18 @@ import java.util.logging.Logger;
 
 final class NettoyageConnexions {
 
-    private NettoyageConnexions() {}
-
     @FunctionName("nettoyageConnexions")
-    public static void nettoyageConnexions(
-            @TimerTrigger(name = "nettoyageConnexionsTrigger", schedule = "0 */15 * * * *")
-                    final String timerInfo,
+    public void nettoyageConnexions(
+            @TimerTrigger(name = "nettoyageConnexionsTrigger", schedule = "0 */15 * * * *") final String timerInfo,
             final ExecutionContext context) {
         Logger logger = context.getLogger();
         LocalDateTime maintenant = LocalDateTime.now();
         try {
             for (EntiteConnexion entiteC : EntiteConnexion.obtenirToutesLesEntites()) {
-                LocalDateTime heureEntite =
-                        LocalDateTime.ofInstant(entiteC.getTimestamp().toInstant(), Utils.TIMEZONE);
+                LocalDateTime heureEntite = LocalDateTime.ofInstant(entiteC.getTimestamp().toInstant(), Utils.TIMEZONE);
                 if (heureEntite.isBefore(maintenant.minusHours(1))) {
-                    logger.info(
-                            "EntiteConnexion supprimée : "
-                                    + entiteC.getRowKey()
-                                    + " (heure associée : "
-                                    + heureEntite.toString()
-                                    + ")");
+                    logger.info("EntiteConnexion supprimée : " + entiteC.getRowKey() + " (heure associée : "
+                            + heureEntite.toString() + ")");
                     entiteC.supprimerEntite();
                 }
             }

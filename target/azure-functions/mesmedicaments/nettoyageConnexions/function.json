@@ -1,0 +1,10 @@
+{
+  "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
+  "entryPoint" : "app.mesmedicaments.api.privee.NettoyageConnexions.nettoyageConnexions",
+  "bindings" : [ {
+    "type" : "timerTrigger",
+    "direction" : "in",
+    "name" : "nettoyageConnexionsTrigger",
+    "schedule" : "0 */15 * * * *"
+  } ]
+}

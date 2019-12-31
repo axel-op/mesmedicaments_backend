@@ -1,0 +1,16 @@
+{
+  "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
+  "entryPoint" : "app.mesmedicaments.api.privee.Indexation.miseAJour",
+  "bindings" : [ {
+    "type" : "httpTrigger",
+    "direction" : "in",
+    "name" : "indexTrigger",
+    "route" : "miseAJour",
+    "methods" : [ "GET" ],
+    "dataType" : "string"
+  }, {
+    "type" : "http",
+    "direction" : "out",
+    "name" : "$return"
+  } ]
+}

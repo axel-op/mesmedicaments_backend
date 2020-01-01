@@ -32,7 +32,6 @@ import org.json.JSONObject;
 
 public final class Interactions {
 
-
     @FunctionName("interactions")
     public HttpResponseMessage interactions(
             @HttpTrigger(

@@ -21,7 +21,6 @@ import org.json.JSONObject;
 
 public final class Connexion {
 
-
     @FunctionName("connexion")
     public HttpResponseMessage connexion(
             @HttpTrigger(

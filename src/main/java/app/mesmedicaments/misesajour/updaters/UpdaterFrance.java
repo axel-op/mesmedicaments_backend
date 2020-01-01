@@ -1,5 +1,14 @@
 package app.mesmedicaments.misesajour.updaters;
 
+import app.mesmedicaments.Utils;
+import app.mesmedicaments.entitestables.AbstractEntite.Langue;
+import app.mesmedicaments.entitestables.AbstractEntite.Pays;
+import app.mesmedicaments.entitestables.AbstractEntiteMedicament.SubstanceActive;
+import app.mesmedicaments.entitestables.EntiteMedicamentFrance;
+import app.mesmedicaments.entitestables.EntiteMedicamentFrance.PresentationFrance;
+import app.mesmedicaments.entitestables.EntiteSubstance;
+import app.mesmedicaments.misesajour.Updater;
+import com.google.common.collect.Sets;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -12,21 +21,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-
-import com.google.common.collect.Sets;
-
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-
-import app.mesmedicaments.Utils;
-import app.mesmedicaments.entitestables.AbstractEntite.Langue;
-import app.mesmedicaments.entitestables.AbstractEntite.Pays;
-import app.mesmedicaments.entitestables.AbstractEntiteMedicament.SubstanceActive;
-import app.mesmedicaments.entitestables.EntiteMedicamentFrance;
-import app.mesmedicaments.entitestables.EntiteMedicamentFrance.PresentationFrance;
-import app.mesmedicaments.entitestables.EntiteSubstance;
-import app.mesmedicaments.misesajour.Updater;
 
 public class UpdaterFrance implements Updater<EntiteMedicamentFrance> {
 
@@ -48,55 +45,89 @@ public class UpdaterFrance implements Updater<EntiteMedicamentFrance> {
     @Override
     public Set<EntiteSubstance> getNouvellesSubstances() throws IOException {
         final BufferedReader fichier = telechargerFichier(URL_FICHIER_COMPO);
-        return fichier.lines().map(LigneFichierCompo::new).map(ligne -> {
-            final EntiteSubstance entite = new EntiteSubstance(getPays(), ligne.codeSubstance);
-            entite.ajouterNom(Langue.Francais, ligne.nomSubstance);
-            return entite;
-        }).collect(Collectors.toSet());
+        return fichier.lines()
+                .map(LigneFichierCompo::new)
+                .map(
+                        ligne -> {
+                            final EntiteSubstance entite =
+                                    new EntiteSubstance(getPays(), ligne.codeSubstance);
+                            entite.ajouterNom(Langue.Francais, ligne.nomSubstance);
+                            return entite;
+                        })
+                .collect(Collectors.toSet());
     }
 
     @Override
     public Set<EntiteMedicamentFrance> getNouveauxMedicaments() throws IOException {
         final BufferedReader fichierMedicaments = telechargerFichier(URL_FICHIER_BDPM);
         final Map<Long, EntiteMedicamentFrance> entites = new ConcurrentHashMap<>();
-        fichierMedicaments.lines().map(LigneFichierBDPM::new).forEach(ligne -> {
-            entites.computeIfAbsent(ligne.codeCIS, code -> {
-                final EntiteMedicamentFrance entite = new EntiteMedicamentFrance(code);
-                entite.setForme(ligne.forme);
-                entite.setAutorisation(ligne.autorisation);
-                entite.setMarque(ligne.marque);
-                return entite;
-            }).ajouterNom(Langue.Francais, ligne.nomMedicament);
-        });
+        fichierMedicaments
+                .lines()
+                .map(LigneFichierBDPM::new)
+                .forEach(
+                        ligne -> {
+                            entites.computeIfAbsent(
+                                            ligne.codeCIS,
+                                            code -> {
+                                                final EntiteMedicamentFrance entite =
+                                                        new EntiteMedicamentFrance(code);
+                                                entite.setForme(ligne.forme);
+                                                entite.setAutorisation(ligne.autorisation);
+                                                entite.setMarque(ligne.marque);
+                                                return entite;
+                                            })
+                                    .ajouterNom(Langue.Francais, ligne.nomMedicament);
+                        });
         final BufferedReader fichierCompo = telechargerFichier(URL_FICHIER_COMPO);
-        fichierCompo.lines().map(LigneFichierCompo::new).forEach(ligne -> {
-            entites.computeIfAbsent(ligne.codeCIS, codeCIS -> new EntiteMedicamentFrance(codeCIS))
-                    .ajouterSubstanceActive(
-                            new SubstanceActive(ligne.codeSubstance, ligne.dosage, ligne.referenceDosage));
-        });
+        fichierCompo
+                .lines()
+                .map(LigneFichierCompo::new)
+                .forEach(
+                        ligne -> {
+                            entites.computeIfAbsent(
+                                            ligne.codeCIS,
+                                            codeCIS -> new EntiteMedicamentFrance(codeCIS))
+                                    .ajouterSubstanceActive(
+                                            new SubstanceActive(
+                                                    ligne.codeSubstance,
+                                                    ligne.dosage,
+                                                    ligne.referenceDosage));
+                        });
         final BufferedReader fichierPresentations = telechargerFichier(URL_FICHIER_PRESENTATIONS);
-        fichierPresentations.lines().map(LigneFichierPresentations::new).forEach(ligne -> {
-            try {
-                entites.computeIfAbsent(ligne.codeCIS, codeCIS -> new EntiteMedicamentFrance(codeCIS))
-                        .ajouterPresentation(new PresentationFrance(ligne.presentation, ligne.prix,
-                                ligne.tauxRemboursement, ligne.honoraires, ligne.conditions));
-            } catch (Exception e) {
-                Utils.logErreur(e, logger);
-            }
-        });
+        fichierPresentations
+                .lines()
+                .map(LigneFichierPresentations::new)
+                .forEach(
+                        ligne -> {
+                            try {
+                                entites.computeIfAbsent(
+                                                ligne.codeCIS,
+                                                codeCIS -> new EntiteMedicamentFrance(codeCIS))
+                                        .ajouterPresentation(
+                                                new PresentationFrance(
+                                                        ligne.presentation,
+                                                        ligne.prix,
+                                                        ligne.tauxRemboursement,
+                                                        ligne.honoraires,
+                                                        ligne.conditions));
+                            } catch (Exception e) {
+                                Utils.logErreur(e, logger);
+                            }
+                        });
         return Sets.newHashSet(entites.values());
     }
 
     @Override
     public String getEffetsIndesirables(EntiteMedicamentFrance medicament) throws IOException {
-        final String url = "http://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid="
-                + medicament.getCodeMedicament() + "&typedoc=N";
+        final String url =
+                "http://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid="
+                        + medicament.getCodeMedicament()
+                        + "&typedoc=N";
         final Document document = Jsoup.parse(new URL(url).openStream(), "ISO-8859-1", url);
         String texte = "";
         Boolean balise = null;
         for (Element el : document.getAllElements()) {
-            if (balise != null && !balise)
-                break;
+            if (balise != null && !balise) break;
             if (el.hasAttr("name") && el.attr("name").contains("EffetsIndesirables")) {
                 balise = true;
             }
@@ -104,12 +135,10 @@ public class UpdaterFrance implements Updater<EntiteMedicamentFrance> {
                 final String tagName = el.tagName();
                 if (!tagName.equals("h2")) {
                     if (tagName.equals("p")) {
-                        if (texte.length() > 0)
-                            texte += Utils.NEWLINE;
+                        if (texte.length() > 0) texte += Utils.NEWLINE;
                         texte += el.text();
                     }
-                } else
-                    balise = false;
+                } else balise = false;
             }
         }
         return texte;
@@ -119,7 +148,8 @@ public class UpdaterFrance implements Updater<EntiteMedicamentFrance> {
         logger.info("Récupération du fichier (url = " + url + ")...");
         final HttpURLConnection connexion = (HttpURLConnection) new URL(url).openConnection();
         connexion.setRequestMethod("GET");
-        return new BufferedReader(new InputStreamReader(connexion.getInputStream(), StandardCharsets.ISO_8859_1));
+        return new BufferedReader(
+                new InputStreamReader(connexion.getInputStream(), StandardCharsets.ISO_8859_1));
     }
 
     private static class LigneFichierPresentations {
@@ -135,19 +165,21 @@ public class UpdaterFrance implements Updater<EntiteMedicamentFrance> {
             this.codeCIS = Long.parseLong(champs[0]);
             this.presentation = champs[2];
             this.conditions = champs.length > 12 ? champs[12] : null;
-            final Function<String, Double> formaterPrix = str -> {
-                if (str.contains(",")) {
-                    final int virCents = str.length() - 3;
-                    str = str.substring(0, virCents) + "." + str.substring(virCents);
-                    str = str.replaceAll(",", "");
-                }
-                if (!str.equals(""))
-                    return Double.parseDouble(str);
-                return null;
-            };
+            final Function<String, Double> formaterPrix =
+                    str -> {
+                        if (str.contains(",")) {
+                            final int virCents = str.length() - 3;
+                            str = str.substring(0, virCents) + "." + str.substring(virCents);
+                            str = str.replaceAll(",", "");
+                        }
+                        if (!str.equals("")) return Double.parseDouble(str);
+                        return null;
+                    };
             try {
-                this.tauxRemboursement = champs.length > 8 ? Integer.parseInt(champs[8].replaceFirst(" ?%", ""))
-                        : tauxRemboursement;
+                this.tauxRemboursement =
+                        champs.length > 8
+                                ? Integer.parseInt(champs[8].replaceFirst(" ?%", ""))
+                                : tauxRemboursement;
                 this.prix = champs.length > 10 ? formaterPrix.apply(champs[10]) : prix;
                 this.honoraires = champs.length > 11 ? formaterPrix.apply(champs[11]) : honoraires;
             } catch (NumberFormatException e) {
@@ -188,5 +220,4 @@ public class UpdaterFrance implements Updater<EntiteMedicamentFrance> {
             this.referenceDosage = champs.length > 5 ? champs[5] : null;
         }
     }
-
 }

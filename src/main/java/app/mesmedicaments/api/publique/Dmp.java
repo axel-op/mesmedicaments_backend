@@ -28,7 +28,6 @@ import org.json.JSONObject;
 
 public final class Dmp {
 
-
     // mettre une doc
     @FunctionName("dmp")
     public HttpResponseMessage dmp(

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -118,7 +119,7 @@ public class UpdaterFrance implements Updater<EntiteMedicamentFrance> {
         logger.info("Récupération du fichier (url = " + url + ")...");
         final HttpURLConnection connexion = (HttpURLConnection) new URL(url).openConnection();
         connexion.setRequestMethod("GET");
-        return new BufferedReader(new InputStreamReader(connexion.getInputStream()));
+        return new BufferedReader(new InputStreamReader(connexion.getInputStream(), StandardCharsets.ISO_8859_1));
     }
 
     private static class LigneFichierPresentations {

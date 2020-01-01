@@ -16,12 +16,10 @@ import java.util.logging.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-final class Recherche {
-
-    private Recherche() {}
+public final class Recherche {
 
     @FunctionName("recherche")
-    public static HttpResponseMessage recherche(
+    public HttpResponseMessage recherche(
             @HttpTrigger(
                             name = "rechercheTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

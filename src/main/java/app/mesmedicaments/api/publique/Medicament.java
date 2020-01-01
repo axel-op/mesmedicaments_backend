@@ -16,13 +16,11 @@ import java.util.Optional;
 import java.util.logging.Logger;
 import org.json.JSONObject;
 
-final class Medicament {
-
-    private Medicament() {}
+public final class Medicament {
 
     // Maintenue uniquement pour compatibilité avec versions < 25
     @FunctionName("medicament")
-    public static HttpResponseMessage medicament(
+    public HttpResponseMessage medicament(
             @HttpTrigger(
                             name = "medicamentTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

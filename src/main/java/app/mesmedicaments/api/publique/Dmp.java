@@ -26,13 +26,12 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.json.JSONObject;
 
-final class Dmp {
+public final class Dmp {
 
-    private Dmp() {}
 
     // mettre une doc
     @FunctionName("dmp")
-    public static HttpResponseMessage dmp(
+    public HttpResponseMessage dmp(
             @HttpTrigger(
                             name = "dmpTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

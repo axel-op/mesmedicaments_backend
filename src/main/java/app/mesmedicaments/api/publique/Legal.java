@@ -22,13 +22,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.json.JSONObject;
 
-final class Legal {
+public final class Legal {
 
-    private Legal() {
-    }
 
     @FunctionName("legal")
-    public static HttpResponseMessage legal(
+    public HttpResponseMessage legal(
             @HttpTrigger(name = "legalTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
                     HttpMethod.GET }, route = "legal/{fichier}") final HttpRequestMessage<Optional<String>> request,
             @BindingName("fichier") String fichier, final ExecutionContext context) {
@@ -58,7 +56,7 @@ final class Legal {
         }
     }
 
-    private static JSONObject obtenirDatesMaj() throws StorageException, URISyntaxException, InvalidKeyException {
+    private JSONObject obtenirDatesMaj() throws StorageException, URISyntaxException, InvalidKeyException {
         final LocalDate majBDPM = EntiteDateMaj.obtenirDateMajBDPM().get();
         final LocalDate majInteractions = EntiteDateMaj.obtenirDateMajInteractions().get();
         return new JSONObject().put("bdpm", majBDPM.toString()).put("interactions", majInteractions.toString());

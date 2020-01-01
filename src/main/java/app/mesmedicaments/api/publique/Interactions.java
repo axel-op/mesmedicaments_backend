@@ -30,12 +30,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-final class Interactions {
+public final class Interactions {
 
-    private Interactions() {}
 
     @FunctionName("interactions")
-    public static HttpResponseMessage interactions(
+    public HttpResponseMessage interactions(
             @HttpTrigger(
                             name = "interactionsTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,
@@ -73,7 +72,7 @@ final class Interactions {
         return Commun.construireReponse(codeHttp, corpsReponse, request);
     }
 
-    private static Map<Pays, Set<Long>> obtenirCodesParPaysDepuisRequete(
+    private Map<Pays, Set<Long>> obtenirCodesParPaysDepuisRequete(
             HttpRequestMessage<Optional<String>> requete) {
         final JSONObject corpsRequete = new JSONObject(requete.getBody().get());
         final Map<Pays, Set<Long>> codesParPays = new HashMap<>();
@@ -93,7 +92,7 @@ final class Interactions {
         return codesParPays;
     }
 
-    private static Set<? extends AbstractEntiteMedicament<? extends Presentation>>
+    private Set<? extends AbstractEntiteMedicament<? extends Presentation>>
             obtenirEntitesMedicament(Map<Pays, Set<Long>> codesParPays, Logger logger) {
         return codesParPays
                 .entrySet()

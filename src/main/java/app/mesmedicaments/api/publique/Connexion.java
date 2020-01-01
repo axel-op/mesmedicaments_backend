@@ -19,12 +19,11 @@ import java.util.logging.Logger;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-final class Connexion {
+public final class Connexion {
 
-    private Connexion() {}
 
     @FunctionName("connexion")
-    public static HttpResponseMessage connexion(
+    public HttpResponseMessage connexion(
             @HttpTrigger(
                             name = "connexionTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

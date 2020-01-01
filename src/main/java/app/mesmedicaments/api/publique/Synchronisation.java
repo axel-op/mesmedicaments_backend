@@ -30,12 +30,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-final class Synchronisation {
-
-    private Synchronisation() {}
+public final class Synchronisation {
 
     @FunctionName("synchronisation")
-    public static HttpResponseMessage synchronisation(
+    public HttpResponseMessage synchronisation(
             @HttpTrigger(
                             name = "synchronisationTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

@@ -11,7 +11,7 @@ import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
 import java.util.logging.Logger;
 
-final class NettoyageConnexions {
+public final class NettoyageConnexions {
 
     @FunctionName("nettoyageConnexions")
     public void nettoyageConnexions(

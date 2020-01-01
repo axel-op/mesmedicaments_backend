@@ -20,12 +20,10 @@ import java.util.logging.Logger;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-final class Medicaments {
-
-    private Medicaments() {}
+public final class Medicaments {
 
     @FunctionName("medicaments")
-    public static HttpResponseMessage medicaments(
+    public HttpResponseMessage medicaments(
             @HttpTrigger(
                             name = "medicamentsTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,

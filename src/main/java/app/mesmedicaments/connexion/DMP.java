@@ -1,5 +1,6 @@
 package app.mesmedicaments.connexion;
 
+import app.mesmedicaments.HttpClient;
 import app.mesmedicaments.Utils;
 import app.mesmedicaments.entitestables.*;
 import app.mesmedicaments.entitestables.AbstractEntite.Langue;
@@ -11,7 +12,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.time.LocalDate;
@@ -32,7 +32,6 @@ import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.net.ssl.HttpsURLConnection;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 
@@ -275,13 +274,11 @@ public class DMP {
 
     private Optional<PDDocument> obtenirFichierRemboursements() {
         try {
-            HttpsURLConnection connPDF =
-                    (HttpsURLConnection) new URL(URL_FICHIER_REMBOURSEMENTS).openConnection();
-            connPDF.setRequestMethod("GET");
-            for (String cookie : cookies.keySet()) {
-                connPDF.addRequestProperty("Cookie", cookie + "=" + cookies.get(cookie) + "; ");
-            }
-            PDDocument document = PDDocument.load(connPDF.getInputStream());
+            final Map<String, String> requestProperties =
+                cookies.entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(e -> "Cookie", e -> e.getKey() + "=" + e.getValue() + "; "));
+            PDDocument document = PDDocument.load(new HttpClient().get(URL_FICHIER_REMBOURSEMENTS, requestProperties));
             return Optional.of(document);
         } catch (IOException e) {
             LOGGER.warning("Problème de connexion au fichier des remboursements");

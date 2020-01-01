@@ -1,16 +1,9 @@
 package app.mesmedicaments.misesajour;
 
-import app.mesmedicaments.Utils;
-import app.mesmedicaments.entitestables.AbstractEntite.Langue;
-import app.mesmedicaments.entitestables.AbstractEntite.Pays;
-import app.mesmedicaments.entitestables.EntiteClasseSubstances;
-import app.mesmedicaments.entitestables.EntiteSubstance;
-import com.microsoft.azure.storage.StorageException;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.security.InvalidKeyException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -20,9 +13,18 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import javax.net.ssl.HttpsURLConnection;
+
+import com.microsoft.azure.storage.StorageException;
+
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+
+import app.mesmedicaments.HttpClient;
+import app.mesmedicaments.Utils;
+import app.mesmedicaments.entitestables.AbstractEntite.Langue;
+import app.mesmedicaments.entitestables.AbstractEntite.Pays;
+import app.mesmedicaments.entitestables.EntiteClasseSubstances;
+import app.mesmedicaments.entitestables.EntiteSubstance;
 
 public final class MiseAJourClassesSubstances {
 
@@ -58,10 +60,8 @@ public final class MiseAJourClassesSubstances {
                     "Récupération du fichier des classes de substances (url = "
                             + URL_CLASSES
                             + ")");
-            HttpsURLConnection connexion =
-                    (HttpsURLConnection) new URL(URL_CLASSES).openConnection();
-            connexion.setRequestMethod("GET");
-            PDDocument document = PDDocument.load(connexion.getInputStream());
+            
+            PDDocument document = PDDocument.load(new HttpClient().get(URL_CLASSES));
             logger.info("Fichier récupéré");
             PDFTextStripper stripper = new PDFTextStripper();
             stripper.setStartPage(2);

@@ -1,5 +1,6 @@
 package app.mesmedicaments.misesajour;
 
+import app.mesmedicaments.HttpClient;
 import app.mesmedicaments.Utils;
 import app.mesmedicaments.entitestables.EntiteDateMaj;
 import app.mesmedicaments.entitestables.EntiteInteraction;
@@ -8,7 +9,6 @@ import com.google.common.collect.Sets;
 import com.microsoft.azure.storage.StorageException;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.util.AbstractMap;
@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import javax.net.ssl.HttpsURLConnection;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
@@ -126,10 +125,7 @@ public final class MiseAJourInteractions {
                         + URL_FICHIER_INTERACTIONS
                         + ")");
         long startTime = System.currentTimeMillis();
-        HttpsURLConnection connexion =
-                (HttpsURLConnection) new URL(URL_FICHIER_INTERACTIONS).openConnection();
-        connexion.setRequestMethod("GET");
-        PDDocument document = PDDocument.load(connexion.getInputStream());
+        PDDocument document = PDDocument.load(new HttpClient().get(URL_FICHIER_INTERACTIONS));
         logger.info("Fichier récupéré en " + Utils.tempsDepuis(startTime) + " ms");
         return document;
     }

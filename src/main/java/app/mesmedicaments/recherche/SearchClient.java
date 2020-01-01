@@ -1,5 +1,7 @@
 package app.mesmedicaments.recherche;
 
+import app.mesmedicaments.HttpClient;
+import com.google.common.io.CharStreams;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -7,10 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
-
-import com.google.common.io.CharStreams;
-
-import app.mesmedicaments.HttpClient;
 
 public class SearchClient {
 
@@ -27,7 +25,8 @@ public class SearchClient {
 
     protected String uploadDocuments(String documents) throws IOException {
         logger.info("Envoi des documents pour indexation...");
-        final String endpoint = url + "/indexes/" + indexName + "/docs/index?api-version=" + apiVersion;
+        final String endpoint =
+                url + "/indexes/" + indexName + "/docs/index?api-version=" + apiVersion;
         final String rep = post(endpoint, adminKey, documents);
         logger.info(rep);
         return rep;
@@ -39,7 +38,8 @@ public class SearchClient {
         requestProperties.put("api-key", key);
         requestProperties.put("content-type", "application/json");
         final InputStream responseStream = new HttpClient().post(url, requestProperties, contents);
-        final String corpsRep = CharStreams.toString(new InputStreamReader(responseStream, StandardCharsets.UTF_8));
+        final String corpsRep =
+                CharStreams.toString(new InputStreamReader(responseStream, StandardCharsets.UTF_8));
         return corpsRep;
     }
 }

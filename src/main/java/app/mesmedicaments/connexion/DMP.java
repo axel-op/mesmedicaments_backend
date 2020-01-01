@@ -275,10 +275,14 @@ public class DMP {
     private Optional<PDDocument> obtenirFichierRemboursements() {
         try {
             final Map<String, String> requestProperties =
-                cookies.entrySet()
-                    .stream()
-                    .collect(Collectors.toMap(e -> "Cookie", e -> e.getKey() + "=" + e.getValue() + "; "));
-            PDDocument document = PDDocument.load(new HttpClient().get(URL_FICHIER_REMBOURSEMENTS, requestProperties));
+                    cookies.entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            e -> "Cookie",
+                                            e -> e.getKey() + "=" + e.getValue() + "; "));
+            PDDocument document =
+                    PDDocument.load(
+                            new HttpClient().get(URL_FICHIER_REMBOURSEMENTS, requestProperties));
             return Optional.of(document);
         } catch (IOException e) {
             LOGGER.warning("Problème de connexion au fichier des remboursements");

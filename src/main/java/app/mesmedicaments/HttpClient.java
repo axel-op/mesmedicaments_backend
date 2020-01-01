@@ -6,13 +6,11 @@ import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-
 import javax.net.ssl.HttpsURLConnection;
 
 public class HttpClient {
 
-    public HttpClient() {
-    }
+    public HttpClient() {}
 
     public InputStream get(String URL) throws IOException {
         return get(URL, null);
@@ -26,7 +24,8 @@ public class HttpClient {
         return connection.getInputStream();
     }
 
-    public InputStream post(String URL, Map<String, String> requestProperties, String content) throws IOException {
+    public InputStream post(String URL, Map<String, String> requestProperties, String content)
+            throws IOException {
         final HttpsURLConnection connection = (HttpsURLConnection) new URL(URL).openConnection();
         connection.setRequestMethod("POST");
         if (requestProperties != null) {

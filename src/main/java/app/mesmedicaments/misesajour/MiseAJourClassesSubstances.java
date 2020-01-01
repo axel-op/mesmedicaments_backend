@@ -1,5 +1,12 @@
 package app.mesmedicaments.misesajour;
 
+import app.mesmedicaments.HttpClient;
+import app.mesmedicaments.Utils;
+import app.mesmedicaments.entitestables.AbstractEntite.Langue;
+import app.mesmedicaments.entitestables.AbstractEntite.Pays;
+import app.mesmedicaments.entitestables.EntiteClasseSubstances;
+import app.mesmedicaments.entitestables.EntiteSubstance;
+import com.microsoft.azure.storage.StorageException;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
@@ -13,18 +20,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-
-import com.microsoft.azure.storage.StorageException;
-
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-
-import app.mesmedicaments.HttpClient;
-import app.mesmedicaments.Utils;
-import app.mesmedicaments.entitestables.AbstractEntite.Langue;
-import app.mesmedicaments.entitestables.AbstractEntite.Pays;
-import app.mesmedicaments.entitestables.EntiteClasseSubstances;
-import app.mesmedicaments.entitestables.EntiteSubstance;
 
 public final class MiseAJourClassesSubstances {
 
@@ -60,7 +57,7 @@ public final class MiseAJourClassesSubstances {
                     "Récupération du fichier des classes de substances (url = "
                             + URL_CLASSES
                             + ")");
-            
+
             PDDocument document = PDDocument.load(new HttpClient().get(URL_CLASSES));
             logger.info("Fichier récupéré");
             PDFTextStripper stripper = new PDFTextStripper();

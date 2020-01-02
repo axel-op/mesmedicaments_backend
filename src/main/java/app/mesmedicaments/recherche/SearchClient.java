@@ -30,8 +30,14 @@ public class SearchClient {
     
     private final Logger logger;
 
-    protected SearchClient(Logger logger) {
+    public SearchClient(Logger logger) {
         this.logger = logger;
+    }
+
+    public int getDocumentCount() throws IOException {
+        final String url = baseUrl + "/indexes/" + indexName + "/stats?api-version=" + apiVersion;
+        final JSONObject response = new JSONObject(send("GET", url, adminKey, null));
+        return response.getInt("documentCount");
     }
 
     protected JSONArray queryDocuments(JSONObject query) throws IOException {
@@ -40,7 +46,7 @@ public class SearchClient {
         String content = query.toString();
         boolean toContinue = true;
         while (toContinue) {
-            final JSONObject response = new JSONObject(post(url, queryKey, content));
+            final JSONObject response = new JSONObject(send("POST", url, queryKey, content));
             JSONArrays.append(results, response.getJSONArray("value"));
             final String keyNextPage = "@search.nextPageParameters";
             toContinue = response.has(keyNextPage);
@@ -52,23 +58,25 @@ public class SearchClient {
     }
 
 
-
     protected String uploadDocuments(String documents) throws IOException {
         logger.info("Envoi des documents pour indexation...");
         final String url =
                 baseUrl + "/indexes/" + indexName + "/docs/index?api-version=" + apiVersion;
-        final String rep = post(url, adminKey, documents);
+        final String rep = send("POST", url, adminKey, documents);
         logger.info(rep);
         return rep;
     }
 
 
-    private String post(String url, String key, String contents) throws IOException {
+    private String send(String method, String url, String key, String contents) throws IOException {
         contents = contents == null ? "" : contents;
         final Map<String, String> requestProperties = new HashMap<>();
         requestProperties.put("api-key", key);
         requestProperties.put("content-type", "application/json");
-        final InputStream responseStream = new HttpClient().post(url, requestProperties, contents);
+        final HttpClient client = new HttpClient();
+        final InputStream responseStream = method.equals("GET")
+            ? client.get(url, requestProperties)
+            : client.post(url, requestProperties, contents);
         final String corpsRep =
                 CharStreams.toString(new InputStreamReader(responseStream, StandardCharsets.UTF_8));
         return corpsRep;

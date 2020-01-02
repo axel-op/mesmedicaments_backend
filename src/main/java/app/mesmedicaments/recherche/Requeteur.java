@@ -15,7 +15,8 @@ import app.mesmedicaments.JSONObjectUneCle;
 
 public class Requeteur {
 
-    private static final String[] caracteresAEchapper = "\\ + - && || ! ( ) { } [ ] ^ \" ~ * ? : /".split(" ");
+    private static final String[] caracteresAEchapper =
+            "\\ + - && || ! ( ) { } [ ] ^ \" ~ * ? : /".split(" ");
 
     private final Logger logger;
 
@@ -24,28 +25,28 @@ public class Requeteur {
     }
 
     public JSONArray rechercher(String recherche) throws IOException {
-        final String rechercheFormatee = separerTermes(echapperCaracteresSpeciaux(recherche))
-            .stream()
-            .map(terme -> construireSousRequete(terme))
-            .collect(Collectors.joining("&&"));
-        final JSONObject requete = new JSONObjectUneCle("search", rechercheFormatee)
-            .put("searchMode", "all")
-            .put("queryType", "full")
-            .put("top", 30);
+        final String rechercheFormatee =
+                separerTermes(echapperCaracteresSpeciaux(recherche)).stream()
+                        .map(terme -> construireSousRequete(terme))
+                        .collect(Collectors.joining("&&"));
+        final JSONObject requete =
+                new JSONObjectUneCle("search", rechercheFormatee)
+                        .put("searchMode", "all")
+                        .put("queryType", "full")
+                        .put("top", 30);
         final JSONArray resultats = new SearchClient(logger).queryDocuments(requete);
         return resultats;
     }
 
     private Set<String> separerTermes(String recherche) {
-        return Sets.newHashSet(recherche.split(" ", 0))
-            .stream()
-            .filter(t -> !t.matches(" *"))
-            .collect(Collectors.toSet());
+        return Sets.newHashSet(recherche.split(" ", 0)).stream()
+                .filter(t -> !t.matches(" *"))
+                .collect(Collectors.toSet());
     }
 
     private String construireSousRequete(String terme) {
         String sousRequete = "(";
-        //sousRequete += terme + "~||";
+        // sousRequete += terme + "~||";
         sousRequete += terme + "* || ";
         sousRequete += terme + ")";
         return sousRequete;
@@ -54,13 +55,8 @@ public class Requeteur {
     private String echapperCaracteresSpeciaux(String recherche) {
         for (String caractere : caracteresAEchapper) {
             String quotedCaractere = Pattern.quote(caractere);
-            recherche = recherche.replaceAll(
-                String.format("(%s)", quotedCaractere),
-                "\\\\$1"
-                
-            );
+            recherche = recherche.replaceAll(String.format("(%s)", quotedCaractere), "\\\\$1");
         }
         return recherche;
     }
-
 }

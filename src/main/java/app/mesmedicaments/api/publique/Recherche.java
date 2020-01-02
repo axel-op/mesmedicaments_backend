@@ -28,10 +28,14 @@ public final class Recherche {
 
     @FunctionName("recherche")
     public HttpResponseMessage recherche(
-            @HttpTrigger(name = "rechercheTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
-                    HttpMethod.GET,
-                    HttpMethod.POST }, route = "recherche/{recherche}") final HttpRequestMessage<Optional<String>> request,
-            @BindingName("recherche") final String recherche, // inutilisé à partir de la version 40 de l'application
+            @HttpTrigger(
+                            name = "rechercheTrigger",
+                            authLevel = AuthorizationLevel.ANONYMOUS,
+                            methods = {HttpMethod.GET, HttpMethod.POST},
+                            route = "recherche/{recherche}")
+                    final HttpRequestMessage<Optional<String>> request,
+            @BindingName("recherche")
+                    final String recherche, // inutilisé à partir de la version 40 de l'application
             final ExecutionContext context) {
         final Logger logger = context.getLogger();
         final JSONObject corpsReponse = new JSONObject();
@@ -41,9 +45,10 @@ public final class Recherche {
             if (!ancienneVersion && recherche.equals("nombredocuments")) {
                 corpsReponse.put("nombreDocuments", new SearchClient(logger).getDocumentCount());
             } else {
-                final JSONArray resultats = utiliserAncienIndex(request)
-                        ? obtenirResultatAncienIndex(request, recherche, logger)
-                        : obtenirResultats(request, logger);
+                final JSONArray resultats =
+                        utiliserAncienIndex(request)
+                                ? obtenirResultatAncienIndex(request, recherche, logger)
+                                : obtenirResultats(request, logger);
                 logger.info(resultats.length() + " résultats trouvés");
                 corpsReponse.put("resultats", resultats);
             }
@@ -57,21 +62,25 @@ public final class Recherche {
         return Commun.construireReponse(codeHttp, corpsReponse, request);
     }
 
-    private JSONArray obtenirResultats(HttpRequestMessage<Optional<String>> request, Logger logger) throws IOException {
+    private JSONArray obtenirResultats(HttpRequestMessage<Optional<String>> request, Logger logger)
+            throws IOException {
         final String recherche = new JSONObject(request.getBody().get()).getString("recherche");
         logger.info("Recherche de \"" + recherche + "\"");
         return new Requeteur(logger).rechercher(recherche);
     }
 
-    private JSONArray obtenirResultatAncienIndex(HttpRequestMessage<Optional<String>> request, String recherche,
-            Logger logger) throws StorageException, URISyntaxException, InvalidKeyException {
+    private JSONArray obtenirResultatAncienIndex(
+            HttpRequestMessage<Optional<String>> request, String recherche, Logger logger)
+            throws StorageException, URISyntaxException, InvalidKeyException {
         recherche = Utils.normaliser(recherche).toLowerCase();
         logger.info("Recherche de \"" + recherche + "\"");
-        return EntiteCacheRecherche.obtenirResultatsCache(recherche, Commun.utiliserDepreciees(request));
+        return EntiteCacheRecherche.obtenirResultatsCache(
+                recherche, Commun.utiliserDepreciees(request));
     }
 
     private boolean utiliserAncienIndex(HttpRequestMessage<Optional<String>> request) {
-        final int version = Integer.parseInt(request.getHeaders().getOrDefault(Commun.CLE_VERSION, "0"));
+        final int version =
+                Integer.parseInt(request.getHeaders().getOrDefault(Commun.CLE_VERSION, "0"));
         return version < 40;
     }
 }

@@ -27,7 +27,7 @@ public class SearchClient {
     private static final String queryKey = getEnv("querykey");
     private static final String indexName = getEnv("indexname");
     private static final String apiVersion = getEnv("apiversion");
-    
+
     private final Logger logger;
 
     public SearchClient(Logger logger) {
@@ -41,7 +41,8 @@ public class SearchClient {
     }
 
     protected JSONArray queryDocuments(JSONObject query) throws IOException {
-        final String url = baseUrl + "/indexes/" + indexName + "/docs/search?api-version=" + apiVersion;
+        final String url =
+                baseUrl + "/indexes/" + indexName + "/docs/search?api-version=" + apiVersion;
         final JSONArray results = new JSONArray();
         String content = query.toString();
         boolean toContinue = true;
@@ -57,7 +58,6 @@ public class SearchClient {
         return results;
     }
 
-
     protected String uploadDocuments(String documents) throws IOException {
         logger.info("Envoi des documents pour indexation...");
         final String url =
@@ -67,16 +67,16 @@ public class SearchClient {
         return rep;
     }
 
-
     private String send(String method, String url, String key, String contents) throws IOException {
         contents = contents == null ? "" : contents;
         final Map<String, String> requestProperties = new HashMap<>();
         requestProperties.put("api-key", key);
         requestProperties.put("content-type", "application/json");
         final HttpClient client = new HttpClient();
-        final InputStream responseStream = method.equals("GET")
-            ? client.get(url, requestProperties)
-            : client.post(url, requestProperties, contents);
+        final InputStream responseStream =
+                method.equals("GET")
+                        ? client.get(url, requestProperties)
+                        : client.post(url, requestProperties, contents);
         final String corpsRep =
                 CharStreams.toString(new InputStreamReader(responseStream, StandardCharsets.UTF_8));
         return corpsRep;

@@ -13,6 +13,7 @@ public class JSONArrays {
 
     /**
      * Ajoute tous les éléments dans array2 à la fin d'array1.
+     *
      * @param array1
      * @param array2
      */

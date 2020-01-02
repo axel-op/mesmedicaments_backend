@@ -12,6 +12,19 @@ public class JSONArrays {
     private JSONArrays() {}
 
     /**
+     * Ajoute tous les éléments dans array2 à la fin d'array1.
+     * @param array1
+     * @param array2
+     */
+    public static void append(JSONArray array1, JSONArray array2) {
+        int nextIndex = array1.length();
+        for (int i = 0; i < array2.length(); i++) {
+            array1.put(nextIndex, array2.get(i));
+            nextIndex += 1;
+        }
+    }
+
+    /**
      * Ajoute tous les éléments du {@link JSONArray} comme des nombres de type {@link Long} à la
      * {@link Collection}
      *

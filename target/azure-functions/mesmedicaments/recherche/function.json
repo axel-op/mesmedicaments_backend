@@ -6,7 +6,7 @@
     "direction" : "in",
     "name" : "rechercheTrigger",
     "route" : "recherche/{recherche}",
-    "methods" : [ "GET" ],
+    "methods" : [ "GET", "POST" ],
     "authLevel" : "ANONYMOUS"
   }, {
     "type" : "http",

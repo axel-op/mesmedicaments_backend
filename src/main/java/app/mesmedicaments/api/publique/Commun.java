@@ -12,13 +12,13 @@ import org.json.JSONObject;
 
 final class Commun {
 
-    private static final String CLE_VERSION = "versionapplication";
+    protected static final String CLE_VERSION = "versionapplication";
     public static final String HEADER_AUTHORIZATION = "jwt";
 
     private Commun() {}
 
     public static boolean utiliserDepreciees(HttpRequestMessage<Optional<String>> request) {
-        int version = Integer.parseInt(request.getHeaders().getOrDefault(CLE_VERSION, "0"));
+        final int version = Integer.parseInt(request.getHeaders().getOrDefault(CLE_VERSION, "0"));
         return version < 25;
     }
 

@@ -13,4 +13,4 @@ jobs:
       - uses: actions/checkout@v2
       - uses: axel-op/googlejavaformat-action@master
         with:
-          args: "--aosp -r"
+          args: "--aosp --skip-sorting-imports -r"

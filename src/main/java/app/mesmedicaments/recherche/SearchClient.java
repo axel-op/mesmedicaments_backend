@@ -18,13 +18,17 @@ import java.util.logging.Logger;
 
 public class SearchClient {
 
+    private static String getEnv(String variable) {
+        return System.getenv("search_" + variable);
+    }
+
+    private static final String baseUrl = getEnv("baseurl");
+    private static final String adminKey = getEnv("adminkey");
+    private static final String queryKey = getEnv("querykey");
+    private static final String indexName = getEnv("indexname");
+    private static final String apiVersion = getEnv("apiversion");
+    
     private final Logger logger;
-    // TODO ajouter aux var env
-    private final String baseUrl = "https://mesmedicaments.search.windows.net";
-    private final String adminKey = "4432617016088405A0A4BC2498A9846B";
-    private final String queryKey = "0C518540A4EA1EB55AE166A5C6979E59";
-    private final String indexName = "index-medicaments";
-    private final String apiVersion = "2019-05-06";
 
     protected SearchClient(Logger logger) {
         this.logger = logger;

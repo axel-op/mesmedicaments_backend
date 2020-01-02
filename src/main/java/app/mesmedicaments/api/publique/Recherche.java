@@ -39,9 +39,8 @@ public final class Recherche {
         final JSONObject corpsReponse = new JSONObject();
         HttpStatus codeHttp = HttpStatus.OK;
         try {
-            logger.info("Recherche de \"" + recherche + "\"");
             final JSONArray resultats = utiliserAncienIndex(request)
-                    ? obtenirResultatAncienIndex(request, recherche)
+                    ? obtenirResultatAncienIndex(request, recherche, logger)
                     : obtenirResultats(request, logger);
             logger.info(resultats.length() + " résultats trouvés");
             corpsReponse.put("resultats", resultats);
@@ -57,12 +56,14 @@ public final class Recherche {
 
     private JSONArray obtenirResultats(HttpRequestMessage<Optional<String>> request, Logger logger) throws IOException {
         final String recherche = new JSONObject(request.getBody().get()).getString("recherche");
+        logger.info("Recherche de \"" + recherche + "\"");
         return new Requeteur(logger).rechercher(recherche);
     }
 
-    private JSONArray obtenirResultatAncienIndex(HttpRequestMessage<Optional<String>> request, String recherche)
+    private JSONArray obtenirResultatAncienIndex(HttpRequestMessage<Optional<String>> request, String recherche, Logger logger)
     throws StorageException, URISyntaxException, InvalidKeyException {
         recherche = Utils.normaliser(recherche).toLowerCase();
+        logger.info("Recherche de \"" + recherche + "\"");
         return EntiteCacheRecherche.obtenirResultatsCache(recherche, Commun.utiliserDepreciees(request));
     }
     

@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
+
 import javax.net.ssl.HttpsURLConnection;
+
+import com.google.common.collect.Multimap;
 
 public class HttpClient {
 
@@ -16,7 +18,7 @@ public class HttpClient {
         return get(URL, null);
     }
 
-    public InputStream get(String URL, Map<String, String> requestProperties) throws IOException {
+    public InputStream get(String URL, Multimap<String, String> requestProperties) throws IOException {
         final HttpsURLConnection connection = (HttpsURLConnection) new URL(URL).openConnection();
         if (requestProperties != null) {
             requestProperties.forEach((k, v) -> connection.addRequestProperty(k, v));
@@ -24,7 +26,7 @@ public class HttpClient {
         return connection.getInputStream();
     }
 
-    public InputStream post(String URL, Map<String, String> requestProperties, String content)
+    public InputStream post(String URL, Multimap<String, String> requestProperties, String content)
             throws IOException {
         final HttpsURLConnection connection = (HttpsURLConnection) new URL(URL).openConnection();
         connection.setRequestMethod("POST");

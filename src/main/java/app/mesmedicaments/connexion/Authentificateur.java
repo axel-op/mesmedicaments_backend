@@ -2,8 +2,6 @@ package app.mesmedicaments.connexion;
 
 import app.mesmedicaments.JSONObjectUneCle;
 import app.mesmedicaments.Utils;
-import app.mesmedicaments.entitestables.EntiteConnexion;
-import com.microsoft.azure.storage.StorageException;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
@@ -11,20 +9,21 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.security.InvalidKeyException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
 import org.json.JSONObject;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
-public final class Authentification {
+public final class Authentificateur {
 
     public static final String ERR_INTERNE = "interne";
     public static final String ERR_ID = "mauvais identifiants";
@@ -68,7 +67,7 @@ public final class Authentification {
     private Logger logger;
     private String id;
 
-    public Authentification(Logger logger, String id) {
+    public Authentificateur(Logger logger, String id) {
         if (id.length() != 8) {
             throw new IllegalArgumentException("Format de l'id incorrect");
         }
@@ -89,15 +88,11 @@ public final class Authentification {
                 .compact();
     }
 
-    public JSONObject connexionDMP(String mdp) {
-        if (mdp.length() > 128) {
-            throw new IllegalArgumentException("Format du mdp incorrect");
-        }
+    public JSONObject connexionDMPPremiereEtape(String mdp) {
+        final JSONObject retour = new JSONObject();
         Document pageReponse;
         Connection connexion;
         HashMap<String, String> cookies;
-        EntiteConnexion entiteConnexion;
-        JSONObject retour = new JSONObject();
         try {
             connexion = Jsoup.connect(URL_CONNEXION_DMP);
             connexion.method(Connection.Method.GET).execute();
@@ -143,76 +138,78 @@ public final class Authentification {
                     .execute();
             reponse = connexion.response();
             pageReponse = reponse.parse();
-            entiteConnexion = new EntiteConnexion(id);
-            entiteConnexion.setSid(obtenirSid(pageReponse));
-            entiteConnexion.setTformdata(obtenirTformdata(pageReponse));
-            entiteConnexion.definirCookiesMap(cookies);
-            entiteConnexion.creerEntite();
-        } catch (IOException | InvalidKeyException | URISyntaxException | StorageException e) {
+            retour.put("donneesConnexion", convertirDonneesDeConnexion(pageReponse, cookies));
+        } catch (IOException e) {
             Utils.logErreur(e, logger);
             retour.put(CLE_ERREUR, ERR_INTERNE);
         }
         return retour;
     }
 
-    public JSONObject doubleAuthentification(String code) {
-        if (code.length() >= 10) {
-            throw new IllegalArgumentException();
-        }
-        /** * Instaurer un contrôle pour mdp ** */
+    public JSONObject connexionDMPDeuxiemeEtape(String code, JSONObject donneesConnexion) {
+        final JSONObject retour = new JSONObject();
+        final LocalDateTime maintenant = LocalDateTime.now(Utils.TIMEZONE);
         Connection connexion;
         Connection.Response reponse;
-        HashMap<String, String> cookies;
-        // boolean inscriptionRequise;
-        EntiteConnexion entiteConnexion;
-        JSONObject retour = new JSONObject();
-        LocalDateTime maintenant = LocalDateTime.now(Utils.TIMEZONE);
+        Map<String, String> cookies;
         try {
-            entiteConnexion = EntiteConnexion.obtenirEntite(id).get();
-            if (entiteConnexion == null) {
-                logger.info("Appel API connexion étape 2 mais pas d'élément de l'étape 1 trouvé");
-                throw new IllegalArgumentException("Pas d'élément de l'étape 1 trouvé");
-            }
-            LocalDateTime timestamp = Utils.dateToLocalDateTime(entiteConnexion.getTimestamp());
+            LocalDateTime timestamp = LocalDateTime.parse(donneesConnexion.getString("date"), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
             if (maintenant.minusMinutes(10).isAfter(timestamp)) {
                 throw new IllegalArgumentException("L'heure ne correspond pas ou plus");
             }
-            cookies = entiteConnexion.obtenirCookiesMap();
+            final JSONObject cookiesJSON = donneesConnexion.getJSONObject("cookies");
+            cookies = cookiesJSON
+                .keySet()
+                .stream()
+                .collect(Collectors.toMap(k -> k, k -> cookiesJSON.getString(k)));
             connexion = Jsoup.connect(URL_ENVOI_CODE);
             connexion
                     .method(Connection.Method.POST)
-                    .data("sid", entiteConnexion.getSid())
-                    .data("t:formdata", entiteConnexion.getTformdata())
+                    .data("sid", donneesConnexion.getString("sid"))
+                    .data("t:formdata", donneesConnexion.getString("tformdata"))
                     .data("ipCode", code)
                     .userAgent(USERAGENT)
                     .cookies(cookies)
                     .execute();
             reponse = connexion.response();
             Document page = reponse.parse();
-            entiteConnexion.definirCookiesMap(cookies);
             if (!reponse.url()
-                    .toString()
-                    .matches(REGEX_ACCUEIL)) { // TODO : logger le nombre d'échecs pour être averti
-                // au cas où la regex n'est plus valide
-                entiteConnexion.setSid(obtenirSid(page));
-                entiteConnexion.setTformdata(obtenirTformdata(page));
-                entiteConnexion.mettreAJourEntite();
-                return new JSONObjectUneCle(CLE_ERREUR, ERR_ID);
+            .toString()
+            .matches(REGEX_ACCUEIL)) { // TODO : logger le nombre d'échecs pour être averti
+            // au cas où la regex n'est plus valide
+                return retour
+                    .put("donneesConnexion", convertirDonneesDeConnexion(page, cookies))
+                    .put(CLE_ERREUR, ERR_ID);
             }
-            entiteConnexion.setUrlFichierRemboursements(
-                    obtenirURLFichierRemboursements(cookies).orElse(null));
-            entiteConnexion.mettreAJourEntite();
+            retour.put("urlRemboursements", obtenirURLFichierRemboursements(cookies).orElse(null));
             try {
                 Optional<String> optGenre = obtenirGenre(cookies);
                 if (optGenre.isPresent()) retour.put("genre", optGenre.get());
             } catch (IOException e) {
                 logger.warning("Impossible de récupérer le genre");
             }
-        } catch (IOException | InvalidKeyException | URISyntaxException | StorageException e) {
+        } catch (IOException e) {
             Utils.logErreur(e, logger);
             retour.put(CLE_ERREUR, ERR_INTERNE);
         }
         return retour;
+    }
+
+    /**
+     * Renvoie un JSON contenant les données nécessaires au maintien de la connexion entre les deux étapes.
+     * Cet objet doit être restitué tel quel pour la deuxième étape.
+     * @param page
+     * @param cookies
+     * @return
+     */
+    private JSONObject convertirDonneesDeConnexion(Document page, Map<String, String> cookies) {
+        final String sid = obtenirSid(page);
+        final String tformdata = obtenirTformdata(page);
+        return new JSONObject()
+            .put("cookies", new JSONObject(cookies))
+            .put("sid", sid)
+            .put("tformdata", tformdata)
+            .put("date", LocalDateTime.now(Utils.TIMEZONE).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
     }
 
     private Optional<String> obtenirURLFichierRemboursements(Map<String, String> cookies)

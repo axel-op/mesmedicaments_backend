@@ -6,7 +6,7 @@
     "direction" : "in",
     "name" : "dmpTrigger",
     "route" : "dmp/{categorie:alpha}",
-    "methods" : [ "GET" ],
+    "methods" : [ "POST" ],
     "authLevel" : "ANONYMOUS"
   }, {
     "type" : "http",

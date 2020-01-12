@@ -1,7 +1,7 @@
 package app.mesmedicaments.api.publique;
 
 import app.mesmedicaments.Utils;
-import app.mesmedicaments.connexion.Authentification;
+import app.mesmedicaments.connexion.Authentificateur;
 import app.mesmedicaments.entitestables.AbstractEntite.Pays;
 import app.mesmedicaments.entitestables.AbstractEntiteMedicament;
 import app.mesmedicaments.entitestables.AbstractEntiteMedicament.Presentation;
@@ -47,7 +47,7 @@ public final class Synchronisation {
         try {
             // verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
             final String accessToken = request.getHeaders().get(Commun.HEADER_AUTHORIZATION);
-            final String id = Authentification.getIdFromToken(accessToken);
+            final String id = Authentificateur.getIdFromToken(accessToken);
             final EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
             if (categorie.equalsIgnoreCase("obtenir")) {
                 final JSONObject medsPerso = new JSONObject();

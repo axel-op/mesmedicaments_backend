@@ -3,6 +3,8 @@ package app.mesmedicaments.recherche;
 import app.mesmedicaments.HttpClient;
 import app.mesmedicaments.JSONArrays;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import com.google.common.io.CharStreams;
 
 import org.json.JSONArray;
@@ -12,8 +14,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.logging.Logger;
 
 public class SearchClient {
@@ -69,7 +69,7 @@ public class SearchClient {
 
     private String send(String method, String url, String key, String contents) throws IOException {
         contents = contents == null ? "" : contents;
-        final Map<String, String> requestProperties = new HashMap<>();
+        final Multimap<String, String> requestProperties = HashMultimap.create();
         requestProperties.put("api-key", key);
         requestProperties.put("content-type", "application/json");
         final HttpClient client = new HttpClient();

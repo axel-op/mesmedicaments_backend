@@ -1,15 +1,17 @@
 package app.mesmedicaments;
 
-import com.google.common.io.CharStreams;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.io.CharStreams;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -44,7 +46,7 @@ public class AnalyseTexte {
                             .put("id", String.valueOf(i + 1))
                             .put("text", decoupes.get(i)));
         }
-        final Map<String, String> requestProperties = new HashMap<>();
+        final Multimap<String, String> requestProperties = HashMultimap.create();
         requestProperties.put("Content-Type", "text/json");
         requestProperties.put("Ocp-Apim-Subscription-Key", CLE_API);
         final HttpClient client = new HttpClient();

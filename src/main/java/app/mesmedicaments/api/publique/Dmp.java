@@ -1,9 +1,8 @@
 package app.mesmedicaments.api.publique;
 
 import app.mesmedicaments.Utils;
-import app.mesmedicaments.connexion.Authentification;
+import app.mesmedicaments.connexion.Authentificateur;
 import app.mesmedicaments.connexion.DMP;
-import app.mesmedicaments.entitestables.EntiteConnexion;
 import app.mesmedicaments.entitestables.EntiteMedicamentFrance;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import app.mesmedicaments.unchecked.Unchecker;
@@ -19,6 +18,7 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import io.jsonwebtoken.JwtException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -34,31 +34,29 @@ public final class Dmp {
             @HttpTrigger(
                             name = "dmpTrigger",
                             authLevel = AuthorizationLevel.ANONYMOUS,
-                            methods = {HttpMethod.GET},
+                            methods = {HttpMethod.POST},
                             route = "dmp/{categorie:alpha}")
                     final HttpRequestMessage<Optional<String>> request,
             @BindingName("categorie") final String categorie,
             final ExecutionContext context) {
         final Logger logger = context.getLogger();
         final String accessToken = request.getHeaders().get(Commun.HEADER_AUTHORIZATION);
+        final JSONObject corpsRequete = new JSONObject(request.getBody().get());
         final JSONObject corpsReponse = new JSONObject();
         HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
         try {
             // verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
-            final String id = Authentification.getIdFromToken(accessToken);
+            final String id = Authentificateur.getIdFromToken(accessToken);
             if (categorie.equalsIgnoreCase("medicaments")) {
-                final Optional<EntiteConnexion> optEntiteC = EntiteConnexion.obtenirEntite(id);
-                if (!optEntiteC.isPresent())
-                    throw new IllegalArgumentException("Pas d'entité Connexion trouvée");
-                final EntiteConnexion entiteC = optEntiteC.get();
-                if (Utils.dateToLocalDateTime(entiteC.getTimestamp())
+                final JSONObject donneesConnexion = corpsRequete.getJSONObject("donneesConnexion");
+                if (LocalDateTime.parse(donneesConnexion.getString("date"), DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                         .isBefore(LocalDateTime.now().minusMinutes(30)))
                     throw new IllegalArgumentException(
                             "Plus de 30 minutes se sont écoulées depuis la connexion");
                 final DMP dmp =
                         new DMP(
-                                entiteC.getUrlFichierRemboursements(),
-                                entiteC.obtenirCookiesMap(),
+                                corpsRequete.getString("urlRemboursements"),
+                                obtenirCookies(donneesConnexion),
                                 logger);
                 final Map<LocalDate, Set<Long>> medsParDate = dmp.obtenirMedicaments(logger);
                 final EntiteUtilisateur entiteU = EntiteUtilisateur.obtenirEntite(id).get();
@@ -102,5 +100,10 @@ public final class Dmp {
             codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
         }
         return Commun.construireReponse(codeHttp, corpsReponse, request);
+    }
+
+    private Map<String, String> obtenirCookies(JSONObject donneesConnexion) {
+        final JSONObject cookiesJson = donneesConnexion.getJSONObject("cookies");
+        return cookiesJson.keySet().stream().collect(Collectors.toMap(k -> k, k -> cookiesJson.getString(k)));
     }
 }

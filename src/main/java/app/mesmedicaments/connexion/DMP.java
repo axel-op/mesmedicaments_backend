@@ -5,6 +5,9 @@ import app.mesmedicaments.Utils;
 import app.mesmedicaments.entitestables.*;
 import app.mesmedicaments.entitestables.AbstractEntite.Langue;
 import app.mesmedicaments.unchecked.Unchecker;
+
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.microsoft.azure.storage.StorageException;
@@ -274,12 +277,8 @@ public class DMP {
 
     private Optional<PDDocument> obtenirFichierRemboursements() {
         try {
-            final Map<String, String> requestProperties =
-                    cookies.entrySet().stream()
-                            .collect(
-                                    Collectors.toMap(
-                                            e -> "Cookie",
-                                            e -> e.getKey() + "=" + e.getValue() + "; "));
+            final Multimap<String, String> requestProperties = HashMultimap.create();
+            cookies.entrySet().forEach(e -> requestProperties.put("Cookie", e.getKey() + "=" + e.getValue() + "; "));
             PDDocument document =
                     PDDocument.load(
                             new HttpClient().get(URL_FICHIER_REMBOURSEMENTS, requestProperties));

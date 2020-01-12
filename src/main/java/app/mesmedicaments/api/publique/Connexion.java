@@ -1,7 +1,7 @@
 package app.mesmedicaments.api.publique;
 
 import app.mesmedicaments.Utils;
-import app.mesmedicaments.connexion.Authentification;
+import app.mesmedicaments.connexion.Authentificateur;
 import app.mesmedicaments.entitestables.EntiteUtilisateur;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
@@ -36,37 +36,35 @@ public final class Connexion {
         final Logger logger = context.getLogger();
         HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
         try {
-            // verifierHeure(request.getHeaders().get(CLE_HEURE), 2);
             final JSONObject corpsRequete = new JSONObject(request.getBody().get());
+            final String id = corpsRequete.getString("id");
+            final Authentificateur auth = new Authentificateur(logger, id);
             if (etape == 1) { // Première étape de la connexion
-                final String id = corpsRequete.getString("id");
                 final String mdp = corpsRequete.getString("mdp");
-                final JSONObject resultat = new Authentification(logger, id).connexionDMP(mdp);
-                if (!resultat.isNull(Authentification.CLE_ERREUR)) {
-                    codeHttp =
-                            resultat.get(Authentification.CLE_ERREUR)
-                                            .equals(Authentification.ERR_INTERNE)
-                                    ? HttpStatus.INTERNAL_SERVER_ERROR
-                                    : HttpStatus.CONFLICT;
-                } else {
-                    codeHttp = HttpStatus.OK;
-                    corpsReponse.put(
-                            Authentification.CLE_ENVOI_CODE,
-                            resultat.getString(Authentification.CLE_ENVOI_CODE));
+                final JSONObject resultat = auth.connexionDMPPremiereEtape(mdp);
+                corpsReponse.put("donneesConnexion", resultat.getJSONObject("donneesConnexion"));
+                codeHttp = obtenirCodeHttp(resultat);
+                if (codeHttp == HttpStatus.OK) {
+                    corpsReponse
+                        .put(
+                            Authentificateur.CLE_ENVOI_CODE,
+                            resultat.getString(Authentificateur.CLE_ENVOI_CODE));
                 }
             } else if (etape == 2) { // Deuxième étape de la connexion
-                final String id = corpsRequete.getString("id");
-                final Authentification auth = new Authentification(logger, id);
                 final String code = String.valueOf(corpsRequete.getInt("code"));
-                final JSONObject resultat = auth.doubleAuthentification(code);
-                if (!resultat.isNull(Authentification.CLE_ERREUR)) codeHttp = HttpStatus.CONFLICT;
-                else {
+                final JSONObject donneesConnexion = corpsRequete.getJSONObject("donneesConnexion");
+                final JSONObject resultat = auth.connexionDMPDeuxiemeEtape(code, donneesConnexion);
+                codeHttp = obtenirCodeHttp(resultat);
+                if (codeHttp == HttpStatus.OK) {
                     final EntiteUtilisateur entiteU =
                             EntiteUtilisateur.obtenirEntiteOuCreer(id, logger);
-                    corpsReponse.put("idAnalytics", entiteU.getIdAnalytics());
-                    corpsReponse.put("accessToken", auth.createAccessToken());
+                    corpsReponse
+                        .put("idAnalytics", entiteU.getIdAnalytics())
+                        .put("accessToken", auth.createAccessToken())
+                        .put("urlRemboursements", resultat.getString("urlRemboursements"));
                     if (resultat.has("genre")) corpsReponse.put("genre", resultat.get("genre"));
-                    codeHttp = HttpStatus.OK;
+                } else {
+                    corpsReponse.put("donneesConnexion", resultat.getJSONObject("donneesConnexion"));
                 }
             } else {
                 throw new IllegalArgumentException();
@@ -85,5 +83,12 @@ public final class Connexion {
             codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
         }
         return Commun.construireReponse(codeHttp, corpsReponse, request);
+    }
+
+    private HttpStatus obtenirCodeHttp(JSONObject resultat) {
+        if (resultat.isNull(Authentificateur.CLE_ERREUR)) return HttpStatus.OK;
+        return resultat.getString(Authentificateur.CLE_ERREUR).equals(Authentificateur.ERR_INTERNE)
+            ? HttpStatus.INTERNAL_SERVER_ERROR
+            : HttpStatus.CONFLICT;
     }
 }

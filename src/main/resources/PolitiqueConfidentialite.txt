@@ -2,7 +2,7 @@ Politique de confidentialité
 
 Application Mes médicaments
 
-Version du 1 juillet 2019
+Version du 13 janvier 2019
 
 L'application propose à l'utilisateur de renseigner ses identifiants de connexion au site Internet "Dossier Médical Partagé" (abrégé DMP), édité par la Caisse nationale de l'assurance maladie et consultable à la date de mise à jour de cette politique à l'adresse https://www.dmp.fr, afin d'en extraire certaines informations, consultables ensuite sur l'application Mes médicaments. 
 Il est rappelé à l'utilisateur que cette application n'a aucun lien avec la Caisse nationale de l'assurance maladie, ni avec la marque DMP, et n'a pas obtenu de quelconque certification de leur part. De ce fait la Caisse nationale de l'assurance maladie ne saurait être tenue responsable des informations affichées sur l'application Mes médicaments.
@@ -23,10 +23,6 @@ Il est rappelé à l'utilisateur que cette application n'a aucun lien avec la Ca
 
 1. Nature des données traitées
 
-Les données ci-dessous sont traitées par l'application ou son API serveur, mais toutes ne sont pas collectées (voir les sections suivantes) :
-
-	- Le modèle et un identifiant unique de l'appareil servant à la connexion, ainsi que des données techniques relatives à la connexion (adresse IP...). Sont exclues de cette catégorie les données listées ci-dessous.
-
 Les données ci-dessous ne sont traitées que lors d'une connexion réussie au DMP via l'application, mais toutes ne sont pas collectées (voir les sections suivantes) :
 	- L'identifiant et le mot de passe de connexion au DMP.
 	- Des données de connexion temporaires au site Internet du DMP. 
@@ -40,13 +36,9 @@ L'identifiant du DMP et le mot de passe du DMP sont utilisés afin d'établir un
 
 L'identifiant du DMP est utilisé à des fins de sauvegarde de la liste des médicaments ainsi obtenue, tel que décrit dans la section 3.
 
-L'utilisation de données servant à maintenir la connexion au site Internet du DMP pendant une durée courte (inférieure à une heure et quinze minutes), telles que des cookies, est nécessaire à la réussite de la connexion au DMP via l'application, et donc à la fourniture du service. 
-
 La liste des médicaments ainsi obtenue est utilisée dans l'application afin de fournir à l'utilisateur diverses informations en lien avec ces médicaments. 
 
 Le genre de l'utilisateur est collecté de façon anonyme à l'occasion de la connexion au DMP via l'application à des fins de statistiques. 
-
-Le modèle et l'identifiant de l'appareil ayant servi à la connexion sont utilisés afin de sécuriser l'API serveur à laquelle cette application se connecte, par exemple en permettant le filtrage des connexions. 
 
 
 3. Persistence des données et accès
@@ -59,16 +51,16 @@ Ces données seront supprimées de la base si aucune connexion réussie au DMP v
 
 Le genre de l'utilisateur est anonymisé, il est impossible de retrouver cette information à partir de l'identifiant de connexion au DMP une fois le processus de connexion au DMP via l'application terminé. 
 
-L'identifiant de l'appareil et les données techniques de connexion peuvent être conservées par le logiciel serveur, à la seule discrétion du développeur de l'application, et à aucune autre fin que celle de sécuriser les connexions au logiciel serveur. Au-delà d'une durée d'une heure et quinze minutes sans nouvelle connexion au logiciel serveur, elles sont soit supprimées, soit anonymisées. 
-
 Le mot de passe du DMP n'est pas stocké dans le logiciel serveur. Il est porté à l'attention de l'utilisateur que ce mot de passe est cependant mémorisé dans un espace sécurisé sur son appareil, afin de pouvoir être réutilisé sans avoir besoin de le resaisir lorsque l'utilisateur souhaitera établir une nouvelle connexion au DMP via l'application. L'effacement des données de l'application entraîne donc également la suppression de cette donnée. 
-
-Les données servant à maintenir temporairement la connexion à l'espace personnel du DMP ne sont pas conservées au-delà d'une durée maximum d'une heure et quinze minutes. 
 
 
 4. Droits de l'utilisateur
 
-Il est possible pour l'utilisateur de demander l'accès et/ou l'effacement des données le concernant par courrier électronique à l'adresse de contact spécifiée à la section 6. Il est possible qu'à cette occasion des données personnelles déjà obtenues via le logiciel serveur soient demandées à l'utilisateur, à seule fin de vérifier son identité. 
+L'application considère qu'une connexion réussie au DMP via l'application suffit à certifier l'identité de l'utilisateur.
+
+Il est possible pour l'utilisateur ayant établi une telle connexion de demander l'accès et/ou l'effacement des données le concernant directement depuis la page "Aide" accessible depuis l'application. 
+
+Au cas où les données de l'application seraient effacées, ou bien au cas où l'utilisateur ait un appareil différent n'ayant pas encore établi une telle connexion, l'utilisateur devra alors faire telle une demande par courrier électronique à l'adresse de contact spécifiée à la section 6. Il est possible qu'à cette occasion des données personnelles déjà obtenues via le logiciel serveur soient demandées à l'utilisateur, à seule fin de vérifier son identité. 
 
 
 5. Lieux de traitement des données

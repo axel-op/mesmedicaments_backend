@@ -153,15 +153,17 @@ public final class Authentificateur {
         Connection.Response reponse;
         Map<String, String> cookies;
         try {
-            LocalDateTime timestamp = LocalDateTime.parse(donneesConnexion.getString("date"), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            LocalDateTime timestamp =
+                    LocalDateTime.parse(
+                            donneesConnexion.getString("date"),
+                            DateTimeFormatter.ISO_LOCAL_DATE_TIME);
             if (maintenant.minusMinutes(10).isAfter(timestamp)) {
                 throw new IllegalArgumentException("L'heure ne correspond pas ou plus");
             }
             final JSONObject cookiesJSON = donneesConnexion.getJSONObject("cookies");
-            cookies = cookiesJSON
-                .keySet()
-                .stream()
-                .collect(Collectors.toMap(k -> k, k -> cookiesJSON.getString(k)));
+            cookies =
+                    cookiesJSON.keySet().stream()
+                            .collect(Collectors.toMap(k -> k, k -> cookiesJSON.getString(k)));
             connexion = Jsoup.connect(URL_ENVOI_CODE);
             connexion
                     .method(Connection.Method.POST)
@@ -174,12 +176,11 @@ public final class Authentificateur {
             reponse = connexion.response();
             Document page = reponse.parse();
             if (!reponse.url()
-            .toString()
-            .matches(REGEX_ACCUEIL)) { // TODO : logger le nombre d'échecs pour être averti
-            // au cas où la regex n'est plus valide
-                return retour
-                    .put("donneesConnexion", convertirDonneesDeConnexion(page, cookies))
-                    .put(CLE_ERREUR, ERR_ID);
+                    .toString()
+                    .matches(REGEX_ACCUEIL)) { // TODO : logger le nombre d'échecs pour être averti
+                // au cas où la regex n'est plus valide
+                return retour.put("donneesConnexion", convertirDonneesDeConnexion(page, cookies))
+                        .put(CLE_ERREUR, ERR_ID);
             }
             retour.put("urlRemboursements", obtenirURLFichierRemboursements(cookies).orElse(null));
             try {
@@ -196,8 +197,9 @@ public final class Authentificateur {
     }
 
     /**
-     * Renvoie un JSON contenant les données nécessaires au maintien de la connexion entre les deux étapes.
-     * Cet objet doit être restitué tel quel pour la deuxième étape.
+     * Renvoie un JSON contenant les données nécessaires au maintien de la connexion entre les deux
+     * étapes. Cet objet doit être restitué tel quel pour la deuxième étape.
+     *
      * @param page
      * @param cookies
      * @return
@@ -206,10 +208,13 @@ public final class Authentificateur {
         final String sid = obtenirSid(page);
         final String tformdata = obtenirTformdata(page);
         return new JSONObject()
-            .put("cookies", new JSONObject(cookies))
-            .put("sid", sid)
-            .put("tformdata", tformdata)
-            .put("date", LocalDateTime.now(Utils.TIMEZONE).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                .put("cookies", new JSONObject(cookies))
+                .put("sid", sid)
+                .put("tformdata", tformdata)
+                .put(
+                        "date",
+                        LocalDateTime.now(Utils.TIMEZONE)
+                                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
     }
 
     private Optional<String> obtenirURLFichierRemboursements(Map<String, String> cookies)

@@ -18,7 +18,8 @@ public class HttpClient {
         return get(URL, null);
     }
 
-    public InputStream get(String URL, Multimap<String, String> requestProperties) throws IOException {
+    public InputStream get(String URL, Multimap<String, String> requestProperties)
+            throws IOException {
         final HttpsURLConnection connection = (HttpsURLConnection) new URL(URL).openConnection();
         if (requestProperties != null) {
             requestProperties.forEach((k, v) -> connection.addRequestProperty(k, v));

@@ -49,7 +49,9 @@ public final class Dmp {
             final String id = Authentificateur.getIdFromToken(accessToken);
             if (categorie.equalsIgnoreCase("medicaments")) {
                 final JSONObject donneesConnexion = corpsRequete.getJSONObject("donneesConnexion");
-                if (LocalDateTime.parse(donneesConnexion.getString("date"), DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                if (LocalDateTime.parse(
+                                donneesConnexion.getString("date"),
+                                DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                         .isBefore(LocalDateTime.now().minusMinutes(30)))
                     throw new IllegalArgumentException(
                             "Plus de 30 minutes se sont écoulées depuis la connexion");
@@ -104,6 +106,7 @@ public final class Dmp {
 
     private Map<String, String> obtenirCookies(JSONObject donneesConnexion) {
         final JSONObject cookiesJson = donneesConnexion.getJSONObject("cookies");
-        return cookiesJson.keySet().stream().collect(Collectors.toMap(k -> k, k -> cookiesJson.getString(k)));
+        return cookiesJson.keySet().stream()
+                .collect(Collectors.toMap(k -> k, k -> cookiesJson.getString(k)));
     }
 }

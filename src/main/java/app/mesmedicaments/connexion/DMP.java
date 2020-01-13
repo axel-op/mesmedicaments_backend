@@ -278,7 +278,11 @@ public class DMP {
     private Optional<PDDocument> obtenirFichierRemboursements() {
         try {
             final Multimap<String, String> requestProperties = HashMultimap.create();
-            cookies.entrySet().forEach(e -> requestProperties.put("Cookie", e.getKey() + "=" + e.getValue() + "; "));
+            cookies.entrySet()
+                    .forEach(
+                            e ->
+                                    requestProperties.put(
+                                            "Cookie", e.getKey() + "=" + e.getValue() + "; "));
             PDDocument document =
                     PDDocument.load(
                             new HttpClient().get(URL_FICHIER_REMBOURSEMENTS, requestProperties));

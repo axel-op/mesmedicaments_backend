@@ -45,8 +45,7 @@ public final class Connexion {
                 corpsReponse.put("donneesConnexion", resultat.getJSONObject("donneesConnexion"));
                 codeHttp = obtenirCodeHttp(resultat);
                 if (codeHttp == HttpStatus.OK) {
-                    corpsReponse
-                        .put(
+                    corpsReponse.put(
                             Authentificateur.CLE_ENVOI_CODE,
                             resultat.getString(Authentificateur.CLE_ENVOI_CODE));
                 }
@@ -59,12 +58,13 @@ public final class Connexion {
                     final EntiteUtilisateur entiteU =
                             EntiteUtilisateur.obtenirEntiteOuCreer(id, logger);
                     corpsReponse
-                        .put("idAnalytics", entiteU.getIdAnalytics())
-                        .put("accessToken", auth.createAccessToken())
-                        .put("urlRemboursements", resultat.getString("urlRemboursements"));
+                            .put("idAnalytics", entiteU.getIdAnalytics())
+                            .put("accessToken", auth.createAccessToken())
+                            .put("urlRemboursements", resultat.getString("urlRemboursements"));
                     if (resultat.has("genre")) corpsReponse.put("genre", resultat.get("genre"));
                 } else {
-                    corpsReponse.put("donneesConnexion", resultat.getJSONObject("donneesConnexion"));
+                    corpsReponse.put(
+                            "donneesConnexion", resultat.getJSONObject("donneesConnexion"));
                 }
             } else {
                 throw new IllegalArgumentException();
@@ -88,7 +88,7 @@ public final class Connexion {
     private HttpStatus obtenirCodeHttp(JSONObject resultat) {
         if (resultat.isNull(Authentificateur.CLE_ERREUR)) return HttpStatus.OK;
         return resultat.getString(Authentificateur.CLE_ERREUR).equals(Authentificateur.ERR_INTERNE)
-            ? HttpStatus.INTERNAL_SERVER_ERROR
-            : HttpStatus.CONFLICT;
+                ? HttpStatus.INTERNAL_SERVER_ERROR
+                : HttpStatus.CONFLICT;
     }
 }

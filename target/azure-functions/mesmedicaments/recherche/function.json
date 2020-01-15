@@ -1,5 +1,5 @@
 {
-  "scriptFile" : "..\\mesmedicaments-1.2-SNAPSHOT.jar",
+  "scriptFile" : "../mesmedicaments-1.2-SNAPSHOT.jar",
   "entryPoint" : "app.mesmedicaments.api.publique.Recherche.recherche",
   "bindings" : [ {
     "type" : "httpTrigger",

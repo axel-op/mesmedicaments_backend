@@ -29,10 +29,14 @@ public final class Recherche {
 
     @FunctionName("recherche")
     public HttpResponseMessage recherche(
-            @HttpTrigger(name = "rechercheTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
-                    HttpMethod.GET,
-                    HttpMethod.POST }, route = "recherche/{recherche}") final HttpRequestMessage<Optional<String>> request,
-            @BindingName("recherche") String recherche, // inutilisé à partir de la version 40 de l'application
+            @HttpTrigger(
+                            name = "rechercheTrigger",
+                            authLevel = AuthorizationLevel.ANONYMOUS,
+                            methods = {HttpMethod.GET, HttpMethod.POST},
+                            route = "recherche/{recherche}")
+                    final HttpRequestMessage<Optional<String>> request,
+            @BindingName("recherche")
+                    String recherche, // inutilisé à partir de la version 40 de l'application
             final ExecutionContext context) {
         final Logger logger = context.getLogger();
         final JSONObject corpsReponse = new JSONObject();
@@ -40,7 +44,8 @@ public final class Recherche {
         try {
             final boolean ancienneVersion = utiliserAncienIndex(request);
             if (ancienneVersion) {
-                corpsReponse.put("resultats", obtenirResultatAncienIndex(request, recherche, logger));
+                corpsReponse.put(
+                        "resultats", obtenirResultatAncienIndex(request, recherche, logger));
             } else if (recherche.equals("nombreDocuments")) {
                 corpsReponse.put("nombreDocuments", new SearchClient(logger).getDocumentCount());
             } else {
@@ -53,7 +58,9 @@ public final class Recherche {
                 if (nombre == 0) {
                     JSONArrays.append(resultats, requeteur.rechercherApproximativement(recherche));
                     nombre = resultats.length();
-                    logger.info(String.valueOf(nombre) + " résultats trouvés à la recherche approximative");
+                    logger.info(
+                            String.valueOf(nombre)
+                                    + " résultats trouvés à la recherche approximative");
                 }
                 corpsReponse.put("resultats", resultats).put("nombre", nombre);
             }
@@ -71,15 +78,18 @@ public final class Recherche {
         return new JSONObject(request.getBody().get()).getString("recherche");
     }
 
-    private JSONArray obtenirResultatAncienIndex(HttpRequestMessage<Optional<String>> request, String recherche,
-            Logger logger) throws StorageException, URISyntaxException, InvalidKeyException {
+    private JSONArray obtenirResultatAncienIndex(
+            HttpRequestMessage<Optional<String>> request, String recherche, Logger logger)
+            throws StorageException, URISyntaxException, InvalidKeyException {
         recherche = Utils.normaliser(recherche).toLowerCase();
         logger.info("Recherche de \"" + recherche + "\"");
-        return EntiteCacheRecherche.obtenirResultatsCache(recherche, Commun.utiliserDepreciees(request));
+        return EntiteCacheRecherche.obtenirResultatsCache(
+                recherche, Commun.utiliserDepreciees(request));
     }
 
     private boolean utiliserAncienIndex(HttpRequestMessage<Optional<String>> request) {
-        final int version = Integer.parseInt(request.getHeaders().getOrDefault(Commun.CLE_VERSION, "0"));
+        final int version =
+                Integer.parseInt(request.getHeaders().getOrDefault(Commun.CLE_VERSION, "0"));
         return version < 40;
     }
 }

@@ -35,7 +35,6 @@ public class Requeteur {
                         .put("queryType", "full")
                         .put("top", 30);
         return new SearchClient(logger).queryDocuments(requete);
-
     }
 
     public JSONArray rechercher(String recherche) throws IOException {

@@ -24,24 +24,41 @@ public class Requeteur {
         this.logger = logger;
     }
 
-    public JSONArray rechercher(String recherche) throws IOException {
+    public JSONArray rechercherApproximativement(String recherche) throws IOException {
         final String rechercheFormatee =
                 separerTermes(echapperCaracteresSpeciaux(recherche)).stream()
-                        .map(terme -> construireSousRequete(terme))
+                        .map(this::construireSousRequeteApproximative)
                         .collect(Collectors.joining("&&"));
         final JSONObject requete =
                 new JSONObjectUneCle("search", rechercheFormatee)
                         .put("searchMode", "all")
                         .put("queryType", "full")
                         .put("top", 30);
-        final JSONArray resultats = new SearchClient(logger).queryDocuments(requete);
-        return resultats;
+        return new SearchClient(logger).queryDocuments(requete);
+
+    }
+
+    public JSONArray rechercher(String recherche) throws IOException {
+        final String rechercheFormatee =
+                separerTermes(echapperCaracteresSpeciaux(recherche)).stream()
+                        .map(this::construireSousRequete)
+                        .collect(Collectors.joining("&&"));
+        final JSONObject requete =
+                new JSONObjectUneCle("search", rechercheFormatee)
+                        .put("searchMode", "all")
+                        .put("queryType", "full")
+                        .put("top", 30);
+        return new SearchClient(logger).queryDocuments(requete);
     }
 
     private Set<String> separerTermes(String recherche) {
         return Sets.newHashSet(recherche.split(" ", 0)).stream()
                 .filter(t -> !t.matches(" *"))
                 .collect(Collectors.toSet());
+    }
+
+    private String construireSousRequeteApproximative(String terme) {
+        return "(" + terme + "~)";
     }
 
     private String construireSousRequete(String terme) {

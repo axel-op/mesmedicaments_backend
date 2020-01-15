@@ -1,4 +1,4 @@
-name: Run container on Azure
+name: Exécution de la maintenance sur Azure
 
 on:
   schedule:
@@ -7,14 +7,15 @@ on:
 jobs:
 
   run:
+    
     runs-on: ubuntu-latest
+
     steps:
       - uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Deploy and launch on Azure
-        uses:
-          azure/CLI@v1
+        uses: azure/CLI@v1
         with:
           inlineScript: |
             az container create \

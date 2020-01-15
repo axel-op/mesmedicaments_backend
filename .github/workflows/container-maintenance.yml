@@ -1,4 +1,4 @@
-name: Build container image
+name: Image pour la maintenance
 
 on:
   push:
@@ -8,8 +8,11 @@ on:
 jobs:
 
   build:
+
     if: github.actor == 'axel-op'
+
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
@@ -19,7 +22,6 @@ jobs:
         env:
           DOCKERFILE: .github/workflows/Dockerfile
           IMAGE: axelop/mesmedicaments-maintenance
-          AZURE_WEBJOBS_STORAGE: ${{ secrets.AZURE_STORAGE }}
           USERNAME: axelop
           TOKEN: ${{ secrets.DOCKER_TOKEN }}
           LABEL: latest

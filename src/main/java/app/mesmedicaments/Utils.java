@@ -16,6 +16,7 @@ import java.security.InvalidKeyException;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -245,37 +246,33 @@ public final class Utils {
         return LocalDateTime.ofInstant(date.toInstant(), Utils.TIMEZONE);
     }
 
-    // TODO : améliorer cette méthode
     public static void logErreur(Throwable t, Logger logger) {
-        String message = t.toString();
-        try {
-            message += NEWLINE + t.getCause().getMessage();
-        } catch (NullPointerException e) {
-            message +=
-                    NEWLINE
-                            + "(Classe Utils) L'objet Throwable n'a pas de méthode getCause().getMessage()";
+        logger.severe(throwableToString(t));
+    }
+
+    private static String throwableToString(Throwable t) {
+        String str = "EXCEPTION:" + NEWLINE + t.toString() + NEWLINE;
+        final Throwable cause = t.getCause();
+        if (cause != null) {
+            str += NEWLINE + "* CAUSE:" + NEWLINE 
+                + Arrays.stream(throwableToString(cause).split(NEWLINE))
+                    .map(line -> "\t" + line)
+                    .collect(Collectors.joining(NEWLINE))
+                + NEWLINE; 
         }
-        try {
-            for (StackTraceElement trace : t.getCause().getStackTrace()) {
-                message += NEWLINE + "\t" + trace.toString();
-            }
-        } catch (NullPointerException e) {
-            message += NEWLINE + "(Classe Utils) L'objet Throwable n'a pas de méthode getCause()";
+        final String message = t.getMessage();
+        if (message != null) {
+            str += NEWLINE + "* MESSAGE:" + message + NEWLINE;
         }
-        try {
-            logger.warning(t.getMessage());
-        } catch (NullPointerException e) {
-            message += NEWLINE + "(Classe Utils) L'objet Throwable n'a pas de méthode getMessage()";
+        final StackTraceElement[] stack = t.getStackTrace();
+        if (stack != null) {
+            str += NEWLINE + "* STACKTRACE:" + NEWLINE
+                + Arrays.stream(stack)
+                    .map(line -> "\t> " + line)
+                    .collect(Collectors.joining(NEWLINE))
+                + NEWLINE;
         }
-        try {
-            for (StackTraceElement trace : t.getStackTrace()) {
-                message += NEWLINE + "\t" + trace.toString();
-            }
-        } catch (NullPointerException e) {
-            message +=
-                    NEWLINE + "(Classe Utils) L'objet Throwable n'a pas de méthode getStackTrace()";
-        }
-        logger.warning(message);
+        return str;
     }
 
     public static long tempsDepuis(long startTime) {

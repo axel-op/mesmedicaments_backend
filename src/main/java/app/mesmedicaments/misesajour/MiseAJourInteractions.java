@@ -1,17 +1,7 @@
 package app.mesmedicaments.misesajour;
 
-import app.mesmedicaments.HttpClient;
-import app.mesmedicaments.Utils;
-import app.mesmedicaments.entitestables.EntiteDateMaj;
-import app.mesmedicaments.entitestables.EntiteInteraction;
-import app.mesmedicaments.entitestables.EntiteSubstance;
-import com.google.common.collect.Sets;
-import com.microsoft.azure.storage.StorageException;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.charset.Charset;
-import java.security.InvalidKeyException;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -20,22 +10,31 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+
+import com.google.common.collect.Sets;
+
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
 
+import app.mesmedicaments.Environnement;
+import app.mesmedicaments.objets.Interaction;
+import app.mesmedicaments.objets.Langue;
+import app.mesmedicaments.objets.substances.Substance;
+import app.mesmedicaments.utils.ClientHttp;
+import app.mesmedicaments.utils.Utils;
+
 public final class MiseAJourInteractions {
 
+    private static final String URL_FICHIER_INTERACTIONS = 
+            Environnement.MISEAJOUR_INTERACTIONS_URL;
     private static final Charset CHARSET_1252 = Charset.forName("cp1252");
     private static final float TAILLE_NOM_SUBSTANCE = (float) 10;
     private static final float TAILLE_INTERACTION_SUBSTANCE = (float) 8;
     private static final float TAILLE_DESCRIPTION_PT = (float) 6;
-    private static final String URL_FICHIER_INTERACTIONS = System.getenv("url_interactions");
-    private static final AtomicBoolean executionEnCours = new AtomicBoolean();
     private static final String REGEX_RISQUE1 = "((?i:((a|à) prendre en compte))|(.*APEC))";
     private static final String REGEX_RISQUE2 = "((?i:pr(e|é)caution d'emploi)|(.*PE))";
     private static final String REGEX_RISQUE3 =
@@ -44,228 +43,192 @@ public final class MiseAJourInteractions {
     private static final String[] regexRisques =
             new String[] {REGEX_RISQUE1, REGEX_RISQUE2, REGEX_RISQUE3, REGEX_RISQUE4};
 
+    /*
     private static final Map<String, Set<EntiteSubstance>> correspondancesSubstances =
             new HashMap<>();
-    private static final Map<String, Set<String>> classesSubstances = new HashMap<>();
     private static final Map<String, EntiteInteraction> entitesCreeesParCle = new HashMap<>();
-    private static final List<String> substances2EnCours =
-            new ArrayList<>(); // doit maintenir l'ordre
-    private static final Set<InteractionBrouillon> interactionsBrouillon = new HashSet<>();
+    
+    
     private static final Map<String, Set<EntiteSubstance>> nomsSubImporteesNormalises =
             new HashMap<>();
+    */
 
-    private static Logger logger;
-    private static String ajoutSubstances;
-    private static String substance1EnCours;
-    private static Integer risqueEnCours;
-    private static String descriptifEnCours;
-    private static String conduiteATenirEnCours;
-    private static Float valeurInconnueDesc;
-    private static Float valeurInconnueCond;
-    private static String classeEnCours;
+    private String ajoutSubstances;
+    private String substance1EnCours;
+    private final List<String> substances2EnCours = new ArrayList<>(); // doit maintenir l'ordre
+    private Integer risqueEnCours;
+    private String descriptifEnCours;
+    private String conduiteATenirEnCours;
+    private Float valeurInconnueDesc;
+    private Float valeurInconnueCond;
+    private String classeEnCours;
+    private final Map<String, Set<String>> classesSubstances = new HashMap<>();
 
-    private static boolean reussite = true;
-    private static boolean ignorerLigne = false;
+    private boolean ignorerLigne = false;
 
-    private MiseAJourInteractions() {}
+    private final Logger logger;
+    private final Set<Substance<?>> substances;
+    private final Set<InteractionBrouillon> interactionsBrouillon;
 
-    public static boolean handler(Logger logger) {
-        if (executionEnCours.compareAndSet(false, true)) {
-            MiseAJourInteractions.logger = logger;
-            logger.info("Début de la mise à jour des interactions");
-            if (nomsSubImporteesNormalises.isEmpty()) {
-                MiseAJourClassesSubstances.importerSubstances(logger).entrySet().stream()
-                        .map(
-                                e ->
-                                        new AbstractMap.SimpleEntry<>(
-                                                Texte.normaliser.apply(e.getKey()), e.getValue()))
-                        .forEach(
-                                e ->
-                                        nomsSubImporteesNormalises
-                                                .computeIfAbsent(e.getKey(), k -> new HashSet<>())
-                                                .addAll(e.getValue()));
-            }
-            nouveauxChamps();
-            try {
-                long startTime = System.currentTimeMillis();
-                PDDocument fichier = recupererFichier();
-                if (!parserFichier(fichier)) {
-                    return false;
-                }
-                logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms");
-                logger.info(interactionsBrouillon.size() + " potentielles interactions trouvées");
-                creerEntitesInteraction();
-                logger.info("Mise à jour de la base de données en cours...");
-                startTime = System.currentTimeMillis();
-                int total = entitesCreeesParCle.size();
-                EntiteInteraction.mettreAJourEntitesBatch(logger, entitesCreeesParCle.values());
-                logger.info(
-                        total + " entités mises à jour en " + Utils.tempsDepuis(startTime) + " ms");
-            } catch (Exception e) {
-                executionEnCours.set(false);
-                Utils.logErreur(e, logger);
-                return false;
-            }
-            executionEnCours.set(false);
-            try {
-                EntiteDateMaj.definirDateMajInteractions();
-            } catch (StorageException | URISyntaxException | InvalidKeyException e) {
-                Utils.logErreur(e, logger);
-            }
-            return true;
-        } else {
-            logger.info("Une exécution est déjà en cours");
-        }
-        return false;
+    public MiseAJourInteractions(Logger logger, Set<Substance<?>> substances) {
+        this.logger = logger;
+        this.substances = substances;
+        this.interactionsBrouillon = new HashSet<>();
     }
 
-    private static PDDocument recupererFichier() throws IOException {
+    public Set<Interaction> getInteractions() throws IOException {
+        final long startTime = System.currentTimeMillis();
+        final PDDocument fichier = recupererFichier();
+        parserFichier(fichier);
+        logger.info("Parsing terminé en " + Utils.tempsDepuis(startTime) + " ms");
+        logger.info(interactionsBrouillon.size() + " potentielles interactions trouvées");
+        return creerInteractions();          
+    }
+
+    private PDDocument recupererFichier() throws IOException {
         logger.info(
                 "Récupération du fichier des interactions (url = "
                         + URL_FICHIER_INTERACTIONS
                         + ")");
-        long startTime = System.currentTimeMillis();
-        PDDocument document = PDDocument.load(new HttpClient().get(URL_FICHIER_INTERACTIONS));
-        logger.info("Fichier récupéré en " + Utils.tempsDepuis(startTime) + " ms");
-        return document;
+        return PDDocument.load(new ClientHttp().get(URL_FICHIER_INTERACTIONS));
     }
 
-    private static boolean parserFichier(PDDocument fichier) throws IOException {
+    private void parserFichier(PDDocument fichier) throws IOException {
+        nouveauxChamps();
         logger.info("Début du parsing");
-        long startTime = System.currentTimeMillis();
-        PDFTextStripper stripper =
+        final long startTime = System.currentTimeMillis();
+        final PDFTextStripper stripper =
                 new PDFTextStripper() {
                     @Override
                     protected void writeString(String text, List<TextPosition> textPositions)
                             throws IOException {
-                        if (reussite) {
-                            analyserLigne(text, textPositions);
-                        }
+                        analyserLigne(text, textPositions);
                         super.writeString(text, textPositions);
                     }
                 };
-        int nombrePages = fichier.getNumberOfPages();
+        final int nombrePages = fichier.getNumberOfPages();
         for (int page = 2; page <= nombrePages; page++) {
             logger.info("Parsing de la page " + page + "/" + nombrePages + "...");
             stripper.setStartPage(page);
             stripper.setEndPage(page);
             stripper.getText(fichier);
-            if (!reussite) return false;
         }
         ajouterInteractionsBrouillon();
         nouveauxChamps();
         fichier.close();
         logger.info("Fin du parsing en " + Utils.tempsDepuis(startTime) + " ms");
-        return true;
     }
 
-    private static void analyserLigne(String texte, List<TextPosition> textPositions) {
-        Float taille = textPositions.get(0).getFontSize();
-        Float tailleInPt = textPositions.get(0).getFontSizeInPt();
-        if (ignorerLigne) ignorerLigne = false;
-        else {
-            String ligne = Texte.normaliser.apply(texte);
-            if (ligne.matches("(?i:thesaurus .*)")) ignorerLigne = true;
-            else if (!ligne.matches("(?i:ansm .*)")) {
-                if (taille.equals(TAILLE_NOM_SUBSTANCE)) {
-                    ajouterInteractionsBrouillon();
+    private void analyserLigne(String texte, List<TextPosition> textPositions) {
+        final Float taille = textPositions.get(0).getFontSize();
+        final Float tailleInPt = textPositions.get(0).getFontSizeInPt();
+        if (ignorerLigne) {
+            ignorerLigne = false;
+            return;
+        }
+        String ligne = Texte.normaliser(texte);
+        if (ligne.matches("(?i:thesaurus .*)")) {
+            ignorerLigne = true;
+            return;
+        }
+        if (ligne.matches("(?i:ansm .*)")) return;
+        if (taille.equals(TAILLE_NOM_SUBSTANCE)) {
+                ajouterInteractionsBrouillon();
+                nouveauxChamps();
+                substances2EnCours.add(ligne.trim());
+        } else if (taille.equals(TAILLE_INTERACTION_SUBSTANCE)) {
+            if (!ligne.matches("\\+")) {
+                ajouterInteractionsBrouillon();
+                final List<String> sauvegarde = new ArrayList<>(substances2EnCours);
+                nouveauxChamps();
+                substances2EnCours.addAll(sauvegarde);
+                substance1EnCours = ligne;
+            }
+        } else if (tailleInPt.equals(TAILLE_DESCRIPTION_PT)) {
+            if (substance1EnCours != null) {
+                if (risqueEnCours == null) {
+                    for (int i = regexRisques.length - 1; i >= 0; i--) {
+                        final String regex = regexRisques[i];
+                        if (texte.matches(regex + ".*")) {
+                            risqueEnCours = i + 1;
+                            if (texte.matches(regex)) texte = "";
+                            else if (texte.matches(regex + "[a-zA-Z].*"))
+                                texte = texte.replaceFirst(regex, "");
+                            break;
+                        }
+                    }
+                }
+                if (!texte.equals("")) {
+                    float xposition = textPositions.get(0).getX();
+                    float[][] matrice = textPositions.get(0).getTextMatrix().getValues();
+                    float colonneGauche = (float) 97.68;
+                    // float colonneDroite = (float) 317.3999;
+                    if (Float.compare(xposition, colonneGauche) <= 0) {
+                        if (valeurInconnueDesc == null) valeurInconnueDesc = matrice[2][1];
+                        if (valeurInconnueCond != null
+                                && valeurInconnueDesc.compareTo(valeurInconnueCond) < 0) {
+                            descriptifEnCours = conduiteATenirEnCours + descriptifEnCours;
+                            conduiteATenirEnCours = "";
+                        }
+                        if (!descriptifEnCours.equals("") && texte.matches("[-A-Z].*")) {
+                            texte = "\n" + texte;
+                        }
+                        descriptifEnCours += texte + " ";
+                    } else {
+                        if (valeurInconnueCond == null) valeurInconnueCond = matrice[2][1];
+                        if (!conduiteATenirEnCours.equals("")
+                                && ligne.matches("[-A-Z].*")) {
+                            texte = "\n" + texte;
+                        }
+                        conduiteATenirEnCours += texte + " ";
+                    }
+                }
+            } else if (ajoutSubstances != null
+                    || (texte.startsWith("(") && !texte.matches("\\( ?(V|v)oir aussi.*"))) {
+                if (ajoutSubstances == null && ligne.startsWith("(")) {
+                    String classe = String.join("", substances2EnCours);
                     nouveauxChamps();
-                    substances2EnCours.add(ligne.trim());
-                } else if (taille.equals(TAILLE_INTERACTION_SUBSTANCE)) {
-                    if (!ligne.matches("\\+")) {
-                        ajouterInteractionsBrouillon();
-                        List<String> sauvegarde = new ArrayList<>(substances2EnCours);
-                        nouveauxChamps();
-                        substances2EnCours.addAll(sauvegarde);
-                        substance1EnCours = ligne;
+                    classeEnCours = classe;
+                    ligne = ligne.substring(1);
+                }
+                int d = 0;
+                if (!ligne.endsWith(")")) ajoutSubstances = "";
+                else {
+                    ligne = ligne.substring(0, ligne.length() - 1);
+                    if (ajoutSubstances != null) {
+                        String aAjouter = "";
+                        String[] decoupe = ligne.split(",");
+                        if (decoupe.length > 0) aAjouter = decoupe[0];
+                        substances2EnCours.add(ajoutSubstances + " " + aAjouter);
+                        d = 1;
                     }
-                } else if (tailleInPt.equals(TAILLE_DESCRIPTION_PT)) {
-                    if (substance1EnCours != null) {
-                        if (risqueEnCours == null) {
-                            for (int i = regexRisques.length - 1; i >= 0; i--) {
-                                String regex = regexRisques[i];
-                                if (texte.matches(regex + ".*")) {
-                                    risqueEnCours = i + 1;
-                                    if (texte.matches(regex)) texte = "";
-                                    else if (texte.matches(regex + "[a-zA-Z].*"))
-                                        texte = texte.replaceFirst(regex, "");
-                                    break;
-                                }
-                            }
-                        }
-                        if (!texte.equals("")) {
-                            float xposition = textPositions.get(0).getX();
-                            float[][] matrice = textPositions.get(0).getTextMatrix().getValues();
-                            float colonneGauche = (float) 97.68;
-                            // float colonneDroite = (float) 317.3999;
-                            if (Float.compare(xposition, colonneGauche) <= 0) {
-                                if (valeurInconnueDesc == null) valeurInconnueDesc = matrice[2][1];
-                                if (valeurInconnueCond != null
-                                        && valeurInconnueDesc.compareTo(valeurInconnueCond) < 0) {
-                                    descriptifEnCours = conduiteATenirEnCours + descriptifEnCours;
-                                    conduiteATenirEnCours = "";
-                                }
-                                if (!descriptifEnCours.equals("") && texte.matches("[-A-Z].*")) {
-                                    texte = "\n" + texte;
-                                }
-                                descriptifEnCours += texte + " ";
-                            } else {
-                                if (valeurInconnueCond == null) valeurInconnueCond = matrice[2][1];
-                                if (!conduiteATenirEnCours.equals("")
-                                        && ligne.matches("[-A-Z].*")) {
-                                    texte = "\n" + texte;
-                                }
-                                conduiteATenirEnCours += texte + " ";
-                            }
-                        }
-                    } else if (ajoutSubstances != null
-                            || (texte.startsWith("(") && !texte.matches("\\( ?(V|v)oir aussi.*"))) {
-                        if (ajoutSubstances == null && ligne.startsWith("(")) {
-                            String classe = String.join("", substances2EnCours);
-                            nouveauxChamps();
-                            classeEnCours = classe;
-                            ligne = ligne.substring(1);
-                        }
-                        int d = 0;
-                        if (!ligne.endsWith(")")) ajoutSubstances = "";
-                        else {
-                            ligne = ligne.substring(0, ligne.length() - 1);
-                            if (ajoutSubstances != null) {
-                                String aAjouter = "";
-                                String[] decoupe = ligne.split(",");
-                                if (decoupe.length > 0) aAjouter = decoupe[0];
-                                substances2EnCours.add(ajoutSubstances + " " + aAjouter);
-                                d = 1;
-                            }
-                            ajoutSubstances = null;
-                        }
-                        String[] substances = ligne.split(",");
-                        for (int i = d; i < substances.length; i++) {
-                            String substance = substances[i].trim();
-                            if (!substance.matches(" *")) {
-                                if (i == substances.length - 1 && ajoutSubstances != null) {
-                                    ajoutSubstances = substance;
-                                } else substances2EnCours.add(substance);
-                            }
-                        }
+                    ajoutSubstances = null;
+                }
+                String[] substances = ligne.split(",");
+                for (int i = d; i < substances.length; i++) {
+                    String substance = substances[i].trim();
+                    if (!substance.matches(" *")) {
+                        if (i == substances.length - 1 && ajoutSubstances != null) {
+                            ajoutSubstances = substance;
+                        } else substances2EnCours.add(substance);
                     }
-                } else {
-                    /* Ici ne doit se trouver aucune ligne du pdf */
-                    logger.warning(
-                            "LIGNE IGNOREE (il ne devrait pas y en avoir) : "
-                                    + Utils.NEWLINE
-                                    + "\""
-                                    + texte
-                                    + "\"");
                 }
             }
+        } else {
+            /* Ici ne doit se trouver aucune ligne du pdf */
+            logger.warning(
+                    "LIGNE IGNOREE (il ne devrait pas y en avoir) : "
+                            + Utils.NEWLINE
+                            + "\""
+                            + texte
+                            + "\"");
         }
     }
 
-    private static void nouveauxChamps() {
+    private void nouveauxChamps() {
         if (classeEnCours != null) {
             classesSubstances.put(
-                    Texte.normaliser.apply(classeEnCours).toLowerCase(),
+                    Texte.normaliser(classeEnCours).toLowerCase(),
                     new HashSet<>(substances2EnCours));
         }
         substances2EnCours.clear();
@@ -279,72 +242,65 @@ public final class MiseAJourInteractions {
         classeEnCours = null;
     }
 
-    private static void ajouterInteractionsBrouillon() {
-        if (risqueEnCours != null) {
-            for (String substance2 : substances2EnCours) {
-                interactionsBrouillon.add(
-                        new InteractionBrouillon(
-                                substance1EnCours,
-                                substance2,
-                                risqueEnCours,
-                                descriptifEnCours,
-                                conduiteATenirEnCours));
-            }
+    private void ajouterInteractionsBrouillon() {
+        if (risqueEnCours == null) return;
+        for (String substance2 : substances2EnCours) {
+            interactionsBrouillon.add(
+                    new InteractionBrouillon(
+                            substance1EnCours,
+                            substance2,
+                            risqueEnCours,
+                            descriptifEnCours,
+                            conduiteATenirEnCours));
         }
     }
 
-    private static void creerEntitesInteraction() {
-        // Si le descriptif commence par "ainsi que", "et pendant", remplacer "ainsi
+    private Set<Interaction> creerInteractions() {
+        // TODO Si le descriptif commence par "ainsi que", "et pendant", remplacer "ainsi
         // que" par "Cette interaction se poursuit"
         // Voir aussi ceux qui commencent avec "Dans l'indication..."
-        logger.info("Création des entités...");
-        long startTime = System.currentTimeMillis();
-        for (InteractionBrouillon intBrouillon : interactionsBrouillon) {
+        logger.info("Création des interactions...");
+        final long startTime = System.currentTimeMillis();
+        final Map<String, Interaction> parCles = new HashMap<>(); // pour gérer les doublons
+        for (InteractionBrouillon i : interactionsBrouillon) {
             String descriptif;
             String conduite;
-            if (intBrouillon.descriptif.matches(" *")) {
-                descriptif = Texte.corrigerApostrophes.apply(intBrouillon.conduite);
+            if (i.descriptif.matches(" *")) {
+                descriptif = Texte.corrigerApostrophes.apply(i.conduite);
                 conduite = "";
             } else {
-                descriptif = Texte.corrigerApostrophes.apply(intBrouillon.descriptif);
+                descriptif = Texte.corrigerApostrophes.apply(i.descriptif);
                 conduite =
                         Texte.corrigerApostrophes.apply(
-                                intBrouillon
+                                i
                                         .conduite
                                         .replaceAll(
                                                 "((CI ?)" + "|(ASDEC ?)" + "|(PE )" + "|(APEC ?))",
                                                 "")
                                         .replaceFirst(" ?(- )+\n", ""));
             }
-            Set<EntiteSubstance> substances1 =
-                    Recherche.obtenirCorrespondances.apply(intBrouillon.substance1);
-            Set<EntiteSubstance> substances2 =
-                    Recherche.obtenirCorrespondances.apply(intBrouillon.substance2);
-            Set<List<EntiteSubstance>> combinaisons =
+            final Recherche r = new Recherche();
+            final Set<Substance<?>> substances1 =
+                    r.obtenirCorrespondances(i.substance1);
+            final Set<Substance<?>> substances2 =
+                    r.obtenirCorrespondances(i.substance2);
+            final Set<List<Substance<?>>> combinaisons =
                     Sets.cartesianProduct(substances1, substances2);
-            combinaisons.stream()
-                    .map(
-                            c -> {
-                                EntiteInteraction entite =
-                                        new EntiteInteraction(c.get(0), c.get(1));
-                                entite.setRisque(intBrouillon.risque);
-                                entite.setDescriptif(descriptif);
-                                entite.setConduite(conduite);
-                                return entite;
-                            })
-                    .forEach(
-                            e -> {
-                                String cleUnique = e.getPartitionKey() + e.getRowKey();
-                                EntiteInteraction doublon = entitesCreeesParCle.get(cleUnique);
-                                if (doublon == null || doublon.getRisque() < e.getRisque())
-                                    entitesCreeesParCle.put(cleUnique, e);
-                            });
+            for (List<Substance<?>> comb : combinaisons) {
+                final Interaction interaction = new Interaction(i.risque, descriptif, conduite, comb);
+                final String cleUnique = comb.stream()
+                    .map(s -> s.getPays().code + String.valueOf(s.getCode()))
+                    .reduce("", (s1, s2) -> s1.compareTo(s2) < 0 ? s1 + s2 : s2 + s1);
+                final Interaction doublon = parCles.get(cleUnique);
+                if (doublon == null || doublon.risque < interaction.risque)
+                    parCles.put(cleUnique, interaction);
+            }
         }
-        logger.info(
-                entitesCreeesParCle.size()
+        logger.info(parCles.size()
                         + " entités créées en "
                         + Utils.tempsDepuis(startTime)
                         + " ms");
+        return new HashSet<>(parCles.values());
     }
 
     private static class InteractionBrouillon {
@@ -359,7 +315,8 @@ public final class MiseAJourInteractions {
                 String substance2,
                 int risque,
                 String descriptif,
-                String conduite) {
+                String conduite
+        ) {
             this.substance1 = substance1;
             this.substance2 = substance2;
             this.risque = risque;
@@ -368,193 +325,176 @@ public final class MiseAJourInteractions {
         }
     }
 
-    private static class Recherche {
+    private class Recherche {
 
-        private static final Map<String, Set<EntiteSubstance>> cacheCorrespondances =
-                new HashMap<>();
-        private static final Map<String, Set<EntiteSubstance>> cacheMeilleuresSubstances =
-                new HashMap<>();
-        private static final Map<String, Set<String>> cacheSousExpressions = new HashMap<>();
-        private static final Map<String, Set<EntiteSubstance>> cacheRechercheSubstances =
-                new HashMap<>();
+        private final Map<String, Set<Substance<?>>> cacheCorrespondances = new HashMap<>();
+        private final Map<String, Set<Substance<?>>> cacheMeilleuresSubstances = new HashMap<>();
+        private final Map<String, Set<Substance<?>>> cacheRechercheSimple = new HashMap<>();
 
-        protected static Function<String, Set<EntiteSubstance>> obtenirCorrespondances =
-                recherche ->
-                        cacheCorrespondances.computeIfAbsent(
-                                recherche,
-                                exp -> {
-                                    if (exp == null) return new HashSet<>();
-                                    exp = exp.toLowerCase();
-                                    if (exp.startsWith("autres "))
-                                        exp = exp.replaceFirst("autres ", "");
-                                    if (classesSubstances.containsKey(exp)) {
-                                        return classesSubstances.get(exp).stream()
-                                                .flatMap(
-                                                        substance ->
-                                                                Recherche.obtenirCorrespondances
-                                                                        .apply(substance).stream())
-                                                .collect(Collectors.toSet());
-                                    }
-                                    return correspondancesSubstances.computeIfAbsent(
-                                            exp, e -> rechercherMeilleuresSubstances(e));
-                                });
+        protected Set<Substance<?>> obtenirCorrespondances(String recherche) {
+            if (recherche == null) return new HashSet<>();
+            return cacheCorrespondances.computeIfAbsent(recherche, r -> {
+                 r = r.toLowerCase();
+                if (r.startsWith("autres "))
+                    r = r.replaceFirst("autres ", "");
+                if (classesSubstances.containsKey(r)) {
+                    return classesSubstances
+                        .get(r)
+                        .stream()
+                        .flatMap(s -> obtenirCorrespondances(s).stream())
+                        .collect(Collectors.toSet());
+                }
+                return rechercherMeilleuresSubstances(r);
+            });           
+        }
 
-        private static Set<EntiteSubstance> rechercherMeilleuresSubstances(String recherche) {
-            return cacheMeilleuresSubstances.computeIfAbsent(
-                    recherche,
-                    terme -> {
-                        HashMap<EntiteSubstance, Double> classement = new HashMap<>();
-                        if (terme.matches(".+\\(.+\\)")) {
-                            String debut = terme.split("\\(")[0];
-                            Set<EntiteSubstance> resultats1 = rechercherMeilleuresSubstances(debut);
-                            if (resultats1.isEmpty()) return resultats1;
-                            return rechercherMeilleuresSubstances(terme.replaceFirst(debut, ""))
-                                    .stream()
-                                    .filter(resultats1::contains)
-                                    .collect(Collectors.toSet());
-                        }
-                        String regexExclus =
+        private Set<Substance<?>> rechercherMeilleuresSubstances(final String recherche) {
+            if (cacheMeilleuresSubstances.containsKey(recherche))
+                return cacheMeilleuresSubstances.get(recherche);
+            if (recherche.matches(".+\\(.+\\)")) {
+                final String debut = recherche.split("\\(")[0];
+                final Set<Substance<?>> resultats1 = rechercherMeilleuresSubstances(debut);
+                if (resultats1.isEmpty()) return resultats1;
+                return rechercherMeilleuresSubstances(recherche.replaceFirst(debut, ""))
+                        .stream()
+                        .filter(resultats1::contains)
+                        .collect(Collectors.toSet());
+            }
+            final String regexExclus =
                                 "(?i:"
                                         + "(fruit)"
                                         + "|(acide)"
                                         + "|(alpha))"
                                         + "|(?i:.*par voie.*)";
-                        for (String expression :
-                                (Iterable<String>)
-                                        () ->
-                                                obtenirSousExpressions(
-                                                                terme.trim()
-                                                                        .replaceAll(
-                                                                                "[,\\(\\)]", ""))
-                                                        .stream()
-                                                        .map(Texte.normaliser::apply)
-                                                        .map(String::toLowerCase)
-                                                        .filter(exp -> !exp.matches(regexExclus))
-                                                        .filter(
-                                                                exp ->
-                                                                        exp.equals("fer")
-                                                                                || !exp.matches(
-                                                                                        "([^ ]{1,3} ?\\b)+"))
-                                                        .iterator()) {
-                            if (expression.matches("(?i:(sauf)|(hors))")) break;
-                            if (expression.matches("(?i:[^ ]*s)")) {
-                                expression = expression.substring(0, expression.length() - 1);
-                            }
-                            Set<EntiteSubstance> resultats = rechercheSimple(expression);
-                            for (EntiteSubstance resultat : resultats) {
-                                double score = (1.0 * expression.length()) / resultats.size();
-                                double scorePrecedent =
-                                        Optional.ofNullable(classement.get(resultat)).orElse(0.0);
-                                classement.put(resultat, score + scorePrecedent);
-                            }
-                        }
-                        return trouverMeilleurs(classement);
-                    });
+            final List<String> sousExpr = 
+                obtenirSousExpressions(
+                    recherche
+                        .replaceAll("[,\\(\\)]", "")
+                        .trim())
+                .stream()
+                .map(Texte::normaliser)
+                .map(String::toLowerCase)
+                .filter(e -> !e.matches(regexExclus))
+                .filter(e -> e.equals("fer") || !e.matches("([^ ]{1,3} ?\\b)+"))
+                .collect(Collectors.toList());
+            final HashMap<Substance<?>, Double> classement = new HashMap<>();
+            for (String exp : sousExpr) {
+                if (exp.matches("(?i:(sauf)|(hors))"))
+                    break;
+                if (exp.matches("(?i:[^ ]*s)"))
+                    exp = exp.substring(0, exp.length() - 1);
+                final Set<Substance<?>> resultats = rechercheSimple(exp);
+                final double score = (1.0 * exp.length()) / resultats.size();
+                resultats.forEach(s -> classement.put(s, score + classement.getOrDefault(s, 0.0)));
+            }
+            final Set<Substance<?>> meilleures = trouverMeilleurs(classement);
+            cacheMeilleuresSubstances.put(recherche, meilleures);
+            return meilleures;
         }
 
-        private static Set<String> obtenirSousExpressions(String expression) {
-            return cacheSousExpressions.computeIfAbsent(
-                    expression,
-                    terme -> {
-                        Set<String> sousExpressions = new HashSet<>();
-                        String[] mots = terme.split(" ");
-                        for (int k = mots.length; k >= 1; k--) {
-                            for (int i = 0; i + k <= mots.length; i++) {
-                                sousExpressions.add(
-                                        String.join(" ", Arrays.copyOfRange(mots, i, i + k)));
-                            }
-                        }
-                        return sousExpressions;
-                    });
+        private List<String> obtenirSousExpressions(String expression) {
+            final List<String> sousExpressions = new ArrayList<>();
+            final String[] mots = expression.split(" ");
+            for (int k = mots.length; k >= 1; k--) {
+                for (int i = 0; i + k <= mots.length; i++) {
+                    sousExpressions.add(String.join(" ", Arrays.copyOfRange(mots, i, i + k)));
+                }
+            }
+            return sousExpressions;
         }
 
-        private static Set<EntiteSubstance> rechercheSimple(String recherche) {
-            return cacheRechercheSubstances.computeIfAbsent(
-                    recherche,
-                    mot -> {
-                        Set<EntiteSubstance> matchPrecis =
-                                nomsSubImporteesNormalises.entrySet().stream()
-                                        .filter(e -> e.getKey().matches("(?i:.*" + mot + "\\b.*)"))
-                                        .flatMap(e -> e.getValue().stream())
-                                        .collect(Collectors.toSet());
-                        if (!matchPrecis.isEmpty()) return matchPrecis;
-                        return nomsSubImporteesNormalises.entrySet().stream()
-                                .filter(e -> e.getKey().matches("(?i:.*" + mot + ".*)"))
-                                .flatMap(e -> e.getValue().stream())
-                                .collect(Collectors.toSet());
-                    });
+        private Set<Substance<?>> rechercheSimple(String recherche) {
+            return cacheRechercheSimple.computeIfAbsent(
+                recherche,
+                mot -> {
+                    for (String regex : new String[]{
+                            "(?i:.*" + mot + "\\b.*)", 
+                            "(?i:.*" + mot + ".*)"
+                    }) {
+                        final Set<Substance<?>> resultats = substances
+                            .stream()
+                            .filter(s -> s.getNoms()
+                                            .get(Langue.Francais)
+                                            .stream()
+                                            .map(Texte::normaliser)
+                                            .anyMatch(n -> n.matches(regex)))
+                            .collect(Collectors.toSet());
+                        if (!resultats.isEmpty()) return resultats;
+                    }
+                    return new HashSet<>();
+                }
+            );
+        }
+
+        private <T> Set<T> trouverMeilleurs(HashMap<T, Double> classement) {
+            if (classement.isEmpty()) return new HashSet<>();
+            if (classement.size() == 1) return classement.keySet();
+            final double scoremax = classement.values().stream().max(Double::compare).get();
+            return classement.keySet().stream()
+                    .filter(cle -> classement.get(cle) == scoremax)
+                    .collect(Collectors.toSet());
         }
     }
 
-    private static <T> Set<T> trouverMeilleurs(HashMap<T, Double> classement) {
-        if (classement.isEmpty()) return new HashSet<>();
-        if (classement.size() == 1) {
-            return classement.keySet();
-        }
-        final double scoremax = classement.values().stream().max(Double::compare).get();
-        return classement.keySet().stream()
-                .filter(cle -> classement.get(cle) == scoremax)
-                .collect(Collectors.toSet());
-    }
-
-    private static class Texte {
+    static private class Texte {
 
         private static final Map<String, String> cacheNormalisation = new HashMap<>();
         private static final Map<String, String> cacheApostrophes = new HashMap<>();
 
-        protected static Function<String, String> normaliser =
-                original ->
-                        cacheNormalisation.computeIfAbsent(
-                                original,
-                                mot -> {
-                                    mot = Utils.normaliser(mot).replaceAll("  ", " ").trim();
-                                    byte[] ancien = mot.getBytes(CHARSET_1252);
-                                    byte[] nouveau = new byte[ancien.length];
-                                    for (int i = 0; i < ancien.length; i++) {
-                                        switch (Integer.valueOf(ancien[i])) {
-                                                // a
-                                            case -32:
-                                            case -30:
-                                                nouveau[i] = 97;
-                                                break;
-                                                // e
-                                            case -23:
-                                            case -24:
-                                            case -22:
-                                                nouveau[i] = 101;
-                                                break;
-                                                // i
-                                            case -17:
-                                            case -18:
-                                                nouveau[i] = 105;
-                                                break;
-                                                // o
-                                            case -12:
-                                            case -10:
-                                                nouveau[i] = 111;
-                                                break;
-                                                // u
-                                            case -4:
-                                                nouveau[i] = 117;
-                                                break;
-                                                // œ
-                                            case -100:
-                                                nouveau =
-                                                        Arrays.copyOf(nouveau, nouveau.length + 1);
-                                                nouveau[i] = 111;
-                                                nouveau[i + 1] = 101;
-                                                i++;
-                                                break;
-                                                // apostrophe
-                                            case -110:
-                                                nouveau[i] = 39;
-                                                break;
-                                            default:
-                                                nouveau[i] = ancien[i];
-                                        }
-                                    }
-                                    return new String(nouveau, CHARSET_1252);
-                                });
+        protected static String normaliser(String texte) {
+            return cacheNormalisation.computeIfAbsent(
+                texte,
+                mot -> {
+                    mot = Utils.normaliser(mot).replaceAll("  ", " ").trim();
+                    byte[] ancien = mot.getBytes(CHARSET_1252);
+                    byte[] nouveau = new byte[ancien.length];
+                    for (int i = 0; i < ancien.length; i++) {
+                        switch (Integer.valueOf(ancien[i])) {
+                                // a
+                            case -32:
+                            case -30:
+                                nouveau[i] = 97;
+                                break;
+                                // e
+                            case -23:
+                            case -24:
+                            case -22:
+                                nouveau[i] = 101;
+                                break;
+                                // i
+                            case -17:
+                            case -18:
+                                nouveau[i] = 105;
+                                break;
+                                // o
+                            case -12:
+                            case -10:
+                                nouveau[i] = 111;
+                                break;
+                                // u
+                            case -4:
+                                nouveau[i] = 117;
+                                break;
+                                // œ
+                            case -100:
+                                nouveau =
+                                        Arrays.copyOf(nouveau, nouveau.length + 1);
+                                nouveau[i] = 111;
+                                nouveau[i + 1] = 101;
+                                i++;
+                                break;
+                                // apostrophe
+                            case -110:
+                                nouveau[i] = 39;
+                                break;
+                            default:
+                                nouveau[i] = ancien[i];
+                        }
+                    }
+                    return new String(nouveau, CHARSET_1252);
+                }
+            );
+        }   
 
         protected static Function<String, String> corrigerApostrophes =
                 original ->

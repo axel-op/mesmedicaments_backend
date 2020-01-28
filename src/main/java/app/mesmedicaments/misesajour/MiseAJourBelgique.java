@@ -1,11 +1,5 @@
 package app.mesmedicaments.misesajour;
 
-import app.mesmedicaments.Utils;
-import app.mesmedicaments.entitestables.AbstractEntite.Langue;
-import app.mesmedicaments.entitestables.AbstractEntiteMedicament;
-import app.mesmedicaments.entitestables.AbstractEntiteMedicament.SubstanceActive;
-import app.mesmedicaments.entitestables.EntiteMedicamentBelgique;
-import com.microsoft.azure.storage.StorageException;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -24,15 +18,24 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
+
+import com.microsoft.azure.storage.StorageException;
+
 import org.jsoup.Connection.Method;
 import org.jsoup.Connection.Response;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+
+import app.mesmedicaments.Environnement;
+import app.mesmedicaments.objets.Langue;
+import app.mesmedicaments.objets.substances.SubstanceActiveFrance;
+import app.mesmedicaments.utils.Utils;
 
 public final class MiseAJourBelgique {
 
@@ -44,8 +47,8 @@ public final class MiseAJourBelgique {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 logger.info("zipentry name = " + entry.getName());
-                if (entry.getName().startsWith("AMP"))
-                    parserXMLproduits(obtenirReader(zis), logger);
+                //if (entry.getName().startsWith("AMP"))
+                //    parserXMLproduits(obtenirReader(zis), logger);
             }
         } catch (Exception e) {
             Utils.logErreur(e, logger);
@@ -67,8 +70,8 @@ public final class MiseAJourBelgique {
 
     private static ZipInputStream recupererZip(Logger logger) throws IOException {
         // TODO vérifier que tout fonctionne avec le delta
-        final String urlBase = System.getenv("urlbase_belgique");
-        final String userAgent = System.getenv("user_agent");
+        final String urlBase = Environnement.MISEAJOUR_BELGIQUE_URLBASE;
+        final String userAgent = Environnement.USERAGENT;
         logger.info("Récupération du fichier zip...");
         long startTime = System.currentTimeMillis();
         Response reponse1 =
@@ -146,6 +149,7 @@ public final class MiseAJourBelgique {
         return new ZipInputStream(reponse2.bodyStream());
     }
 
+    /*
     private static void parserXMLproduits(Reader xmlAMP, Logger logger)
             throws XMLStreamException, StorageException, URISyntaxException, InvalidKeyException {
         Set<EntiteMedicamentBelgique> entitesCreees = new HashSet<>();
@@ -256,11 +260,9 @@ public final class MiseAJourBelgique {
                         dansAMPC = false;
                         break;
                     case "Ampp":
-                        /*
-                         * TODO à terminer if (nomPresEnCours != null)
-                         * medEnCours.ajouterPresentation(new PresentationBelgique( nomPresEnCours,
-                         * prixPresEnCours ));
-                         */
+                         // TODO à terminer if (nomPresEnCours != null)
+                         // medEnCours.ajouterPresentation(new PresentationBelgique( nomPresEnCours,
+                         // prixPresEnCours ));
                         nomPresEnCours = null;
                         prixPresEnCours = null;
                         dansAMPP = false;
@@ -274,7 +276,7 @@ public final class MiseAJourBelgique {
                     case "RealActualIngredient":
                         if (substanceActive)
                             medEnCours.ajouterSubstanceActive(
-                                    new SubstanceActive(codeSubEnCours, dosageSubEnCours, null));
+                                    new SubstanceActiveFrance(codeSubEnCours, dosageSubEnCours, null));
                         dosageSubEnCours = null;
                         codeSubEnCours = null;
                         substanceActive = false;
@@ -289,6 +291,7 @@ public final class MiseAJourBelgique {
         logger.info("XML AMP parsé en " + Utils.tempsDepuis(startTime) + " ms");
         AbstractEntiteMedicament.mettreAJourEntitesBatch(entitesCreees);
     }
+    */
 
     private static long formaterCodeAMP(String code) {
         if (!code.matches("SAM[0-9]{6}-[0-9]{2}"))

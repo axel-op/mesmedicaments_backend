@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
@@ -74,14 +74,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>27.1-jre</version>
-        </dependency>
-
-
-        <dependency>
-            <groupId>com.microsoft.azure</groupId>
-            <artifactId>azure-storage</artifactId>
-            <version>8.3.0</version>
+            <version>28.2-jre</version>
         </dependency>
 
 
@@ -95,7 +88,7 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20180813</version>
+            <version>20190722</version>
         </dependency>
 
 
@@ -119,11 +112,35 @@
             <version>2.0.15</version>
         </dependency>
 
+
+        <!-- Azure dependencies -->
+
+        <dependency>
+            <groupId>com.microsoft.azure</groupId>
+            <artifactId>azure-storage</artifactId>
+            <version>8.6.0</version>
+        </dependency>
+
         <dependency>
             <groupId>com.microsoft.azure.functions</groupId>
             <artifactId>azure-functions-java-library</artifactId>
-            <version>1.3.0</version>
+            <version>1.3.1</version>
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/com.microsoft.azure/azure-mgmt-containerinstance -->
+        <dependency>
+            <groupId>com.microsoft.azure</groupId>
+            <artifactId>azure-mgmt-containerinstance</artifactId>
+            <version>1.30.0</version>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/com.microsoft.azure/azure -->
+        <dependency>
+            <groupId>com.microsoft.azure</groupId>
+            <artifactId>azure</artifactId>
+            <version>1.30.0</version>
+        </dependency>
+
 
         <!-- Test -->
         <dependency>
@@ -259,17 +276,17 @@
         <connection>scm:git:git@github.com:axel-op/azure-mesmedicaments.git</connection>
         <url>scm:git:git@github.com:axel-op/azure-mesmedicaments.git</url>
         <developerConnection>scm:git:git@github.com:axel-op/azure-mesmedicaments.git</developerConnection>
-      <tag>mesmedicaments-1.1</tag>
-  	</scm>
+        <tag>mesmedicaments-1.1</tag>
+    </scm>
 
-  	<distributionManagement>
-		<repository>
-			<id>repomesmedicaments</id>
-			<name>GitHub Repository</name>
-			<url>scm:git:git@github.com:axel-op/azure-mesmedicaments.git</url>
-			<layout>default</layout>
-		</repository>
-  	</distributionManagement>
+    <distributionManagement>
+        <repository>
+            <id>repomesmedicaments</id>
+            <name>GitHub Repository</name>
+            <url>scm:git:git@github.com:axel-op/azure-mesmedicaments.git</url>
+            <layout>default</layout>
+        </repository>
+    </distributionManagement>
 
     <reporting>
         <plugins>

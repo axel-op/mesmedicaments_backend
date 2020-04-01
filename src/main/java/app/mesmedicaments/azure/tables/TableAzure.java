@@ -9,8 +9,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.table.CloudTable;
 import com.microsoft.azure.storage.table.TableBatchOperation;
@@ -21,6 +19,8 @@ import com.microsoft.azure.storage.table.TableQuery.QueryComparisons;
 import app.mesmedicaments.Environnement;
 import app.mesmedicaments.basededonnees.ExceptionTable;
 import app.mesmedicaments.basededonnees.ITable;
+import app.mesmedicaments.utils.ConcurrentHashSet;
+import app.mesmedicaments.utils.Sets;
 import app.mesmedicaments.utils.unchecked.Unchecker;
 
 public
@@ -113,7 +113,7 @@ class TableAzure implements ITable<EntiteDynamique> {
             .stream()
             .collect(Collectors.toConcurrentMap(
                 e -> e.getKey(), 
-                e -> Sets.newHashSet(Iterables.partition(e.getValue(), maxSizePerBatch))
+                e -> new ConcurrentHashSet<>(Sets.partition(e.getValue(), maxSizePerBatch))
             ));
         parBatchs.keySet().parallelStream()
             .flatMap(partition -> parBatchs.get(partition).stream())

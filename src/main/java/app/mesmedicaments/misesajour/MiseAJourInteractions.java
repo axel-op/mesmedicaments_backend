@@ -14,8 +14,6 @@ import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.Sets;
-
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
@@ -25,6 +23,7 @@ import app.mesmedicaments.objets.Interaction;
 import app.mesmedicaments.objets.Langue;
 import app.mesmedicaments.objets.substances.Substance;
 import app.mesmedicaments.utils.ClientHttp;
+import app.mesmedicaments.utils.Sets;
 import app.mesmedicaments.utils.Utils;
 
 public final class MiseAJourInteractions {

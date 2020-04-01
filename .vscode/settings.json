@@ -5,5 +5,5 @@
   "azureFunctions.preDeployTask": "package",
   "debug.internalConsoleOptions": "neverOpen",
   "java.configuration.updateBuildConfiguration": "automatic",
-  "java.format.settings.url": "eclipse-formatter.xml"
+  //"java.format.settings.url": "eclipse-formatter.xml"
 }

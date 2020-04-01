@@ -2,7 +2,7 @@ package app.mesmedicaments.basededonnees;
 
 import java.util.Optional;
 
-import com.google.common.collect.ImmutableList;
+import app.mesmedicaments.utils.UnmodifiableListView;
 
 /**
  * 
@@ -31,11 +31,11 @@ interface ICache<D, C extends ICache.Cachable<D>> {
      */
     static public class Cachable<D> {
         protected final Optional<D> document;
-        protected final ImmutableList<String> ids;
+        protected final UnmodifiableListView<String> ids;
 
         public Cachable(Optional<D> document, String... ids) {
             this.document = document;
-            this.ids = ImmutableList.copyOf(ids);
+            this.ids = new UnmodifiableListView<>(ids);
         }
 
         public boolean isPresent() {

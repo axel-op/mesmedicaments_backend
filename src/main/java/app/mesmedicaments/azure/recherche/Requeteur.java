@@ -1,12 +1,11 @@
 package app.mesmedicaments.azure.recherche;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import com.google.common.collect.Lists;
 
 import org.json.JSONObject;
 
@@ -20,7 +19,11 @@ public class Requeteur {
             .split(" ");
 
     static private List<String> separerTermes(String recherche) {
-        return Lists.newArrayList(recherche.split(" ", 0))
+        final List<String> list = new ArrayList<>();
+        for (String e : recherche.split(" ", 0)) {
+            list.add(e);
+        }
+        return list
                 .stream()
                 .filter(t -> !t.matches(" *"))
                 .collect(Collectors.toList());

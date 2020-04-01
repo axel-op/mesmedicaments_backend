@@ -9,9 +9,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import com.google.common.collect.Sets;
-
 import app.mesmedicaments.objets.medicaments.Medicament;
+import app.mesmedicaments.utils.ConcurrentHashSet;
 
 public
 class Utilisateur {
@@ -61,7 +60,7 @@ class Utilisateur {
         LocalDate date, 
         Collection<? extends Medicament<?, ?, ?>> medicaments
     ) {
-        map.computeIfAbsent(date, k -> Sets.newConcurrentHashSet())
+        map.computeIfAbsent(date, k -> new ConcurrentHashSet<>())
             .addAll(medicaments);
     }
 

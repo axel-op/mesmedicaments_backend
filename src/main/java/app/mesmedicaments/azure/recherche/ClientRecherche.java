@@ -7,10 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.logging.Logger;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.io.CharStreams;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -18,6 +14,8 @@ import app.mesmedicaments.Environnement;
 import app.mesmedicaments.objets.medicaments.MedicamentFrance;
 import app.mesmedicaments.utils.ClientHttp;
 import app.mesmedicaments.utils.JSONArrays;
+import app.mesmedicaments.utils.MultiMap;
+import app.mesmedicaments.utils.Utils;
 import app.mesmedicaments.utils.unchecked.Unchecker;
 
 public class ClientRecherche {
@@ -142,16 +140,16 @@ public class ClientRecherche {
 
     private String send(String method, String url, String key, String contents) throws IOException {
         contents = contents == null ? "" : contents;
-        final Multimap<String, String> requestProperties = HashMultimap.create();
-        requestProperties.put("api-key", key);
-        requestProperties.put("content-type", "application/json");
+        final MultiMap<String, String> requestProperties = new MultiMap<>();
+        requestProperties.add("api-key", key);
+        requestProperties.add("content-type", "application/json");
         final ClientHttp client = new ClientHttp();
         final InputStream responseStream =
                 method.equals("GET")
                         ? client.get(url, requestProperties)
                         : client.post(url, requestProperties, contents);
         final String corpsRep =
-                CharStreams.toString(new InputStreamReader(responseStream, StandardCharsets.UTF_8));
+                Utils.stringify(new InputStreamReader(responseStream, StandardCharsets.UTF_8));
         return corpsRep;
     }
 }

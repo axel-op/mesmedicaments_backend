@@ -8,8 +8,6 @@ import java.nio.charset.StandardCharsets;
 
 import javax.net.ssl.HttpsURLConnection;
 
-import com.google.common.collect.Multimap;
-
 public class ClientHttp {
 
     public ClientHttp() {}
@@ -18,7 +16,7 @@ public class ClientHttp {
         return get(URL, null);
     }
 
-    public InputStream get(String URL, Multimap<String, String> requestProperties)
+    public InputStream get(String URL, MultiMap<String, String> requestProperties)
             throws IOException {
         final HttpsURLConnection connection = (HttpsURLConnection) new URL(URL).openConnection();
         if (requestProperties != null) {
@@ -27,7 +25,7 @@ public class ClientHttp {
         return connection.getInputStream();
     }
 
-    public InputStream post(String URL, Multimap<String, String> requestProperties, String content)
+    public InputStream post(String URL, MultiMap<String, String> requestProperties, String content)
             throws IOException {
         final HttpsURLConnection connection = (HttpsURLConnection) new URL(URL).openConnection();
         connection.setRequestMethod("POST");

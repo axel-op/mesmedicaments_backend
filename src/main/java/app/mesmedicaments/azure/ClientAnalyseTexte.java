@@ -9,10 +9,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.io.CharStreams;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -20,6 +16,8 @@ import app.mesmedicaments.Environnement;
 import app.mesmedicaments.utils.ClientHttp;
 import app.mesmedicaments.utils.JSONArrays;
 import app.mesmedicaments.utils.JSONObjectUneCle;
+import app.mesmedicaments.utils.MultiMap;
+import app.mesmedicaments.utils.Utils;
 
 public class ClientAnalyseTexte {
 
@@ -64,16 +62,16 @@ public class ClientAnalyseTexte {
             documents.put(creerDocument(decoupe, String.valueOf(id)));
             id++;
         }
-        final Multimap<String, String> requestProperties = HashMultimap.create();
-        requestProperties.put("Content-Type", "text/json");
-        requestProperties.put("Ocp-Apim-Subscription-Key", CLE_API);
+        final MultiMap<String, String> requestProperties = new MultiMap<>();
+        requestProperties.add("Content-Type", "text/json");
+        requestProperties.add("Ocp-Apim-Subscription-Key", CLE_API);
         final ClientHttp client = new ClientHttp();
         final InputStream responseStream =
                 client.post(
                         ADRESSE_API,
                         requestProperties,
                         new JSONObjectUneCle("documents", documents).toString());
-        final String corpsRep = CharStreams.toString(new InputStreamReader(responseStream, "UTF-8"));
+        final String corpsRep = Utils.stringify(new InputStreamReader(responseStream, "UTF-8"));
         return JSONArrays.toSetJSONObject(new JSONObject(corpsRep).getJSONArray("documents"))
             .stream()
             .map(d -> d.getJSONArray("keyPhrases"))

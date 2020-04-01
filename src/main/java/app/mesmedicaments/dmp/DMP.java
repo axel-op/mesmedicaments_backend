@@ -16,10 +16,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
-
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.json.JSONObject;
@@ -31,6 +27,9 @@ import app.mesmedicaments.azure.tables.clients.ClientTableMedicamentsFrance;
 import app.mesmedicaments.basededonnees.ExceptionTable;
 import app.mesmedicaments.objets.medicaments.MedicamentFrance;
 import app.mesmedicaments.utils.ClientHttp;
+import app.mesmedicaments.utils.ConcurrentHashSet;
+import app.mesmedicaments.utils.MultiMap;
+import app.mesmedicaments.utils.Sets;
 import app.mesmedicaments.utils.Utils;
 import app.mesmedicaments.utils.unchecked.Unchecker;
 
@@ -69,7 +68,7 @@ public class DMP {
 
     private Optional<MedicamentFrance> chercher(String ligne) throws IOException, ExceptionTable {
         if (ligne.matches(" *")) return Optional.empty();
-        final Set<String> mots = Sets.newHashSet(ligne.split(" "))
+        final Set<String> mots = Sets.fromArray(ligne.split(" "))
             .stream()
             .map(this::transformerMot)
             .filter(m -> !m.equals(""))
@@ -154,7 +153,7 @@ public class DMP {
                 final LocalDate date = tryParseDate(ligne.substring(0, 10));
                 if (date == null) continue;
                     aChercher
-                        .computeIfAbsent(date, k -> Sets.newConcurrentHashSet())
+                        .computeIfAbsent(date, k -> new ConcurrentHashSet<>())
                         .add(ligne.substring(10));
             }
             else if (ligne.contains("Pharmacie / fournitures")) {
@@ -170,9 +169,9 @@ public class DMP {
 
     private Optional<PDDocument> getFichierRemboursements() {
         try {
-            final Multimap<String, String> requestProperties = HashMultimap.create();
+            final MultiMap<String, String> requestProperties = new MultiMap<>();
             cookies.entrySet()
-                    .forEach(e -> requestProperties.put(
+                    .forEach(e -> requestProperties.add(
                         "Cookie", e.getKey() + "=" + e.getValue() + "; "));
             final PDDocument document =
                     PDDocument.load(

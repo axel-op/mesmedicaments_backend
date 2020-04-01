@@ -17,8 +17,6 @@ import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.Sets;
-
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -33,6 +31,7 @@ import app.mesmedicaments.objets.medicaments.MedicamentFrance;
 import app.mesmedicaments.objets.presentations.PresentationFrance;
 import app.mesmedicaments.objets.substances.Substance;
 import app.mesmedicaments.objets.substances.SubstanceActiveFrance;
+import app.mesmedicaments.utils.ConcurrentHashSet;
 import app.mesmedicaments.utils.Utils;
 
 public class UpdaterFrance implements Updater<
@@ -73,7 +72,7 @@ public class UpdaterFrance implements Updater<
     @Override
     public Set<MedicamentIncomplet<Pays.France, MedicamentFrance>> getNouveauxMedicaments() throws IOException {
         final BufferedReader fichierMedicaments = telechargerFichier(URL_FICHIER_BDPM);
-        final Set<LigneFichierBDPM> lignesBDPM = Sets.newConcurrentHashSet();
+        final Set<LigneFichierBDPM> lignesBDPM = new ConcurrentHashSet<>();
         fichierMedicaments
                 .lines()
                 .map(LigneFichierBDPM::new)

@@ -1,6 +1,5 @@
 package app.mesmedicaments.azure.fonctions.publiques;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -11,7 +10,6 @@ import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.Sets;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -34,6 +32,7 @@ import app.mesmedicaments.objets.Interaction;
 import app.mesmedicaments.objets.Pays;
 import app.mesmedicaments.objets.medicaments.Medicament;
 import app.mesmedicaments.objets.substances.Substance;
+import app.mesmedicaments.utils.Sets;
 import app.mesmedicaments.utils.Utils;
 import app.mesmedicaments.utils.unchecked.Unchecker;
 
@@ -117,9 +116,8 @@ public final class Interactions {
 
     private Set<InteractionAvecMedicaments> obtenirInteractions(Set<Medicament<?, ?, ?>> medicaments) {
         if (medicaments.size() < 2) return new HashSet<>();
-        return Sets.combinations(medicaments, 2)
+        return Sets.combinations(medicaments)
             .parallelStream()
-            .map(ArrayList::new)
             .map(comb -> obtenirInteractions(comb.get(0), comb.get(1)))
             .flatMap(Set::stream)
             .collect(Collectors.toSet());

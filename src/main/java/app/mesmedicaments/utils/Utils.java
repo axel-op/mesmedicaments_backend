@@ -1,5 +1,9 @@
 package app.mesmedicaments.utils;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -18,6 +22,17 @@ public final class Utils {
     private static final Map<String, String> cacheNormalisation = new ConcurrentHashMap<>();
 
     private Utils() {}
+
+    public static String stringify(InputStreamReader isr) throws IOException {
+        final StringBuilder sb = new StringBuilder();
+        try (Reader rd = new BufferedReader(isr)) {
+            int c = 0;
+            while ((c = rd.read()) != -1) {
+                sb.append((char) c);
+            }
+        }
+        return sb.toString();
+    }
 
     public static String[] decouperTexte(String texte, int nbrDecoupes) {
         String[] retour = new String[nbrDecoupes];

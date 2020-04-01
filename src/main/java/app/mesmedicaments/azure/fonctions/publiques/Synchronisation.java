@@ -10,7 +10,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.Sets;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -33,6 +32,7 @@ import app.mesmedicaments.objets.Pays;
 import app.mesmedicaments.objets.Utilisateur;
 import app.mesmedicaments.objets.medicaments.Medicament;
 import app.mesmedicaments.objets.medicaments.MedicamentFrance;
+import app.mesmedicaments.utils.ConcurrentHashSet;
 import app.mesmedicaments.utils.JSONArrays;
 import app.mesmedicaments.utils.JSONObjectUneCle;
 import app.mesmedicaments.utils.Utils;
@@ -141,7 +141,7 @@ public final class Synchronisation {
             .forEach(Unchecker.panic(i -> {
                 final Optional<MedicamentFrance> optMed = client.get(i.code);
                 if (optMed.isPresent()) {
-                    map.computeIfAbsent(i.date, k -> Sets.newConcurrentHashSet())
+                    map.computeIfAbsent(i.date, k -> new ConcurrentHashSet<>())
                         .add(optMed.get());
                 }
             }));

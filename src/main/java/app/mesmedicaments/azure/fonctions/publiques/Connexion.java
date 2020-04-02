@@ -19,21 +19,14 @@ import org.json.JSONObject;
 
 import app.mesmedicaments.dmp.Authentificateur;
 import app.mesmedicaments.utils.Utils;
-import io.jsonwebtoken.JwtException;
 
 public final class Connexion {
 
     @FunctionName("connexion")
     public HttpResponseMessage connexion(
-            @HttpTrigger(
-                            name = "connexionTrigger",
-                            authLevel = AuthorizationLevel.ANONYMOUS,
-                            methods = {HttpMethod.POST},
-                            dataType = "string",
-                            route = "connexion/{etape:int}")
-                    final HttpRequestMessage<Optional<String>> request,
-            @BindingName("etape") final int etape,
-            final ExecutionContext context) {
+            @HttpTrigger(name = "connexionTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
+                    HttpMethod.POST }, dataType = "string", route = "connexion/{etape:int}") final HttpRequestMessage<Optional<String>> request,
+            @BindingName("etape") final int etape, final ExecutionContext context) {
         final JSONObject corpsReponse = new JSONObject();
         final Logger logger = context.getLogger();
         HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
@@ -59,10 +52,9 @@ public final class Connexion {
                     resultat = auth.connexionDMPDeuxiemeEtape(code, donneesConnexion);
                     codeHttp = obtenirCodeHttp(resultat);
                     if (codeHttp == HttpStatus.OK) {
-                        corpsReponse
-                                .put("accessToken", auth.createAccessToken())
-                                .put("urlRemboursements", resultat.getString("urlRemboursements"));
-                        if (resultat.has("genre")) corpsReponse.put("genre", resultat.get("genre"));
+                        corpsReponse.put("urlRemboursements", resultat.getString("urlRemboursements"));
+                        if (resultat.has("genre"))
+                            corpsReponse.put("genre", resultat.get("genre"));
                     } else {
                         corpsReponse.put("donneesConnexion", resultat.getJSONObject("donneesConnexion"));
                     }
@@ -70,15 +62,9 @@ public final class Connexion {
                 default:
                     throw new IllegalArgumentException();
             }
-        } catch (JSONException
-                | NullPointerException
-                | NoSuchElementException
-                | IllegalArgumentException e) {
+        } catch (JSONException | NullPointerException | NoSuchElementException | IllegalArgumentException e) {
             Utils.logErreur(e, logger);
             codeHttp = HttpStatus.BAD_REQUEST;
-        } catch (final JwtException e) {
-            Utils.logErreur(e, logger);
-            codeHttp = HttpStatus.UNAUTHORIZED;
         } catch (final Exception e) {
             Utils.logErreur(e, logger);
             codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -87,7 +73,8 @@ public final class Connexion {
     }
 
     private HttpStatus obtenirCodeHttp(JSONObject resultat) {
-        if (resultat.isNull(Authentificateur.CLE_ERREUR)) return HttpStatus.OK;
+        if (resultat.isNull(Authentificateur.CLE_ERREUR))
+            return HttpStatus.OK;
         return resultat.getString(Authentificateur.CLE_ERREUR).equals(Authentificateur.ERR_INTERNE)
                 ? HttpStatus.INTERNAL_SERVER_ERROR
                 : HttpStatus.CONFLICT;

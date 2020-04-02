@@ -22,51 +22,31 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import org.json.JSONObject;
 
 import app.mesmedicaments.azure.fonctions.Convertisseur;
-import app.mesmedicaments.azure.tables.clients.ClientTableUtilisateur;
-import app.mesmedicaments.dmp.Authentificateur;
 import app.mesmedicaments.dmp.DMP;
-import app.mesmedicaments.objets.Utilisateur;
 import app.mesmedicaments.objets.medicaments.MedicamentFrance;
 import app.mesmedicaments.utils.Utils;
-import io.jsonwebtoken.JwtException;
 
 public final class Dmp {
 
     @FunctionName("dmp")
     public HttpResponseMessage dmp(
-            @HttpTrigger(
-                            name = "dmpTrigger",
-                            authLevel = AuthorizationLevel.ANONYMOUS,
-                            methods = {HttpMethod.POST},
-                            route = "dmp/{categorie:alpha}")
-                    final HttpRequestMessage<Optional<String>> request,
-            @BindingName("categorie") final String categorie,
-            final ExecutionContext context) {
+            @HttpTrigger(name = "dmpTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
+                    HttpMethod.POST }, route = "dmp/{categorie:alpha}") final HttpRequestMessage<Optional<String>> request,
+            @BindingName("categorie") final String categorie, final ExecutionContext context) {
         final Logger logger = context.getLogger();
-        final String accessToken = request.getHeaders().get(Commun.HEADER_AUTHORIZATION);
         final JSONObject corpsRequete = new JSONObject(request.getBody().get());
         final JSONObject corpsReponse = new JSONObject();
         HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
         try {
-            final String id = Authentificateur.getIdFromToken(accessToken);
             if (!categorie.equals("medicaments"))
                 return Commun.construireReponse(HttpStatus.BAD_REQUEST, request);
             final JSONObject donneesConnexion = corpsRequete.getJSONObject("donneesConnexion");
             verifierDate(donneesConnexion);
-            final DMP dmp = new DMP(
-                    corpsRequete.getString("urlRemboursements"),
-                    obtenirCookies(donneesConnexion),
+            final DMP dmp = new DMP(corpsRequete.getString("urlRemboursements"), obtenirCookies(donneesConnexion),
                     logger);
             final Map<LocalDate, Set<MedicamentFrance>> medsParDate = dmp.obtenirMedicaments();
-            final ClientTableUtilisateur client = new ClientTableUtilisateur();
-            final Utilisateur utilisateur = client.get(id).get();
-            medsParDate.forEach((d, s) -> utilisateur.ajouterMedicamentsDMP(d, s));
-            client.set(utilisateur);
             corpsReponse.put("medicaments", medicamentsEnJson(medsParDate));
             codeHttp = HttpStatus.OK;
-        } catch (JwtException | IllegalArgumentException e) {
-            Utils.logErreur(e, logger);
-            codeHttp = HttpStatus.UNAUTHORIZED;
         } catch (final Exception e) {
             Utils.logErreur(e, logger);
             codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -76,25 +56,19 @@ public final class Dmp {
 
     private JSONObject medicamentsEnJson(Map<LocalDate, Set<MedicamentFrance>> medsParDate) {
         final JSONObject json = new JSONObject();
-        medsParDate.forEach((d, s) -> json.put(
-            d.toString(),
-            s.stream().map(Convertisseur::toJSON).collect(Collectors.toSet())
-        ));
+        medsParDate.forEach(
+                (d, s) -> json.put(d.toString(), s.stream().map(Convertisseur::toJSON).collect(Collectors.toSet())));
         return json;
     }
 
     private Map<String, String> obtenirCookies(JSONObject donneesConnexion) {
         final JSONObject cookiesJson = donneesConnexion.getJSONObject("cookies");
-        return cookiesJson.keySet().stream()
-                .collect(Collectors.toMap(k -> k, k -> cookiesJson.getString(k)));
+        return cookiesJson.keySet().stream().collect(Collectors.toMap(k -> k, k -> cookiesJson.getString(k)));
     }
 
     private void verifierDate(JSONObject donneesConnexion) throws IllegalArgumentException {
-        if (LocalDateTime.parse(
-                donneesConnexion.getString("date"),
-                DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-            .isBefore(LocalDateTime.now().minusMinutes(30)))
-                    throw new IllegalArgumentException(
-                            "Plus de 30 minutes se sont écoulées depuis la connexion");
+        if (LocalDateTime.parse(donneesConnexion.getString("date"), DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .isBefore(LocalDateTime.now().minusMinutes(30)))
+            throw new IllegalArgumentException("Plus de 30 minutes se sont écoulées depuis la connexion");
     }
 }

@@ -3,7 +3,6 @@ package app.mesmedicaments.dmp;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -18,12 +17,6 @@ import org.jsoup.nodes.Document;
 import app.mesmedicaments.Environnement;
 import app.mesmedicaments.utils.JSONObjectUneCle;
 import app.mesmedicaments.utils.Utils;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.SignatureException;
-import io.jsonwebtoken.UnsupportedJwtException;
 
 public final class Authentificateur {
 
@@ -46,24 +39,6 @@ public final class Authentificateur {
     private static final String URL_INFOS_DMP = Environnement.DMP_URL_INFOS_DMP;
     private static final String URL_LISTE_DOCS = Environnement.DMP_URL_LISTE_DOCS;
     private static final String URL_BASE = Environnement.DMP_URL_BASE;
-    private static final SignatureAlgorithm JWT_SIGNING_ALG = SignatureAlgorithm.HS512;
-    private static final String JWT_SIGNING_KEY = "SuperSecretTest";
-    ///////////////// TODO définir un secret et le lier à une variable
-    ///////////////// d'environnement
-
-    public static String getIdFromToken(String jwt)
-            throws SignatureException, ExpiredJwtException, MalformedJwtException,
-                    UnsupportedJwtException {
-        if (jwt == null) {
-            throw new MalformedJwtException("Le token est absent");
-        }
-        return (String)
-                Jwts.parser()
-                        .setSigningKey(JWT_SIGNING_KEY)
-                        .parseClaimsJws(jwt)
-                        .getBody()
-                        .get("id");
-    }
 
     private Logger logger;
     private String id;
@@ -74,19 +49,6 @@ public final class Authentificateur {
         }
         this.logger = logger;
         this.id = id;
-    }
-
-    /**
-     * Crée le seul token nécessaire pour modifier/accéder aux médicaments de l'utilisateur
-     *
-     * @return
-     */
-    public String createAccessToken() {
-        return Jwts.builder()
-                .signWith(JWT_SIGNING_ALG, JWT_SIGNING_KEY)
-                .setClaims(new JSONObjectUneCle("id", id).toMap())
-                .setIssuedAt(new Date())
-                .compact();
     }
 
     public JSONObject connexionDMPPremiereEtape(String mdp) {
@@ -101,15 +63,9 @@ public final class Authentificateur {
             cookies = new HashMap<>(reponse.cookies());
             pageReponse = reponse.parse();
             connexion = Jsoup.connect(URL_POST_FORM_DMP);
-            connexion
-                    .method(Connection.Method.POST)
-                    .data("login", id)
-                    .data("password", mdp)
-                    .data("sid", obtenirSid(pageReponse))
-                    .data("t:formdata", obtenirTformdata(pageReponse))
-                    .cookies(cookies)
-                    .userAgent(USERAGENT)
-                    .execute();
+            connexion.method(Connection.Method.POST).data("login", id).data("password", mdp)
+                    .data("sid", obtenirSid(pageReponse)).data("t:formdata", obtenirTformdata(pageReponse))
+                    .cookies(cookies).userAgent(USERAGENT).execute();
             Connection.Response deuxiemeReponse = connexion.response();
             if (reponse.url().equals(deuxiemeReponse.url())) {
                 logger.info("La connexion a échoué (mauvais identifiants)");
@@ -131,12 +87,8 @@ public final class Authentificateur {
                 return new JSONObjectUneCle(CLE_ERREUR, ERR_INTERNE);
             }
             // Envoi du code
-            connexion
-                    .data("sid", obtenirSid(pageReponse))
-                    .data("t:formdata", obtenirTformdata(pageReponse))
-                    .userAgent(USERAGENT)
-                    .cookies(cookies)
-                    .execute();
+            connexion.data("sid", obtenirSid(pageReponse)).data("t:formdata", obtenirTformdata(pageReponse))
+                    .userAgent(USERAGENT).cookies(cookies).execute();
             reponse = connexion.response();
             pageReponse = reponse.parse();
             retour.put("donneesConnexion", convertirDonneesDeConnexion(pageReponse, cookies));
@@ -154,39 +106,29 @@ public final class Authentificateur {
         Connection.Response reponse;
         Map<String, String> cookies;
         try {
-            LocalDateTime timestamp =
-                    LocalDateTime.parse(
-                            donneesConnexion.getString("date"),
-                            DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            LocalDateTime timestamp = LocalDateTime.parse(donneesConnexion.getString("date"),
+                    DateTimeFormatter.ISO_LOCAL_DATE_TIME);
             if (maintenant.minusMinutes(10).isAfter(timestamp)) {
                 throw new IllegalArgumentException("L'heure ne correspond pas ou plus");
             }
             final JSONObject cookiesJSON = donneesConnexion.getJSONObject("cookies");
-            cookies =
-                    cookiesJSON.keySet().stream()
-                            .collect(Collectors.toMap(k -> k, k -> cookiesJSON.getString(k)));
+            cookies = cookiesJSON.keySet().stream().collect(Collectors.toMap(k -> k, k -> cookiesJSON.getString(k)));
             connexion = Jsoup.connect(URL_ENVOI_CODE);
-            connexion
-                    .method(Connection.Method.POST)
-                    .data("sid", donneesConnexion.getString("sid"))
-                    .data("t:formdata", donneesConnexion.getString("tformdata"))
-                    .data("ipCode", code)
-                    .userAgent(USERAGENT)
-                    .cookies(cookies)
-                    .execute();
+            connexion.method(Connection.Method.POST).data("sid", donneesConnexion.getString("sid"))
+                    .data("t:formdata", donneesConnexion.getString("tformdata")).data("ipCode", code)
+                    .userAgent(USERAGENT).cookies(cookies).execute();
             reponse = connexion.response();
             Document page = reponse.parse();
-            if (!reponse.url()
-                    .toString()
-                    .matches(REGEX_ACCUEIL)) { // TODO : logger le nombre d'échecs pour être averti
+            if (!reponse.url().toString().matches(REGEX_ACCUEIL)) { // TODO : logger le nombre d'échecs pour être averti
                 // au cas où la regex n'est plus valide
-                return retour.put("donneesConnexion", convertirDonneesDeConnexion(page, cookies))
-                        .put(CLE_ERREUR, ERR_ID);
+                return retour.put("donneesConnexion", convertirDonneesDeConnexion(page, cookies)).put(CLE_ERREUR,
+                        ERR_ID);
             }
             retour.put("urlRemboursements", obtenirURLFichierRemboursements(cookies).orElse(null));
             try {
                 Optional<String> optGenre = obtenirGenre(cookies);
-                if (optGenre.isPresent()) retour.put("genre", optGenre.get());
+                if (optGenre.isPresent())
+                    retour.put("genre", optGenre.get());
             } catch (IOException e) {
                 logger.warning("Impossible de récupérer le genre");
             }
@@ -198,8 +140,9 @@ public final class Authentificateur {
     }
 
     /**
-     * Renvoie un JSON contenant les données nécessaires au maintien de la connexion entre les deux
-     * étapes. Cet objet doit être restitué tel quel pour la deuxième étape.
+     * Renvoie un JSON contenant les données nécessaires au maintien de la connexion
+     * entre les deux étapes. Cet objet doit être restitué tel quel pour la deuxième
+     * étape.
      *
      * @param page
      * @param cookies
@@ -208,18 +151,11 @@ public final class Authentificateur {
     private JSONObject convertirDonneesDeConnexion(Document page, Map<String, String> cookies) {
         final String sid = obtenirSid(page);
         final String tformdata = obtenirTformdata(page);
-        return new JSONObject()
-                .put("cookies", new JSONObject(cookies))
-                .put("sid", sid)
-                .put("tformdata", tformdata)
-                .put(
-                        "date",
-                        LocalDateTime.now(Utils.TIMEZONE)
-                                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        return new JSONObject().put("cookies", new JSONObject(cookies)).put("sid", sid).put("tformdata", tformdata)
+                .put("date", LocalDateTime.now(Utils.TIMEZONE).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
     }
 
-    private Optional<String> obtenirURLFichierRemboursements(Map<String, String> cookies)
-            throws IOException {
+    private Optional<String> obtenirURLFichierRemboursements(Map<String, String> cookies) throws IOException {
         Connection connexion = Jsoup.connect(URL_LISTE_DOCS);
         connexion.method(Connection.Method.GET).userAgent(USERAGENT).cookies(cookies).execute();
         Document doc = connexion.response().parse();

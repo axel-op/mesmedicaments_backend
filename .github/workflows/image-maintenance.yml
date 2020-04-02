@@ -5,12 +5,12 @@ on:
     branches:
       - master
     paths:
-      '**.java'
+      - "**.java"
+      - "*.json"
+      - "*.csproj"
 
 jobs:
-
   build:
-
     if: github.actor == 'axel-op'
 
     runs-on: ubuntu-latest
@@ -36,4 +36,3 @@ jobs:
           sudo docker build -f $DOCKERFILE -t $IMAGE:$LABEL .
           echo $TOKEN | sudo docker login --username=$USERNAME --password-stdin
           sudo docker push $IMAGE:$LABEL
-

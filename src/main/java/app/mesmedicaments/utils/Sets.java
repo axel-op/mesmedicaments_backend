@@ -71,11 +71,15 @@ public class Sets {
         return partitions;
     }
 
+    static public <E> HashSet<E> fromIterable(Iterable<E> iterable) {
+        final HashSet<E> set = new HashSet<>();
+        for (E e : iterable) set.add(e);
+        return set;
+    }
+
     static public <E> HashSet<E> fromArray(E[] array) {
         final HashSet<E> set = new HashSet<>();
-        for (E e : array) {
-            set.add(e);
-        }
+        for (E e : array) set.add(e);
         return set;
     }
 

@@ -52,7 +52,7 @@ public class ClientAnalyseTexte {
             .put("text", texte);
     }
 
-    static public Set<String> obtenirExpressionsCles(String texte) throws IOException {
+    static public Set<String> getExpressionsCles(String texte) throws IOException {
         if (texte == null || texte.equals("")) return new HashSet<>();
         final int limiteParDoc = 5110 - " ".length();
         final List<String> decoupes = decouper(texte, limiteParDoc);
@@ -76,6 +76,137 @@ public class ClientAnalyseTexte {
             .stream()
             .map(d -> d.getJSONArray("keyPhrases"))
             .flatMap(ja -> JSONArrays.toSetString(ja).stream())
+            .filter(ClientAnalyseTexte::conserver)
             .collect(Collectors.toSet());
     }
+
+    static private boolean conserver(String expression) {
+        for (String prefix : prefixes) {
+            if (expression.matches(prefix + ".*")) {
+                return false;
+            }
+        }
+        for (String str : contient) {
+            if (expression.matches(".*" + str + ".*")) {
+                return false;
+            }
+        }
+        for (String regex : exactMatches) {
+            if (expression.matches(regex)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static private final String[] prefixes = {
+        "avertissements?",
+        "adolescent",
+        "dose ",
+        "phosphate",
+        "glucose",
+        "traitement",
+        "cas d" // ex. "cas d'exposition"
+    };
+
+    static private final String[] contient = {
+        "médecins?",
+        "pharmaciens?",
+        "infirmiers?",
+        "patients?",
+        "informations?",
+        "rubriques?",
+        "effets? secondaires?",
+        "produits? de santé",
+        "effets? indésirables?",
+        "ANSM",
+        "notice",
+        "Centres Régionaux",
+        "national",
+        "nationaux",
+        "internet",
+        "médicaments?",
+        "symptômes?",
+        "données?",
+        "fréquence indéterminée",
+        "commercialisation",
+        "comprimé",
+        "avenir",
+        "exemple",
+        "tableau",
+        "suivant",
+        "études?",
+        "prescrit",
+        "recommandé",
+        "pharmacovigilance",
+        "activité électrique",
+        "sertraline",
+        "sujet",
+        "régression",
+        "utilisation",
+        "monde",
+        "avis"
+    };
+
+    static private final String[] exactMatches = {
+        "femmes?",
+        "personnes? âgées?",
+        "sujets? âgés?",
+        "difficultés?",
+        "possibilités?",
+        "fréquence",
+        "jusqu",
+        "(rares )?cas( (d|(rares?)|(isolés?)))?",
+        "aggravations?",
+        "paracétamol",
+        "nombre",
+        "ère",
+        "sympt(o|ô)mes?",
+        ".* d",
+        "liste",
+        "mise",
+        "double",
+        "déficit",
+        "augmentation ((de la ((quantité)|(fréquence)))|(du ((taux)|(risque)))|(des concentrations))",
+        "évènements? survenus?",
+        "cas de reprise",
+        "particulier",
+        "parole",
+        "mêmes? endroits?",
+        "dose",
+        "tissus pulmonaires",
+        "propre sensibilité",
+        "retard",
+        "arrêt du traitement",
+        "origine allergique",
+        "arrêt brutal",
+        "agression",
+        "diminution",
+        "soleil",
+        "gélule",
+        "perte partielle",
+        "station debout",
+        "signes? de difficultés?",
+        "éjaculations?",
+        "ouverture partielle",
+        "prise",
+        "électrocardiogramme",
+        "niveaux? de la fonction hépatique",
+        "lèvres?",
+        "signes?",
+        "cas d'idée",
+        "nuit",
+        "lumière",
+        "adultes?",
+        "jambes?",
+        "sang",
+        "bras",
+        "yeux",
+        "sels?",
+        "mesures?",
+        "bouche",
+        "peau",
+        "contact du produit",
+        "effets locaux mineurs"
+    };
 }

@@ -29,7 +29,9 @@ extends ClientTableAzure<ClientTableExpressionsCles.ObjetExpressionCles> {
                 e -> new ObjetExpressionCles(
                     e.getPartitionKey(), 
                     e.getRowKey(), 
-                    e.getProperties().get("EffetsIndesirables").getValueAsString()
+                    new JSONArray(e.getProperties()
+                        .get("EffetsIndesirables")
+                        .getValueAsString())
                 ), 
                 o -> {
                     final EntiteDynamique entite = new EntiteDynamique(o.partition, o.row);
@@ -55,26 +57,26 @@ extends ClientTableAzure<ClientTableExpressionsCles.ObjetExpressionCles> {
         final String row = String.valueOf(code);
         final Optional<ObjetExpressionCles> o = super.get(partition, row);
         if (!o.isPresent()) {
-            final Set<String> nouvellesExprCles = ClientAnalyseTexte.obtenirExpressionsCles(effets);
+            final Set<String> nouvellesExprCles = ClientAnalyseTexte.getExpressionsCles(effets);
             super.set(
-                new ObjetExpressionCles(partition, row, new JSONArray(nouvellesExprCles).toString()),
+                new ObjetExpressionCles(partition, row, new JSONArray(nouvellesExprCles)),
                 partition,
                 row
             );
             return nouvellesExprCles;
         }
-        return JSONArrays.toSetString(o.get().expressions);
+        return new HashSet<>(o.get().expressions);
     }
 
     static protected class ObjetExpressionCles {
         final String partition;
         final String row;
-        final JSONArray expressions;
+        final Set<String> expressions;
 
-        private ObjetExpressionCles(String partition, String row, String expressions) {
+        private ObjetExpressionCles(String partition, String row, JSONArray expressions) {
             this.partition = partition;
             this.row = row;
-            this.expressions = new JSONArray(expressions);
+            this.expressions = JSONArrays.toSetString(expressions);
         }
     }
 }

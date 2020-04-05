@@ -2,7 +2,12 @@ Politique de confidentialité
 
 Application Mes médicaments
 
-Version du 13 janvier 2019
+Version du 5 avril 2020
+
+Points importants de la dernière mise à jour :
+	- Les médicaments de l'utilisateur ne sont plus sauvegardés côté serveur.
+	- L'identifiant du DMP associé à cette sauvegarde n'est par conséquent plus collecté non plus.
+	- Les seules informations collectées le sont à des fins statistiques, elles ne peuvent être reliées à l'utilisateur.
 
 L'application propose à l'utilisateur de renseigner ses identifiants de connexion au site Internet "Dossier Médical Partagé" (abrégé DMP), édité par la Caisse nationale de l'assurance maladie et consultable à la date de mise à jour de cette politique à l'adresse https://www.dmp.fr, afin d'en extraire certaines informations, consultables ensuite sur l'application Mes médicaments. 
 Il est rappelé à l'utilisateur que cette application n'a aucun lien avec la Caisse nationale de l'assurance maladie, ni avec la marque DMP, et n'a pas obtenu de quelconque certification de leur part. De ce fait la Caisse nationale de l'assurance maladie ne saurait être tenue responsable des informations affichées sur l'application Mes médicaments.
@@ -18,12 +23,11 @@ Il est rappelé à l'utilisateur que cette application n'a aucun lien avec la Ca
 	- Connexion réussie au DMP via l'application : la connexion au DMP via l'application est considérée comme réussie si l'utilisateur a fourni un couple identifiant/mot de passe du DMP valide, c'est-à-dire reconnu par le site Internet du DMP comme pouvant donner lieu à une connexion.
 	- Identifiant du DMP : un identifiant composé de quatre lettres puis quatre chiffres, utilisé par le site Internet du DMP pour la connexion à l'espace personnel. 
 	- Mot de passe du DMP : le mot de passe qui, associé à l'identifiant du DMP, permet la connexion à l'espace personnel du DMP sur le site Internet du DMP. 
-	- Jeton de connexion, ou token : une chaîne de caractères fournie par le logiciel serveur à l'application, suite à une connexion réussie au DMP via l'application, afin de permettre à l'application de récupérer certaines données personnelles auprès du logiciel serveur sans que l'utilisateur ait besoin d'établir une nouvelle connexion au DMP via l'application. Le jeton de connexion n'est pas accessible directement à l'utilisateur. 
 
 
 1. Nature des données traitées
 
-Les données ci-dessous ne sont traitées que lors d'une connexion réussie au DMP via l'application, mais toutes ne sont pas collectées (voir les sections suivantes) :
+Les données ci-dessous ne sont traitées que lors d'une connexion réussie au DMP via l'application :
 	- L'identifiant et le mot de passe de connexion au DMP.
 	- Des données de connexion temporaires au site Internet du DMP. 
 	- La liste des médicaments obtenue lors de la connexion au DMP, tel que décrit à la section 2.
@@ -34,44 +38,29 @@ Les données ci-dessous ne sont traitées que lors d'une connexion réussie au D
 
 L'identifiant du DMP et le mot de passe du DMP sont utilisés afin d'établir une connexion, à la demande de l'utilisateur, à son espace personnel sur le site du DMP, afin d'en extraire, si elle existe, et de façon automatisée et non supervisée par une personne physique, la liste des médicaments pour l'achat desquels l'utilisateur a obtenu un remboursement de la part de la Caisse nationale de l'assurance maladie. 
 
-L'identifiant du DMP est utilisé à des fins de sauvegarde de la liste des médicaments ainsi obtenue, tel que décrit dans la section 3.
-
 La liste des médicaments ainsi obtenue est utilisée dans l'application afin de fournir à l'utilisateur diverses informations en lien avec ces médicaments. 
 
-Le genre de l'utilisateur est collecté de façon anonyme à l'occasion de la connexion au DMP via l'application à des fins de statistiques. 
+Le genre de l'utilisateur est collecté de façon anonyme, à l'occasion de la connexion au DMP via l'application, à des fins statistiques. 
 
 
 3. Persistence des données et accès
 
 Conformément à l'article 6-5° de la loi n°78-17 du 6 janvier 1978 relative à l'informatique, aux fichiers et aux libertés, les données personnelles faisant l'objet d'un traitement ne sont pas conservées au-delà du temps nécessaire à l'exécution des obligations définies dans la section 2.
 
-L'identifiant du DMP est utilisé et stocké par le logiciel serveur afin d'enregistrer la liste des médicaments associée, et de permettre la synchronisation de cette liste entre plusieurs appareils, ou encore de la récupérer après que les données de l'appareil ou de l'application aient été effacées. 
-
-Ces données seront supprimées de la base si aucune connexion réussie au DMP via l'application n'a été établie pendant une période de trois ans maximum. Il n'est donné aucune garantie à l'utilisateur concernant la période de stockage minimale de ces données. Cette liste de médicaments est stockée de manière sécurisée et accessible seulement par la transmission au logiciel serveur d'un jeton de connexion (token) obtenu lors d'une connexion réussie au DMP via l'application. 
-
 Le genre de l'utilisateur est anonymisé, il est impossible de retrouver cette information à partir de l'identifiant de connexion au DMP une fois le processus de connexion au DMP via l'application terminé. 
 
-Le mot de passe du DMP n'est pas stocké dans le logiciel serveur. Il est porté à l'attention de l'utilisateur que ce mot de passe est cependant mémorisé dans un espace sécurisé sur son appareil, afin de pouvoir être réutilisé sans avoir besoin de le resaisir lorsque l'utilisateur souhaitera établir une nouvelle connexion au DMP via l'application. L'effacement des données de l'application entraîne donc également la suppression de cette donnée. 
+Le mot de passe du DMP n'est pas stocké dans le logiciel serveur. Il est porté à l'attention de l'utilisateur que ce mot de passe peut être, à sa demande explicite, mémorisé dans un espace sécurisé sur son appareil, afin de pouvoir être réutilisé sans avoir besoin de le resaisir lorsque l'utilisateur souhaitera établir une nouvelle connexion au DMP via l'application. L'effacement des données de l'application entraîne donc également la suppression de cette donnée. 
 
 
-4. Droits de l'utilisateur
-
-L'application considère qu'une connexion réussie au DMP via l'application suffit à certifier l'identité de l'utilisateur.
-
-Il est possible pour l'utilisateur ayant établi une telle connexion de demander l'accès et/ou l'effacement des données le concernant directement depuis la page "Aide" accessible depuis l'application. 
-
-Au cas où les données de l'application seraient effacées, ou bien au cas où l'utilisateur ait un appareil différent n'ayant pas encore établi une telle connexion, l'utilisateur devra alors faire telle une demande par courrier électronique à l'adresse de contact spécifiée à la section 6. Il est possible qu'à cette occasion des données personnelles déjà obtenues via le logiciel serveur soient demandées à l'utilisateur, à seule fin de vérifier son identité. 
-
-
-5. Lieux de traitement des données
+4. Lieux de traitement des données
 
 Les données sont traitées en France ou en Irlande. 
 
 
-6. Contact
+5. Contact
 
 L'adresse de messagerie électronique à laquelle adresser toute demande concernant les données personnelles est : contact@mesmedicaments.app.
 
 Les autres informations de contact pour toute question concernant les données personnelles sont les mêmes que celles affichées : 
-- dans les mentions légales, accessibles depuis la rubrique "Aide" de l'application, ou sur Internet, à l'adresse api.mesmedicaments.app/legal/mentions ;
-- et sur la fiche Google Play Store de l'application. 
+	- dans les mentions légales, accessibles sur Internet, à l'adresse http://api.mesmedicaments.app/legal/mentions ;
+	- et sur la fiche Google Play Store de l'application. 

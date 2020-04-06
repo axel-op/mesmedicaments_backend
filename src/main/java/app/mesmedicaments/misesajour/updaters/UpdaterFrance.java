@@ -111,12 +111,15 @@ public class UpdaterFrance implements Updater<
     }
 
     public String getEffetsIndesirables(long codeCIS) {
-        try {
-            final String url =
-                    "http://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid="
+        final String url = "http://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid="
                             + String.valueOf(codeCIS)
                             + "&typedoc=N";
-            final Document document = Jsoup.parse(new URL(url).openStream(), "ISO-8859-1", url);
+        try (InputStreamReader isr = new InputStreamReader(
+                                            new URL(url).openStream(),
+                                            StandardCharsets.ISO_8859_1)
+        ) {
+            final String html = Utils.stringify(isr);
+            final Document document = Jsoup.parse(html, url);
             String texte = "";
             Boolean balise = null;
             for (Element el : document.getAllElements()) {

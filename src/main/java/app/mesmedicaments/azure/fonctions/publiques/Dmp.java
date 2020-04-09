@@ -2,7 +2,6 @@ package app.mesmedicaments.azure.fonctions.publiques;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -23,6 +22,7 @@ import org.json.JSONObject;
 
 import app.mesmedicaments.azure.fonctions.Convertisseur;
 import app.mesmedicaments.dmp.DMP;
+import app.mesmedicaments.dmp.DonneesConnexion;
 import app.mesmedicaments.objets.medicaments.MedicamentFrance;
 import app.mesmedicaments.utils.Utils;
 
@@ -40,10 +40,11 @@ public final class Dmp {
         try {
             if (!categorie.equals("medicaments"))
                 return Commun.construireReponse(HttpStatus.BAD_REQUEST, request);
-            final JSONObject donneesConnexion = corpsRequete.getJSONObject("donneesConnexion");
-            verifierDate(donneesConnexion);
-            final DMP dmp = new DMP(corpsRequete.getString("urlRemboursements"), obtenirCookies(donneesConnexion),
-                    logger);
+            final DonneesConnexion donneesConnexion = new DonneesConnexion(corpsRequete.getJSONObject("donneesConnexion"));
+            verifierDate(donneesConnexion.date);
+            final DMP dmp = new DMP(corpsRequete.getString("urlRemboursements"),
+                                    donneesConnexion,
+                                    logger);
             final Map<LocalDate, Set<MedicamentFrance>> medsParDate = dmp.obtenirMedicaments();
             corpsReponse.put("medicaments", medicamentsEnJson(medsParDate));
             codeHttp = HttpStatus.OK;
@@ -61,14 +62,8 @@ public final class Dmp {
         return json;
     }
 
-    private Map<String, String> obtenirCookies(JSONObject donneesConnexion) {
-        final JSONObject cookiesJson = donneesConnexion.getJSONObject("cookies");
-        return cookiesJson.keySet().stream().collect(Collectors.toMap(k -> k, k -> cookiesJson.getString(k)));
-    }
-
-    private void verifierDate(JSONObject donneesConnexion) throws IllegalArgumentException {
-        if (LocalDateTime.parse(donneesConnexion.getString("date"), DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                .isBefore(LocalDateTime.now().minusMinutes(30)))
+    private void verifierDate(LocalDateTime date) throws IllegalArgumentException {
+        if (date.isBefore(LocalDateTime.now().minusMinutes(30)))
             throw new IllegalArgumentException("Plus de 30 minutes se sont écoulées depuis la connexion");
     }
 }

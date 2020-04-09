@@ -18,15 +18,26 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.dmp.Authentificateur;
+import app.mesmedicaments.dmp.DonneesConnexion;
+import app.mesmedicaments.dmp.Authentificateur.ReponseConnexion;
+import app.mesmedicaments.dmp.Authentificateur.ReponseConnexion1;
+import app.mesmedicaments.dmp.Authentificateur.ReponseConnexion2;
 import app.mesmedicaments.utils.Utils;
 
 public final class Connexion {
 
     @FunctionName("connexion")
     public HttpResponseMessage connexion(
-            @HttpTrigger(name = "connexionTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
-                    HttpMethod.POST }, dataType = "string", route = "connexion/{etape:int}") final HttpRequestMessage<Optional<String>> request,
-            @BindingName("etape") final int etape, final ExecutionContext context) {
+        @HttpTrigger(name = "connexionTrigger", 
+            authLevel = AuthorizationLevel.ANONYMOUS, 
+            methods = { HttpMethod.POST }, 
+            dataType = "string", 
+            route = "connexion/{etape:int}")
+        final HttpRequestMessage<Optional<String>> request,
+        @BindingName("etape")
+        final int etape,
+        final ExecutionContext context
+    ) {
         final JSONObject corpsReponse = new JSONObject();
         final Logger logger = context.getLogger();
         HttpStatus codeHttp = HttpStatus.NOT_IMPLEMENTED;
@@ -34,29 +45,25 @@ public final class Connexion {
             final JSONObject corpsRequete = new JSONObject(request.getBody().get());
             final String id = corpsRequete.getString("id");
             final Authentificateur auth = new Authentificateur(logger, id);
-            JSONObject resultat;
             switch (etape) {
                 case 1:
                     final String mdp = corpsRequete.getString("mdp");
-                    resultat = auth.connexionDMPPremiereEtape(mdp);
-                    corpsReponse.put("donneesConnexion", resultat.getJSONObject("donneesConnexion"));
+                    final ReponseConnexion1 resultat = auth.connexionDMPPremiereEtape(mdp);
+                    corpsReponse.put("donneesConnexion", resultat.donneesConnexion);
                     codeHttp = obtenirCodeHttp(resultat);
                     if (codeHttp == HttpStatus.OK) {
-                        corpsReponse.put(Authentificateur.CLE_ENVOI_CODE,
-                                resultat.getString(Authentificateur.CLE_ENVOI_CODE));
+                        corpsReponse.put("envoiCode", resultat.modeEnvoiCode);
                     }
                     break;
                 case 2:
                     final String code = String.valueOf(corpsRequete.getInt("code"));
-                    final JSONObject donneesConnexion = corpsRequete.getJSONObject("donneesConnexion");
-                    resultat = auth.connexionDMPDeuxiemeEtape(code, donneesConnexion);
-                    codeHttp = obtenirCodeHttp(resultat);
+                    final DonneesConnexion donneesConnexion = new DonneesConnexion(corpsRequete.getJSONObject("donneesConnexion"));
+                    final ReponseConnexion2 resultat2 = auth.connexionDMPDeuxiemeEtape(code, donneesConnexion);
+                    corpsReponse.put("donneesConnexion", resultat2.donneesConnexion);
+                    codeHttp = obtenirCodeHttp(resultat2);
                     if (codeHttp == HttpStatus.OK) {
-                        corpsReponse.put("urlRemboursements", resultat.getString("urlRemboursements"));
-                        if (resultat.has("genre"))
-                            corpsReponse.put("genre", resultat.get("genre"));
-                    } else {
-                        corpsReponse.put("donneesConnexion", resultat.getJSONObject("donneesConnexion"));
+                        corpsReponse.put("urlRemboursements", resultat2.urlRemboursements);
+                        if (resultat2.genre != null) corpsReponse.put("genre", resultat2.genre);
                     }
                     break;
                 default:
@@ -65,18 +72,22 @@ public final class Connexion {
         } catch (JSONException | NullPointerException | NoSuchElementException | IllegalArgumentException e) {
             Utils.logErreur(e, logger);
             codeHttp = HttpStatus.BAD_REQUEST;
-        } catch (final Exception e) {
+        } catch (Exception e) {
             Utils.logErreur(e, logger);
             codeHttp = HttpStatus.INTERNAL_SERVER_ERROR;
         }
         return Commun.construireReponse(codeHttp, corpsReponse, request);
     }
 
-    private HttpStatus obtenirCodeHttp(JSONObject resultat) {
-        if (resultat.isNull(Authentificateur.CLE_ERREUR))
-            return HttpStatus.OK;
-        return resultat.getString(Authentificateur.CLE_ERREUR).equals(Authentificateur.ERR_INTERNE)
-                ? HttpStatus.INTERNAL_SERVER_ERROR
-                : HttpStatus.CONFLICT;
+    private HttpStatus obtenirCodeHttp(ReponseConnexion resultat) {
+        switch (resultat.codeReponse) {
+            case ok: return HttpStatus.OK;
+            case erreurIds: return HttpStatus.CONFLICT;
+            default: return HttpStatus.INTERNAL_SERVER_ERROR;
+        }
     }
+}
+
+class IncorrectIdsException extends Exception {
+    private static final long serialVersionUID = 1L;
 }

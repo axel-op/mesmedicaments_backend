@@ -42,10 +42,10 @@ public class DMP {
     private final String URL_FICHIER_REMBOURSEMENTS;
     private Map<String, String> cookies;
 
-    public DMP(String urlFichierRemboursements, Map<String, String> cookies, Logger logger) {
+    public DMP(String urlFichierRemboursements, DonneesConnexion donneesConnexion, Logger logger) {
         this.logger = logger;
         this.URL_FICHIER_REMBOURSEMENTS = urlFichierRemboursements;
-        this.cookies = cookies;
+        this.cookies = donneesConnexion.cookies;
     }
 
     public Map<LocalDate, Set<MedicamentFrance>> obtenirMedicaments() throws IOException {

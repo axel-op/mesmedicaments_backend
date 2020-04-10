@@ -2,6 +2,7 @@ package app.mesmedicaments.utils;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.function.BiConsumer;
 import java.util.HashMap;
@@ -20,9 +21,27 @@ public class MultiMap<K, V> implements Iterable<Entry<K, V>> {
         map = new HashMap<>();
     }
 
+    public MultiMap(MultiMap<K, V> multiMap) {
+        this();
+        merge(multiMap);
+    }
+
+    public boolean merge(MultiMap<K, V> other) {
+        boolean changed = false;
+        for (K key : other.keySet()) {
+            changed = addAll(key, other.map.get(key)) || changed;
+        }
+        return changed;
+    }
+
     public boolean add(K key, V value) {
         if (value == null) return false;
         return map.computeIfAbsent(key, k -> new HashSet<>()).add(value);
+    }
+
+    public boolean addAll(K key, Collection<? extends V> values) {
+        if (values == null) return false;
+        return map.computeIfAbsent(key, k -> new HashSet<>()).addAll(values);
     }
 
     public boolean remove(K key, V value) {
@@ -41,6 +60,10 @@ public class MultiMap<K, V> implements Iterable<Entry<K, V>> {
             set.add(e);
         }
         return set;
+    }
+
+    public Set<K> keySet() {
+        return map.keySet();
     }
 
     public void forEach(BiConsumer<K, V> action) {

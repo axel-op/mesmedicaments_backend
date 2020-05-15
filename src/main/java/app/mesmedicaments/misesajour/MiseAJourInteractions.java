@@ -1,6 +1,7 @@
 package app.mesmedicaments.misesajour;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -75,7 +76,7 @@ public final class MiseAJourInteractions {
         this.interactionsBrouillon = new HashSet<>();
     }
 
-    public Set<Interaction> getInteractions() throws IOException {
+    public Set<Interaction> getInteractions() throws IOException, URISyntaxException {
         final long startTime = System.currentTimeMillis();
         final PDDocument fichier = recupererFichier();
         parserFichier(fichier);
@@ -84,7 +85,7 @@ public final class MiseAJourInteractions {
         return creerInteractions();          
     }
 
-    private PDDocument recupererFichier() throws IOException {
+    private PDDocument recupererFichier() throws IOException, URISyntaxException {
         logger.info(
                 "Récupération du fichier des interactions (url = "
                         + URL_FICHIER_INTERACTIONS

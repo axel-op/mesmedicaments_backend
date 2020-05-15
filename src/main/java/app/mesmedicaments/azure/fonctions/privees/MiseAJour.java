@@ -1,6 +1,7 @@
 package app.mesmedicaments.azure.fonctions.privees;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.Set;
@@ -99,7 +100,7 @@ public class MiseAJour {
     }
 
     static private void updateClassesSubstances(Set<? extends Substance<?>> nouvellesSubstances)
-        throws ExceptionTable, IOException 
+        throws ExceptionTable, IOException, URISyntaxException
     {
         final Set<ClasseSubstances> nouvellesClasses =
             new MiseAJourClassesSubstances(logger, nouvellesSubstances)
@@ -113,7 +114,7 @@ public class MiseAJour {
     }
 
     static private Set<Interaction> getNouvellesInteractions()
-        throws ExceptionTable, IOException 
+        throws ExceptionTable, IOException, URISyntaxException
     {
         final ClientTableSubstances client = new ClientTableSubstances();
         final Set<Substance<?>> toutesSubstances = client.getAll();

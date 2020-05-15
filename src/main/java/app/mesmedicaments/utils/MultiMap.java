@@ -15,7 +15,7 @@ import java.util.Set;
 
 public class MultiMap<K, V> implements Iterable<Entry<K, V>> {
 
-    final Map<K, Set<V>> map;
+    private final Map<K, Set<V>> map;
 
     public MultiMap() {
         map = new HashMap<>();
@@ -64,6 +64,19 @@ public class MultiMap<K, V> implements Iterable<Entry<K, V>> {
 
     public Set<K> keySet() {
         return map.keySet();
+    }
+
+    /**
+     * Number of key/value entries
+     * 
+     * @return
+     */
+    public int size() {
+        var size = 0;
+        for (K key : map.keySet()) {
+            size += map.get(key).size();
+        }
+        return size;
     }
 
     public void forEach(BiConsumer<K, V> action) {

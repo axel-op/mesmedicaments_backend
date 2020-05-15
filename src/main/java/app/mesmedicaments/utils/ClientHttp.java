@@ -1,17 +1,15 @@
 package app.mesmedicaments.utils;
 
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
+import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.URLConnection;
-import java.nio.charset.StandardCharsets;
-import java.util.Map.Entry;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import javax.net.ssl.HttpsURLConnection;
 
 public class ClientHttp {
 
@@ -25,7 +23,7 @@ public class ClientHttp {
         this.logger = logger;
     }
 
-    public InputStream get(String url) throws IOException {
+    public InputStream get(String url) throws IOException, URISyntaxException {
         return get(url, null);
     }
 
@@ -33,7 +31,7 @@ public class ClientHttp {
         String url,
         MultiMap<String, String> requestProperties
     )
-        throws IOException
+        throws IOException, URISyntaxException
     {
         return send("GET", url, requestProperties, null);
     }
@@ -43,7 +41,7 @@ public class ClientHttp {
         MultiMap<String, String> requestProperties, 
         String content
     )
-        throws IOException
+        throws IOException, URISyntaxException
     {
         return send("POST", url, requestProperties, content);
     }
@@ -54,7 +52,7 @@ public class ClientHttp {
         MultiMap<String, String> requestProperties,
         String content
     )
-        throws IOException
+        throws IOException, URISyntaxException
     {
         return send(method, new URL(url), requestProperties, content);
     }
@@ -65,41 +63,40 @@ public class ClientHttp {
         MultiMap<String, String> requestProperties,
         String content
     )
-        throws IOException
+        throws IOException, URISyntaxException
     {
-        final URLConnection conn = url.openConnection();
-        HttpURLConnection connection;
-        if (conn instanceof HttpsURLConnection) connection = (HttpsURLConnection) conn;
-        else connection = (HttpURLConnection) conn;
-        connection.setRequestMethod(method);
-        String logMessage = method + " " + url.toString();
-        if (requestProperties != null) {
-            logMessage += "\n\nHeaders:";
-            for (Entry<String, String> e : requestProperties) {
-                connection.addRequestProperty(e.getKey(), e.getValue());
-                logMessage += "\n" + e.getKey() + ": " + e.getValue();
+        final var request = HttpRequest.newBuilder(url.toURI())
+                .headers(buildHeaders(requestProperties))
+                .method(method, content != null
+                                ? BodyPublishers.ofString(content)
+                                : BodyPublishers.noBody())
+                .build();
+        try {
+            final var response = HttpClient.newHttpClient()
+                    .send(request, BodyHandlers.ofInputStream());
+            final int statusCode = response.statusCode();
+            if (logger != null) {
+                final var level = statusCode < 200 || statusCode > 299 ? Level.WARNING : Level.INFO;
+                final var message = new StringBuilder();
+                message.append("Request to " + url.toString());
+                message.append("\nResponse code = " + String.valueOf(statusCode));
+                logger.log(level, message.toString());
             }
+            return response.body();
+        } catch (InterruptedException e) {
+            throw new IOException(e);
         }
-        if (content != null) {
-            logMessage += "\n\nContent:\n" + content;
-            connection.setDoOutput(true);
-            final DataOutputStream dos = new DataOutputStream(connection.getOutputStream());
-            final byte[] encodedContent = content.getBytes(StandardCharsets.UTF_8);
-            dos.write(encodedContent, 0, encodedContent.length);
-            dos.flush();
-            dos.close();
+    }
+
+    private String[] buildHeaders(MultiMap<String, String> headersMap) {
+        if (headersMap == null) return new String[0];
+        final var headers = new String[headersMap.size()];
+        int index = 0;
+        for (var entry : headersMap.entrySet()) {
+            headers[index] = entry.getKey();
+            headers[index + 1] = entry.getValue();
+            index += 2;
         }
-        final int responseCode = connection.getResponseCode();
-        if (logger != null) {
-            logger.info(logMessage);
-            logMessage = "Response code = " + responseCode + " " + connection.getResponseMessage();
-            logger.log(
-                (responseCode < 200 || responseCode > 299) ? Level.WARNING : Level.INFO,
-                logMessage);
-        }
-        final InputStream errorStream = connection.getErrorStream();
-        return errorStream == null
-            ? connection.getInputStream()
-            : errorStream;
+        return headers;
     }
 }

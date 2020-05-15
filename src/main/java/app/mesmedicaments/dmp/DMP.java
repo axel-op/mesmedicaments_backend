@@ -3,6 +3,7 @@ package app.mesmedicaments.dmp;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -175,9 +176,11 @@ public class DMP {
                         "Cookie", e.getKey() + "=" + e.getValue() + "; "));
             final PDDocument document =
                     PDDocument.load(
-                            new ClientHttp().get(URL_FICHIER_REMBOURSEMENTS, requestProperties));
+                            new ClientHttp().get(
+                                URL_FICHIER_REMBOURSEMENTS, 
+                                requestProperties));
             return Optional.of(document);
-        } catch (IOException e) {
+        } catch (IOException | URISyntaxException e) {
             logger.warning("Problème de connexion au fichier des remboursements");
             Utils.logErreur(e, logger);
         }

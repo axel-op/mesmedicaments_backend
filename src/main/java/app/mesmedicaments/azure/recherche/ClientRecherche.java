@@ -3,6 +3,7 @@ package app.mesmedicaments.azure.recherche;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -144,12 +145,17 @@ public class ClientRecherche {
         requestProperties.add("api-key", key);
         requestProperties.add("content-type", "application/json");
         final ClientHttp client = new ClientHttp();
-        final InputStream responseStream =
-                method.equals("GET")
-                        ? client.get(url, requestProperties)
-                        : client.post(url, requestProperties, contents);
-        final String corpsRep =
-                Utils.stringify(new InputStreamReader(responseStream, StandardCharsets.UTF_8));
-        return corpsRep;
+        try {
+            final InputStream responseStream =
+                    method.equals("GET")
+                            ? client.get(url, requestProperties)
+                            : client.post(url, requestProperties, contents);
+            final String corpsRep =
+                    Utils.stringify(new InputStreamReader(responseStream, StandardCharsets.UTF_8));
+            return corpsRep;
+        } catch (URISyntaxException e) {
+            Utils.logErreur(e, logger);
+            throw new RuntimeException(e);
+        }
     }
 }

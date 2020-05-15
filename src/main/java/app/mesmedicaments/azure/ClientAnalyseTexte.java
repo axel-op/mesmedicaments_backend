@@ -3,6 +3,7 @@ package app.mesmedicaments.azure;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -66,18 +67,22 @@ public class ClientAnalyseTexte {
         requestProperties.add("Content-Type", "text/json");
         requestProperties.add("Ocp-Apim-Subscription-Key", CLE_API);
         final ClientHttp client = new ClientHttp();
-        final InputStream responseStream =
-                client.post(
-                        ADRESSE_API,
-                        requestProperties,
-                        new JSONObjectUneCle("documents", documents).toString());
-        final String corpsRep = Utils.stringify(new InputStreamReader(responseStream, "UTF-8"));
-        return JSONArrays.toSetJSONObject(new JSONObject(corpsRep).getJSONArray("documents"))
-            .stream()
-            .map(d -> d.getJSONArray("keyPhrases"))
-            .flatMap(ja -> JSONArrays.toSetString(ja).stream())
-            .filter(ClientAnalyseTexte::conserver)
-            .collect(Collectors.toSet());
+        try {
+            final InputStream responseStream =
+                    client.post(
+                            ADRESSE_API,
+                            requestProperties,
+                            new JSONObjectUneCle("documents", documents).toString());
+            final String corpsRep = Utils.stringify(new InputStreamReader(responseStream, "UTF-8"));
+            return JSONArrays.toSetJSONObject(new JSONObject(corpsRep).getJSONArray("documents"))
+                .stream()
+                .map(d -> d.getJSONArray("keyPhrases"))
+                .flatMap(ja -> JSONArrays.toSetString(ja).stream())
+                .filter(ClientAnalyseTexte::conserver)
+                .collect(Collectors.toSet());
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     static private boolean conserver(String expression) {

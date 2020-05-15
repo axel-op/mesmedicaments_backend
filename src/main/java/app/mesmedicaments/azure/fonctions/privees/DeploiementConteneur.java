@@ -3,6 +3,7 @@ package app.mesmedicaments.azure.fonctions.privees;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URISyntaxException;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
 
@@ -110,13 +111,13 @@ class DeploiementConteneur {
             final InputStream isStart = httpClient.post(urlStart, headersStart, null);
             logger.info(Utils.stringify(new InputStreamReader(isStart)));            
             
-        } catch (IOException e) {
+        } catch (IOException | URISyntaxException e) {
             Utils.logErreur(e, logger);
             throw new RuntimeException(e);
         }
     }
 
-    private String getAccessToken() throws IOException {
+    private String getAccessToken() throws IOException, URISyntaxException {
         String url = System.getenv("MSI_ENDPOINT");
         final String secret = System.getenv("MSI_SECRET");
         if (url == null || secret == null)

@@ -3,6 +3,7 @@ package app.mesmedicaments.misesajour;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -30,7 +31,7 @@ public final class MiseAJourClassesSubstances {
         this.substances = nouvellesSubstances;
     }
 
-    public Set<ClasseSubstances> getNouvellesClasses() throws IOException {
+    public Set<ClasseSubstances> getNouvellesClasses() throws IOException, URISyntaxException {
         final Set<ClasseSubstances> nouvellesClasses = new HashSet<>();
         logger.info(
             "Récupération du fichier des classes de substances (url = "

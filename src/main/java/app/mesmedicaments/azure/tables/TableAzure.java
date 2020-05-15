@@ -17,6 +17,7 @@ import com.microsoft.azure.storage.table.TableQuery;
 import com.microsoft.azure.storage.table.TableQuery.QueryComparisons;
 
 import app.mesmedicaments.Environnement;
+import app.mesmedicaments.azure.tables.ClientTableAzure.KeysEntite;
 import app.mesmedicaments.basededonnees.ExceptionTable;
 import app.mesmedicaments.basededonnees.ITable;
 import app.mesmedicaments.utils.ConcurrentHashSet;
@@ -24,7 +25,7 @@ import app.mesmedicaments.utils.Sets;
 import app.mesmedicaments.utils.unchecked.Unchecker;
 
 public
-class TableAzure implements ITable<EntiteDynamique> {
+class TableAzure implements ITable<KeysEntite, EntiteDynamique> {
 
     public final String nom;
 
@@ -40,10 +41,11 @@ class TableAzure implements ITable<EntiteDynamique> {
     }
 
     @Override
-    public Optional<EntiteDynamique> get(String... ids)
-            throws ExceptionTableAzure {
-        if (ids.length != 2) throw new IllegalArgumentException("Nombre d'identifiants incorrect");
-        final TableOperation tableOperation = TableOperation.retrieve(ids[0], ids[1], EntiteDynamique.class);
+    public Optional<EntiteDynamique> get(KeysEntite keys) throws ExceptionTableAzure {
+        final TableOperation tableOperation = TableOperation.retrieve(
+                                                                keys.partitionKey, 
+                                                                keys.rowKey, 
+                                                                EntiteDynamique.class);
         return ExceptionTableAzure.tryCatch(() -> Optional.ofNullable(
                 obtenirCloudTable().execute(tableOperation).getResultAsType()));
     }
@@ -83,13 +85,8 @@ class TableAzure implements ITable<EntiteDynamique> {
      * @throws RuntimeException
      */
     @Override
-    public void set(EntiteDynamique entite) throws ExceptionTableAzure, RuntimeException {
+    public void put(KeysEntite keys, EntiteDynamique entite) throws ExceptionTableAzure, RuntimeException {
         execute(TableOperation.insertOrMerge(entite));
-    }
-
-    @Override
-    public void remove(EntiteDynamique entite) throws ExceptionTableAzure, RuntimeException {
-        execute(TableOperation.delete(entite));
     }
 
     private void execute(TableOperation operation) throws ExceptionTableAzure {
@@ -103,18 +100,19 @@ class TableAzure implements ITable<EntiteDynamique> {
     //
     
     @Override
-    public void set(Iterable<EntiteDynamique> entites)
+    public void put(Map<KeysEntite, EntiteDynamique> entites)
     throws ExceptionTableAzure
     {
         final int maxSizePerBatch = 100;
         final CloudTable cloudTable = obtenirCloudTable();
-        final ConcurrentMap<String, Set<List<EntiteDynamique>>> parBatchs = regrouperParPartition(entites)
-            .entrySet()
-            .stream()
-            .collect(Collectors.toConcurrentMap(
-                e -> e.getKey(), 
-                e -> new ConcurrentHashSet<>(Sets.partition(e.getValue(), maxSizePerBatch))
-            ));
+        final ConcurrentMap<String, Set<List<EntiteDynamique>>> parBatchs =
+            regrouperParPartition(entites.values())
+                .entrySet()
+                .stream()
+                .collect(Collectors.toConcurrentMap(
+                    e -> e.getKey(), 
+                    e -> new ConcurrentHashSet<>(Sets.partition(e.getValue(), maxSizePerBatch))
+                ));
         parBatchs.keySet().parallelStream()
             .flatMap(partition -> parBatchs.get(partition).stream())
             .map(batch -> {

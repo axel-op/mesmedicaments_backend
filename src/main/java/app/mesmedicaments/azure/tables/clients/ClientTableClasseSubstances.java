@@ -46,14 +46,15 @@ extends ClientTableAzure<ClasseSubstances> {
      * @param classe
      */
     public void update(ClasseSubstances classe) throws ExceptionTable {
-        final String rowKey = classe.nom;
-        final Optional<ClasseSubstances> actuelle = super.get(partition, rowKey);
-        if (!actuelle.isPresent()) super.set(classe, partition, rowKey);
+        final KeysEntite keys = ClientTableAzure.getKeysEntite(partition, classe.nom);
+        final Optional<ClasseSubstances> actuelle = super.get(keys);
+        if (!actuelle.isPresent()) super.put(keys, classe);
         else {
             final Set<Substance<?>> union = classe.getSubstances();
             final boolean hasChanged = union.addAll(actuelle.get().getSubstances());
-            if (hasChanged)
-                super.set(new ClasseSubstances(classe.nom, union), partition, rowKey);
+            if (hasChanged) {
+                super.put(keys, new ClasseSubstances(classe.nom, union));
+            }
         }
     }
 

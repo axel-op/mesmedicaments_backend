@@ -27,10 +27,10 @@ extends ClientTableAzure<MedicamentFrance> {
     }
 
     public void set(Collection<MedicamentFrance> medicaments) throws ExceptionTable {
-        super.set(medicaments.stream()
+        super.put(medicaments.stream()
             .collect(Collectors.toMap(
-                m -> m, 
-                m -> new String[]{m.getPays().code, String.valueOf(m.getCode())}
+                m -> ClientTableAzure.getKeysEntite(m.getPays().code, String.valueOf(m.getCode())),
+                m -> m
             ))
         );
     }

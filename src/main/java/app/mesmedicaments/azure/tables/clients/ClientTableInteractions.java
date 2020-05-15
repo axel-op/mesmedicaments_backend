@@ -24,11 +24,13 @@ public
 class ClientTableInteractions
 extends ClientTableAzure<Interaction> {
 
-    static private String[] makeKeys(Substance<?> substance1, Substance<?> substance2) {
+    static private KeysEntite makeKeys(Substance<?> substance1, Substance<?> substance2) {
         final String key1 = substance1.getPays().code + String.valueOf(substance1.getCode());
         final String key2 = substance2.getPays().code + String.valueOf(substance2.getCode());
-        if (key1.compareTo(key2) > 0) return new String[]{key2, key1};
-        return new String[]{key1, key2};
+        if (key1.compareTo(key2) > 0) {
+            ClientTableAzure.getKeysEntite(key2, key1);
+        }
+        return ClientTableAzure.getKeysEntite(key1, key2);
     }
 
     public ClientTableInteractions() {
@@ -44,14 +46,15 @@ extends ClientTableAzure<Interaction> {
      * @throws ExceptionTable
      */
     public void set(Set<Interaction> interactions) throws ExceptionTable {
-        super.set(interactions
+        super.put(interactions
                 .stream()
                 .collect(Collectors.toMap(
-                    i -> i, 
                     i -> {
                         final List<Substance<?>> substances = new ArrayList<>(i.getSubstances());
                         return makeKeys(substances.get(0), substances.get(1));
-                    })));
+                    },
+                    i -> i
+                )));
     }
 
     /**
@@ -63,8 +66,7 @@ extends ClientTableAzure<Interaction> {
     public Optional<Interaction> get(Substance<?> substance1, Substance<?> substance2)
         throws ExceptionTable
     {
-        final String[] keys = makeKeys(substance1, substance2);
-        return super.get(keys[0], keys[1]);
+        return super.get(makeKeys(substance1, substance2));
     }
 
     static protected class AdapteurInteraction extends Adapteur<Interaction, EntiteDynamique> {
@@ -73,8 +75,8 @@ extends ClientTableAzure<Interaction> {
         public EntiteDynamique fromObject(Interaction interaction) {
             final Substance<?>[] substances = interaction.getSubstances().toArray(new Substance<?>[0]);
             if (substances.length != 2) throw new RuntimeException("Il y a plus (ou moins ?) de 2 substances dans l'interaction");
-            final String[] keys = makeKeys(substances[0], substances[1]);
-            final EntiteDynamique entite = new EntiteDynamique(keys[0], keys[1]);
+            final KeysEntite keys = makeKeys(substances[0], substances[1]);
+            final EntiteDynamique entite = new EntiteDynamique(keys.partitionKey, keys.rowKey);
             final Map<String, EntityProperty> props = entite.getProperties();
             props.put("Risque", new EntityProperty(interaction.risque));
             props.put("Descriptif", new EntityProperty(interaction.descriptif));

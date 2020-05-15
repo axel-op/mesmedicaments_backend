@@ -58,10 +58,9 @@ extends ClientTableAzure<ClientTableExpressionsCles.ObjetExpressionCles> {
         final Optional<ObjetExpressionCles> o = super.get(partition, row);
         if (!o.isPresent()) {
             final Set<String> nouvellesExprCles = ClientAnalyseTexte.getExpressionsCles(effets);
-            super.set(
-                new ObjetExpressionCles(partition, row, new JSONArray(nouvellesExprCles)),
-                partition,
-                row
+            super.put(
+                ClientTableAzure.getKeysEntite(partition, row),
+                new ObjetExpressionCles(partition, row, new JSONArray(nouvellesExprCles))
             );
             return nouvellesExprCles;
         }

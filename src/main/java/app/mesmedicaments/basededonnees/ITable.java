@@ -1,5 +1,6 @@
 package app.mesmedicaments.basededonnees;
 
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -7,12 +8,11 @@ import java.util.Optional;
  * @param <D> Le type Java représentant un document de la base de données.
  */
 public
-interface ITable<D> {
+interface ITable<K, D> {
 
-    void set(Iterable<D> documents) throws ExceptionTable;
-    void set(D document) throws ExceptionTable;
-    void remove(D document) throws ExceptionTable;
-
-    Optional<D> get(String... ids) throws ExceptionTable;
+    void put(Map<K, D> documents) throws ExceptionTable;
+    void put(K key, D document) throws ExceptionTable;
+    //void remove(K key) throws ExceptionTable;
+    Optional<D> get(K key) throws ExceptionTable;
 
 }

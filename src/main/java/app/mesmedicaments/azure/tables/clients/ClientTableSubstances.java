@@ -38,11 +38,11 @@ extends ClientTableAzure<Substance<?>> {
     }
 
     public void set(Collection<? extends Substance<?>> substances) throws ExceptionTable {
-        super.set(substances
+        super.put(substances
             .stream()
             .collect(Collectors.toMap(
-                s -> s,
-                s -> new String[]{s.getPays().code, String.valueOf(s.getCode())}
+                s -> ClientTableAzure.getKeysEntite(s.getPays().code, String.valueOf(s.getCode())),
+                s -> s
             )));
     }
 

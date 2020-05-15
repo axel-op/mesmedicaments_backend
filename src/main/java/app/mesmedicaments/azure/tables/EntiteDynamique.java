@@ -42,15 +42,12 @@ public class EntiteDynamique extends DynamicTableEntity {
 
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof EntiteDynamique))
-            return false;
-        try {
+        if (o instanceof EntiteDynamique) {
             EntiteDynamique other = (EntiteDynamique) o;
             return (other.getPartitionKey().equals(this.getPartitionKey()))
                     && (other.getRowKey().equals(this.getRowKey()));
-        } catch (ClassCastException e) {
-            return false;
         }
+        return false;
     }
 
     @Override

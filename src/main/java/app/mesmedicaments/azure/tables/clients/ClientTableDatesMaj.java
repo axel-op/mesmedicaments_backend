@@ -37,11 +37,13 @@ extends ClientTableAzure<ClientTableDatesMaj.DateMaj> {
     }
 
     public void setDateMajBDPM(LocalDate date) throws ExceptionTable {
-        super.set(new DateMaj(ROWKEY_BDPM, date), PARTITION, ROWKEY_BDPM);
+        final KeysEntite keys = ClientTableAzure.getKeysEntite(PARTITION, ROWKEY_BDPM);
+        super.put(keys, new DateMaj(ROWKEY_BDPM, date));
     }
 
     public void setDateMajInteractions(LocalDate date) throws ExceptionTable {
-        super.set(new DateMaj(ROWKEY_INTERACTIONS, date), PARTITION, ROWKEY_INTERACTIONS);
+        final KeysEntite keys = ClientTableAzure.getKeysEntite(PARTITION, ROWKEY_INTERACTIONS);
+        super.put(keys, new DateMaj(ROWKEY_INTERACTIONS, date));
     }
 
     public Optional<LocalDate> getDateMajBDPM() throws ExceptionTable {

@@ -107,7 +107,7 @@ public class ClientRecherche {
                 logger.warning("Erreur avec l'indexation du document "
                         + reponse.getString("key")
                         + " : "
-                        + reponse.getString("errorMessage"));
+                        + reponse.toString());
         }
         
     }

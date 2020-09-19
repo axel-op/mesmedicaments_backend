@@ -35,3 +35,5 @@ obj/
 
 # IDE
 .settings/*
+.project
+.classpath

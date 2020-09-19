@@ -7,14 +7,18 @@
       "problemMatcher": "$func-watch",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/target/azure-functions/mesmedicaments/"
+        "cwd": "${workspaceFolder}/target/azure-functions/mesmedicaments"
       },
       "dependsOn": "package"
     },
     {
       "label": "package",
       "command": "mvn clean package",
-      "type": "shell"
+      "type": "shell",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
     }
   ]
 }

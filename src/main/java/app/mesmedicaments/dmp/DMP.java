@@ -1,12 +1,8 @@
 package app.mesmedicaments.dmp;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -16,35 +12,36 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
 import org.json.JSONObject;
+import org.jsoup.Connection;
+import org.jsoup.Connection.Response;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
+import app.mesmedicaments.Environnement;
 import app.mesmedicaments.azure.recherche.ClientRecherche;
 import app.mesmedicaments.azure.recherche.ClientRecherche.ModeRecherche;
 import app.mesmedicaments.azure.recherche.ClientRecherche.NiveauRecherche;
 import app.mesmedicaments.azure.tables.clients.ClientTableMedicamentsFrance;
 import app.mesmedicaments.basededonnees.ExceptionTable;
 import app.mesmedicaments.objets.medicaments.MedicamentFrance;
-import app.mesmedicaments.utils.ClientHttp;
 import app.mesmedicaments.utils.ConcurrentHashSet;
-import app.mesmedicaments.utils.MultiMap;
 import app.mesmedicaments.utils.Sets;
-import app.mesmedicaments.utils.Utils;
 import app.mesmedicaments.utils.unchecked.Unchecker;
 
 public class DMP {
 
-    private static ConcurrentMap<String, String> cacheTransformationMot = new ConcurrentHashMap<>();
-    private DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    static private final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    static private final ConcurrentMap<String, String> cacheTransformationMot = new ConcurrentHashMap<>();
 
     private final Logger logger;
-    private final String URL_FICHIER_REMBOURSEMENTS;
-    private Map<String, String> cookies;
+    private final Map<String, String> cookies;
 
-    public DMP(String urlFichierRemboursements, DonneesConnexion donneesConnexion, Logger logger) {
+    public DMP(DonneesConnexion donneesConnexion, Logger logger) {
         this.logger = logger;
-        this.URL_FICHIER_REMBOURSEMENTS = urlFichierRemboursements;
         this.cookies = donneesConnexion.cookies;
     }
 
@@ -135,66 +132,42 @@ public class DMP {
     }
 
     private Map<LocalDate, Set<String>> parserFichier() throws IOException {
-        final PDDocument fichierRemboursements = getFichierRemboursements().get(); // TODO : gérer le cas où Optional est vide
-        final PDFTextStripper stripper = new PDFTextStripper();
-        final BufferedReader br =
-                new BufferedReader(
-                        new StringReader(
-                                new String(
-                                        stripper.getText(fichierRemboursements).getBytes(),
-                                        StandardCharsets.ISO_8859_1)));
-        final Map<LocalDate, Set<String>> aChercher = new HashMap<>();
-        String ligne;
-        boolean balise = false;
-        boolean alerte = true; // Si pas de section Pharmacie trouvée
-        while ((ligne = br.readLine()) != null) {
-            if (ligne.contains("Hospitalisation")) break;
-            if (balise && ligne.matches("[0-9]{2}/[0-9]{2}/[0-9]{4}.*")) {
-                final LocalDate date = tryParseDate(ligne.substring(0, 10));
-                if (date == null) continue;
-                    aChercher
-                        .computeIfAbsent(date, k -> new ConcurrentHashSet<>())
-                        .add(ligne.substring(10));
-            }
-            else if (ligne.contains("Pharmacie / fournitures")) {
-                alerte = false;
-                balise = true;
-            }
+        final Document document = getDocument();
+        if (document.selectFirst("th:contains(Médicaments)") == null) {
+            throw new RuntimeException("Pas de section \"Médicaments\" dans le fichier des remboursements");
         }
-        fichierRemboursements.close();
-        br.close();
-        if (alerte) logger.warning("Pas de ligne de fin trouvée dans le fichier des remboursements");
+        final Elements rows = document
+            .getElementById("doc-auto-0")
+            .getElementsByTag("tbody")
+            .first()
+            .getElementsByTag("tr");
+        final Map<LocalDate, Set<String>> aChercher = new HashMap<>();
+        for (Element row : rows) {
+            final Elements els = row.getElementsByTag("td");
+            final LocalDate date = LocalDate.parse(els.get(0).text(), DATE_FORMATTER);
+            final String name = els.get(1).text();
+            aChercher
+                .computeIfAbsent(date, k -> new ConcurrentHashSet<>())
+                .add(name);
+        }
         return aChercher;
     }
 
-    private Optional<PDDocument> getFichierRemboursements() {
-        try {
-            final MultiMap<String, String> requestProperties = new MultiMap<>();
-            cookies.entrySet()
-                    .forEach(e -> requestProperties.add(
-                        "Cookie", e.getKey() + "=" + e.getValue() + "; "));
-            final PDDocument document =
-                    PDDocument.load(
-                            new ClientHttp().get(URL_FICHIER_REMBOURSEMENTS, requestProperties));
-            return Optional.of(document);
-        } catch (IOException e) {
-            logger.warning("Problème de connexion au fichier des remboursements");
-            Utils.logErreur(e, logger);
-        }
-        return Optional.empty();
+    private Document getDocument() throws IOException {
+        final Response connListe = Jsoup.connect(Environnement.DMP_URL_LISTE_DOCS)
+            .method(Connection.Method.GET)
+            .cookies(cookies)
+            .execute();
+        final Document liste = connListe.parse();
+        final var href = liste
+            .getElementsMatchingText("Donn.+ de remboursement$")
+            .attr("href");
+        final Response connDoc = Jsoup.connect(Environnement.DMP_URL_BASE + href)
+            .method(Connection.Method.GET)
+            .cookies(cookies)
+            .execute();
+        final var doc = connDoc.parse();
+        return doc;
     }
 
-    /**
-     * Retourne null si la chaîne n'a pu être parsée.
-     * @param date
-     * @return
-     * @throws DateTimeParseException
-     */
-    private LocalDate tryParseDate(String date) throws DateTimeParseException {
-        try {
-            return LocalDate.parse(date, dateFormatter);
-        } catch (DateTimeParseException e) {
-            return null;
-        }
-    }
 }

@@ -30,8 +30,12 @@ public final class Dmp {
 
     @FunctionName("dmp")
     public HttpResponseMessage dmp(
-            @HttpTrigger(name = "dmpTrigger", authLevel = AuthorizationLevel.ANONYMOUS, methods = {
-                    HttpMethod.POST }, route = "dmp/{categorie:alpha}") final HttpRequestMessage<Optional<String>> request,
+            @HttpTrigger(
+                name = "dmpTrigger",
+                authLevel = AuthorizationLevel.ANONYMOUS,
+                methods = { HttpMethod.POST },
+                route = "dmp/{categorie:alpha}")
+            final HttpRequestMessage<Optional<String>> request,
             @BindingName("categorie") final String categorie, final ExecutionContext context) {
         final Logger logger = context.getLogger();
         final JSONObject corpsRequete = new JSONObject(request.getBody().get());
@@ -42,9 +46,7 @@ public final class Dmp {
                 return Commun.construireReponse(HttpStatus.BAD_REQUEST, request);
             final DonneesConnexion donneesConnexion = new DonneesConnexion(corpsRequete.getJSONObject("donneesConnexion"));
             verifierDate(donneesConnexion.date);
-            final DMP dmp = new DMP(corpsRequete.getString("urlRemboursements"),
-                                    donneesConnexion,
-                                    logger);
+            final DMP dmp = new DMP(donneesConnexion, logger);
             final Map<LocalDate, Set<MedicamentFrance>> medsParDate = dmp.obtenirMedicaments();
             corpsReponse.put("medicaments", medicamentsEnJson(medsParDate));
             codeHttp = HttpStatus.OK;

@@ -23,8 +23,6 @@ public final class Authentificateur {
     private static final String URL_POST_FORM_DMP = Environnement.DMP_URL_POST_FORM_DMP;
     private static final String URL_ENVOI_CODE = Environnement.DMP_URL_ENVOI_CODE;
     private static final String URL_INFOS_DMP = Environnement.DMP_URL_INFOS_DMP;
-    private static final String URL_LISTE_DOCS = Environnement.DMP_URL_LISTE_DOCS;
-    private static final String URL_BASE = Environnement.DMP_URL_BASE;
 
     private Logger logger;
     private String id;
@@ -40,8 +38,7 @@ public final class Authentificateur {
     public ReponseConnexion1 connexionDMPPremiereEtape(String mdp) {
         try {
             PageReponseDMP pageReponse;
-            Connection connexion;
-            connexion = Jsoup.connect(URL_CONNEXION_DMP);
+            Connection connexion = Jsoup.connect(URL_CONNEXION_DMP);
             connexion.method(Connection.Method.GET).execute();
             Connection.Response reponse = connexion.response();
             final Map<String, String> cookies = new HashMap<>(reponse.cookies());
@@ -118,8 +115,7 @@ public final class Authentificateur {
                         null,
                         null);
             }
-            final String urlRemboursements = obtenirURLFichierRemboursements(donneesConnexion.cookies)
-                                                .orElse(null);
+            final String urlRemboursements = "null"; // TODO: plus utilisé, à supprimer.
             String genre = null;
             try {
                 Optional<String> optGenre = obtenirGenre(donneesConnexion.cookies);
@@ -137,24 +133,6 @@ public final class Authentificateur {
             Utils.logErreur(e, logger);
             return new ReponseConnexion2(CodeReponse.erreurInterne, donneesConnexion, null, null);
         }
-    }
-
-    private Optional<String> obtenirURLFichierRemboursements(Map<String, String> cookies) throws IOException {
-        Connection connexion = Jsoup.connect(URL_LISTE_DOCS);
-        connexion.method(Connection.Method.GET).userAgent(USERAGENT).cookies(cookies).execute();
-        Document doc = connexion.response().parse();
-        String attribut;
-        try {
-            attribut = doc.getElementsContainingOwnText("de remboursement").attr("href");
-            // TODO idem
-            connexion = Jsoup.connect(URL_BASE + attribut);
-            connexion.method(Connection.Method.GET).userAgent(USERAGENT).cookies(cookies).execute();
-            doc = connexion.response().parse();
-            return Optional.ofNullable(doc.getElementById("docView").attr("src"));
-        } catch (NullPointerException e) {
-            // Notifier
-        }
-        return Optional.empty();
     }
 
     static private Optional<String> obtenirGenre(Map<String, String> cookies) throws IOException {

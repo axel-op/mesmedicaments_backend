@@ -4,7 +4,7 @@
     {
       "type": "func",
       "command": "host start",
-      "problemMatcher": "$func-watch",
+      "problemMatcher": "$func-java-watch",
       "isBackground": true,
       "options": {
         "cwd": "${workspaceFolder}/target/azure-functions/mesmedicaments"

@@ -13,17 +13,6 @@ class Environnement {
     public static final String ANALYSETEXTE_ADRESSEAPI = System.getenv("analysetexte_adresseapi");
     public static final String ANALYSETEXTE_CLEAPI = System.getenv("analysetexte_cleapi");
 
-    // DMP
-
-    public static final String DMP_REGEX_ACCUEIL = System.getenv("regex_reussite_da");
-    public static final String DMP_URL_CHOIX_CODE = System.getenv("url_post_choix_code");
-    public static final String DMP_URL_CONNEXION_DMP = System.getenv("url_connexion_dmp");
-    public static final String DMP_URL_POST_FORM_DMP = System.getenv("url_post_form_dmp");
-    public static final String DMP_URL_ENVOI_CODE = System.getenv("url_post_envoi_code");
-    public static final String DMP_URL_INFOS_DMP = System.getenv("url_infos_dmp");
-    public static final String DMP_URL_LISTE_DOCS = System.getenv("url_liste_docs_dmp");
-    public static final String DMP_URL_BASE = System.getenv("url_base_dmp");
-
     // LET'S ENCRYPT
 
     public static final String LETSENCRYPT_USERPASSWORD = System.getenv("letsencrypt_userpwd");

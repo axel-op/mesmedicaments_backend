@@ -21,8 +21,10 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 11
+          server-password: MAVEN_GITHUB_TOKEN
       - name: Build and push image
         env:
+          MAVEN_GITHUB_TOKEN: ${{ secrets.MAVEN_PAT }}
           DOCKERFILE: .github/workflows/Dockerfile
           IMAGE: axelop/mesmedicaments-maintenance
           USERNAME: axelop

@@ -5,6 +5,9 @@ on:
     branches:
       - master
 
+env:
+  APP_NAME: mesmedicaments
+
 jobs:
   deploiement:
     env:
@@ -38,19 +41,16 @@ jobs:
       - name: Compilation
         run: |
           java -version
-          mvn --batch-mode clean package --file pom.xml
+          mvn --batch-mode clean package
         env:
           MAVEN_GITHUB_TOKEN: ${{ secrets.MAVEN_PAT }}
 
-      - name: Login
-        uses: azure/login@v1
+      - name: Déploiement sur Azure Functions
+        uses: azure/functions-action@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Déploiement
-        uses: azure/webapps-deploy@v1
-        with:
-          app-name: mesmedicaments
+          app-name: ${{ env.APP_NAME }}
+          package: ./target/azure-functions/${{ env.APP_NAME }}
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
 
       - name: Commit
         if: env.format == 'true'

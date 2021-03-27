@@ -37,3 +37,4 @@ obj/
 .settings/*
 .project
 .classpath
+.factorypath

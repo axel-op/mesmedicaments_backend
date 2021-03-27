@@ -2,13 +2,14 @@ package app.mesmedicaments.azure.fonctions.publiques;
 
 import java.time.LocalDate;
 import java.util.AbstractMap;
-import java.util.HashSet;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-
+import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Multimaps;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -55,21 +56,15 @@ public final class Dmp {
             final var reader = new DMPDonnesRemboursementReader();
             final var meds = doc.read(reader::readDocument).getMedicaments();
             final var dmpUtils = new DMPUtils(logger);
-            final Map<LocalDate, Set<MedicamentFrance>> medsParDate =
+            final Multimap<LocalDate, MedicamentFrance> medsParDate =
                     meds.parallelStream().map(Unchecker.panic((Ligne m) -> {
                         final var date = m.getDateDelivrance();
                         final var result = dmpUtils.getMedicamentFromDb(m);
                         return result.map(r -> new AbstractMap.SimpleEntry<>(date, r));
                     })).filter(Optional::isPresent).map(Optional::get)
-                            .collect(Collectors.toMap(Map.Entry::getKey, e -> {
-                                final Set<MedicamentFrance> set = new HashSet<>();
-                                set.add(e.getValue());
-                                return set;
-                            }, (s1, s2) -> {
-                                s1.addAll(s2);
-                                return s1;
-                            }));
-            corpsReponse.put("medicaments", medicamentsEnJson(medsParDate));
+                            .collect(Multimaps.toMultimap(Map.Entry::getKey, Map.Entry::getValue,
+                                    MultimapBuilder.hashKeys().hashSetValues()::build));
+            corpsReponse.put("medicaments", medicamentsEnJson(medsParDate.asMap()));
             codeHttp = HttpStatus.OK;
         } catch (final Exception e) {
             Utils.logErreur(e, logger);
@@ -78,10 +73,10 @@ public final class Dmp {
         return Commun.construireReponse(codeHttp, corpsReponse, request);
     }
 
-    private JSONObject medicamentsEnJson(Map<LocalDate, Set<MedicamentFrance>> medsParDate) {
+    private JSONObject medicamentsEnJson(Map<LocalDate, Collection<MedicamentFrance>> medsParDate) {
         final JSONObject json = new JSONObject();
         medsParDate.forEach((d, s) -> json.put(d.toString(),
-                s.stream().map(Convertisseur::toJSON).collect(Collectors.toSet())));
+                s.stream().map(Convertisseur::toJSON).distinct().collect(Collectors.toSet())));
         return json;
     }
 }

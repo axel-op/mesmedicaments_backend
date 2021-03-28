@@ -57,6 +57,7 @@ class Environnement {
     public static final String TABLE_UTILISATEURS = table("utilisateurs");
     public static final String TABLE_LEGAL = table("legal");
     public static final String TABLE_EXPRESSIONSCLES = table("expressionscles");
+    public static final String TABLE_STATS_DMP = table("statistiquesdmp");
 
     private static final String maintenance(String var) {
         return System.getenv("maintenance_" + var);

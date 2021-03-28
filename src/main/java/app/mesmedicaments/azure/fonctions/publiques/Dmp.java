@@ -5,8 +5,10 @@ import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Multimaps;
@@ -23,6 +25,8 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import org.json.JSONObject;
 
 import app.mesmedicaments.azure.fonctions.Convertisseur;
+import app.mesmedicaments.azure.tables.clients.ClientTableStatistiquesDmp;
+import app.mesmedicaments.basededonnees.ExceptionTable;
 import app.mesmedicaments.dmp.DMPUtils;
 import app.mesmedicaments.dmp.DMPHomePage;
 import app.mesmedicaments.dmp.documents.DMPDocument;
@@ -55,6 +59,8 @@ public final class Dmp {
                     .orElseThrow();
             final var reader = new DMPDonnesRemboursementReader();
             final var meds = doc.read(reader::readDocument).getMedicaments();
+            CompletableFuture
+                    .runAsync(() -> saveLibellesToDb(meds.stream().map(Ligne::getLibelle), logger));
             final var dmpUtils = new DMPUtils(logger);
             final Multimap<LocalDate, MedicamentFrance> medsParDate =
                     meds.parallelStream().map(Unchecker.panic((Ligne m) -> {
@@ -78,5 +84,14 @@ public final class Dmp {
         medsParDate.forEach((d, s) -> json.put(d.toString(),
                 s.stream().map(Convertisseur::toJSON).distinct().collect(Collectors.toSet())));
         return json;
+    }
+
+    private void saveLibellesToDb(Stream<String> libelles, Logger logger) {
+        try {
+            final var client = new ClientTableStatistiquesDmp();
+            client.incrementSearchCounts(libelles.collect(Collectors.toSet()));
+        } catch (ExceptionTable e) {
+            Utils.logErreur(e, logger);
+        }
     }
 }

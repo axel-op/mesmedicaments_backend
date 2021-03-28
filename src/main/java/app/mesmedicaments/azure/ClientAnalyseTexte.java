@@ -63,7 +63,7 @@ public class ClientAnalyseTexte {
             id++;
         }
         final MultiMap<String, String> requestProperties = new MultiMap<>();
-        requestProperties.add("Content-Type", "text/json");
+        requestProperties.add("Content-Type", "application/json");
         requestProperties.add("Ocp-Apim-Subscription-Key", CLE_API);
         final ClientHttp client = new ClientHttp();
         final InputStream responseStream =

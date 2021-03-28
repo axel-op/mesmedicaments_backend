@@ -35,10 +35,7 @@ public abstract class ClientBDD<O, D, C extends Cachable<D>> {
      * @throws ExceptionTable
      */
     final protected Optional<O> get(String... ids) throws ExceptionTable {
-        final Optional<D> optDocument = obtenirDocument(ids);
-        if (!optDocument.isPresent())
-            return Optional.empty();
-        return Optional.of(adapteur.toObject(optDocument.get()));
+        return obtenirDocument(ids).map(adapteur::toObject);
     }
 
     private Optional<D> obtenirDocument(String... ids) throws ExceptionTable {

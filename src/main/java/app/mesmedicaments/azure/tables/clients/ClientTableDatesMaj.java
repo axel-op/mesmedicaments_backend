@@ -10,6 +10,7 @@ import app.mesmedicaments.azure.tables.ClientTableAzure;
 import app.mesmedicaments.azure.tables.EntiteDynamique;
 import app.mesmedicaments.azure.tables.adapteurs.GenericAdapteur;
 import app.mesmedicaments.basededonnees.ExceptionTable;
+import lombok.Data;
 
 public
 class ClientTableDatesMaj
@@ -53,19 +54,13 @@ extends ClientTableAzure<ClientTableDatesMaj.DateMaj> {
     }
 
     private Optional<LocalDate> getObjet(String partitionKey, String rowKey) throws ExceptionTable {
-        final Optional<DateMaj> d = super.get(partitionKey, rowKey);
-        if (!d.isPresent()) return Optional.empty();
-        return Optional.of(d.get().date);
+        return super.get(partitionKey, rowKey).map(DateMaj::getDate);
     }
 
+    @Data
     protected static class DateMaj {
-        final LocalDate date;
         final String rowKey;
-
-        private DateMaj(String rowKey, LocalDate date) {
-            this.date = date;
-            this.rowKey = rowKey;
-        }
+        final LocalDate date;
     }
 
 }

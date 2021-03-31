@@ -25,7 +25,7 @@
         <repository>
             <id>github</id>
             <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/axel-op/maven-packages</url>
+            <url>https://maven.pkg.github.com/axel-op/maven-packages-private</url>
         </repository>
     </repositories>
 

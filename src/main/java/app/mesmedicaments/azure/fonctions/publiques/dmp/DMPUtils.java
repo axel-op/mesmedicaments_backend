@@ -1,4 +1,4 @@
-package app.mesmedicaments.dmp;
+package app.mesmedicaments.azure.fonctions.publiques.dmp;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -18,7 +18,7 @@ import app.mesmedicaments.dmp.documents.readers.DMPDonneesRemboursement;
 import app.mesmedicaments.objets.medicaments.MedicamentFrance;
 import app.mesmedicaments.utils.Sets;
 
-public final class DMPUtils {
+final class DMPUtils {
 
     static private final ConcurrentMap<String, String> cacheTransformationMot =
             new ConcurrentHashMap<>();

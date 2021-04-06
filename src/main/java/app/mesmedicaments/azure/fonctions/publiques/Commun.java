@@ -13,7 +13,7 @@ import org.json.JSONObject;
 
 import app.mesmedicaments.utils.JSONObjectUneCle;
 
-final class Commun {
+final public class Commun {
 
     protected static final String CLE_VERSION = "versionapplication";
     public static final String HEADER_AUTHORIZATION = "jwt";

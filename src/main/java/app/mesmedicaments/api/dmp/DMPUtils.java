@@ -1,4 +1,4 @@
-package app.mesmedicaments.azure.fonctions.publiques.dmp;
+package app.mesmedicaments.api.dmp;
 
 import java.io.IOException;
 import java.util.Collection;

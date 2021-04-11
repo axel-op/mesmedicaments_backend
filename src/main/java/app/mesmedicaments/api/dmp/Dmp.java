@@ -1,4 +1,4 @@
-package app.mesmedicaments.azure.fonctions.publiques.dmp;
+package app.mesmedicaments.api.dmp;
 
 import java.time.LocalDate;
 import java.util.AbstractMap;
@@ -23,9 +23,8 @@ import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 
 import org.json.JSONObject;
-
-import app.mesmedicaments.azure.fonctions.Convertisseur;
-import app.mesmedicaments.azure.fonctions.publiques.Commun;
+import app.mesmedicaments.api.Commun;
+import app.mesmedicaments.api.Convertisseur;
 import app.mesmedicaments.azure.tables.clients.ClientTableStatistiquesDmp;
 import app.mesmedicaments.basededonnees.ExceptionTable;
 import app.mesmedicaments.dmp.DMPHomePage;

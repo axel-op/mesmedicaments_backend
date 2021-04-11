@@ -18,8 +18,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import app.mesmedicaments.api.Commun;
 import app.mesmedicaments.api.Convertisseur;
-import app.mesmedicaments.azure.tables.clients.ClientTableMedicamentsFrance;
-import app.mesmedicaments.basededonnees.ExceptionTable;
+import app.mesmedicaments.database.DBException;
+import app.mesmedicaments.database.azuretables.DBExceptionTableAzure;
 import app.mesmedicaments.objets.Pays;
 import app.mesmedicaments.objets.medicaments.MedicamentFrance;
 import app.mesmedicaments.utils.Utils;
@@ -45,7 +45,7 @@ public final class Medicaments {
             final Parameters params = parseRequest(request, pays, code);
             final Optional<MedicamentFrance> optMed = getMedicament(params);
             if (optMed.isPresent()) {
-                reponse.put("medicament", Convertisseur.toJSON(optMed.get()));
+                reponse.put("medicament", new Convertisseur().toJSON(optMed.get()));
                 codeHttp = HttpStatus.OK;
             } else
                 codeHttp = HttpStatus.NOT_FOUND;
@@ -59,7 +59,7 @@ public final class Medicaments {
         return Commun.construireReponse(codeHttp, reponse, request);
     }
 
-    private Optional<MedicamentFrance> getMedicament(Parameters params) throws ExceptionTable {
+    private Optional<MedicamentFrance> getMedicament(Parameters params) throws DBExceptionTableAzure, DBException {
         final Pays pays = Pays.fromCode(params.pays);
         assertion(pays.equals(Pays.France.instance));
         return new ClientTableMedicamentsFrance().get(params.code);

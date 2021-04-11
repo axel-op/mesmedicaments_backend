@@ -20,8 +20,7 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 
 import org.json.JSONObject;
 import app.mesmedicaments.api.Commun;
-import app.mesmedicaments.azure.tables.clients.ClientTableDatesMaj;
-import app.mesmedicaments.basededonnees.ExceptionTable;
+import app.mesmedicaments.database.DBException;
 import app.mesmedicaments.utils.Utils;
 
 public final class Legal {
@@ -69,7 +68,7 @@ public final class Legal {
             .collect(Collectors.joining(Utils.NEWLINE));
     }
 
-    private JSONObject obtenirDatesMaj() throws ExceptionTable {
+    private JSONObject obtenirDatesMaj() throws DBException {
         final ClientTableDatesMaj client = new ClientTableDatesMaj();
         final LocalDate majBDPM = client.getDateMajBDPM().get();
         final LocalDate majInteractions = client.getDateMajInteractions().get();

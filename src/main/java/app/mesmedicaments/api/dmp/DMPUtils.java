@@ -9,11 +9,12 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.json.JSONException;
 import org.json.JSONObject;
+import app.mesmedicaments.api.medicaments.ClientTableMedicamentsFrance;
 import app.mesmedicaments.azure.recherche.ClientRecherche;
 import app.mesmedicaments.azure.recherche.ClientRecherche.ModeRecherche;
 import app.mesmedicaments.azure.recherche.ClientRecherche.NiveauRecherche;
-import app.mesmedicaments.azure.tables.clients.ClientTableMedicamentsFrance;
-import app.mesmedicaments.basededonnees.ExceptionTable;
+import app.mesmedicaments.database.DBException;
+import app.mesmedicaments.database.azuretables.DBExceptionTableAzure;
 import app.mesmedicaments.dmp.documents.readers.DMPDonneesRemboursement;
 import app.mesmedicaments.objets.medicaments.MedicamentFrance;
 import app.mesmedicaments.utils.Sets;
@@ -24,14 +25,15 @@ final class DMPUtils {
             new ConcurrentHashMap<>();
 
     private final ClientRecherche clientRecherche;
-    private final ClientTableMedicamentsFrance clientTable = new ClientTableMedicamentsFrance();
+    private final ClientTableMedicamentsFrance clientTable;
 
-    public DMPUtils(Logger logger) {
+    public DMPUtils(Logger logger) throws DBExceptionTableAzure {
         this.clientRecherche = new ClientRecherche(logger);
+        this.clientTable = new ClientTableMedicamentsFrance();
     }
 
     public Optional<MedicamentFrance> getMedicamentFromDb(DMPDonneesRemboursement.Ligne med)
-            throws JSONException, ExceptionTable, IOException {
+            throws JSONException, DBException, IOException {
         final var libelle = med.getLibelle();
         if (libelle.matches(" *"))
             return Optional.empty();
@@ -44,7 +46,7 @@ final class DMPUtils {
     }
 
     private Optional<MedicamentFrance> makeRequest(Collection<String> tokens)
-            throws JSONException, ExceptionTable, IOException {
+            throws JSONException, DBException, IOException {
         final var request = String.join(" ", tokens);
         Optional<JSONObject> resultat = Optional.empty();
         for (ModeRecherche mode : ModeRecherche.ordonnees()) {

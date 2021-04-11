@@ -1,5 +1,6 @@
 package app.mesmedicaments.api.dmp;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.AbstractMap;
 import java.util.Collection;
@@ -25,8 +26,7 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import org.json.JSONObject;
 import app.mesmedicaments.api.Commun;
 import app.mesmedicaments.api.Convertisseur;
-import app.mesmedicaments.azure.tables.clients.ClientTableStatistiquesDmp;
-import app.mesmedicaments.basededonnees.ExceptionTable;
+import app.mesmedicaments.database.DBException;
 import app.mesmedicaments.dmp.DMPHomePage;
 import app.mesmedicaments.dmp.documents.DMPDocument;
 import app.mesmedicaments.dmp.documents.DMPDocumentListPage;
@@ -35,6 +35,7 @@ import app.mesmedicaments.dmp.documents.readers.DMPDonneesRemboursement.Ligne;
 import app.mesmedicaments.objets.medicaments.MedicamentFrance;
 import app.mesmedicaments.utils.Utils;
 import app.mesmedicaments.utils.unchecked.Unchecker;
+import lombok.SneakyThrows;
 
 public final class Dmp {
 
@@ -78,18 +79,25 @@ public final class Dmp {
         return Commun.construireReponse(codeHttp, corpsReponse, request);
     }
 
-    private JSONObject medicamentsEnJson(Map<LocalDate, Collection<MedicamentFrance>> medsParDate) {
+    private JSONObject medicamentsEnJson(Map<LocalDate, Collection<MedicamentFrance>> medsParDate)
+            throws DBException, IOException {
         final JSONObject json = new JSONObject();
         medsParDate.forEach((d, s) -> json.put(d.toString(),
-                s.stream().map(Convertisseur::toJSON).distinct().collect(Collectors.toSet())));
+                s.stream().map(this::sneakyToJson).distinct().collect(Collectors.toSet())));
         return json;
+    }
+
+    @SneakyThrows({DBException.class, IOException.class})
+    private JSONObject sneakyToJson(MedicamentFrance medicament) {
+        final var convertisseur = new Convertisseur();
+        return convertisseur.toJSON(medicament);
     }
 
     private void saveLibellesToDb(Stream<String> libelles, Logger logger) {
         try {
             final var client = new ClientTableStatistiquesDmp();
             client.incrementSearchCounts(libelles.collect(Collectors.toSet()));
-        } catch (ExceptionTable e) {
+        } catch (DBException e) {
             Utils.logErreur(e, logger);
         }
     }

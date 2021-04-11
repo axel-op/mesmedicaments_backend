@@ -1,5 +1,6 @@
 package app.mesmedicaments.api.interactions;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -27,8 +28,9 @@ import org.json.JSONObject;
 import app.mesmedicaments.IJSONSerializable;
 import app.mesmedicaments.api.Commun;
 import app.mesmedicaments.api.Convertisseur;
-import app.mesmedicaments.azure.tables.clients.ClientTableInteractions;
-import app.mesmedicaments.azure.tables.clients.ClientTableMedicamentsFrance;
+import app.mesmedicaments.api.medicaments.ClientTableMedicamentsFrance;
+import app.mesmedicaments.database.DBException;
+import app.mesmedicaments.database.azuretables.DBExceptionTableAzure;
 import app.mesmedicaments.objets.Interaction;
 import app.mesmedicaments.objets.Pays;
 import app.mesmedicaments.objets.medicaments.Medicament;
@@ -36,6 +38,7 @@ import app.mesmedicaments.objets.substances.Substance;
 import app.mesmedicaments.utils.Sets;
 import app.mesmedicaments.utils.Utils;
 import app.mesmedicaments.utils.unchecked.Unchecker;
+import lombok.SneakyThrows;
 
 public final class Interactions {
 
@@ -95,8 +98,8 @@ public final class Interactions {
         return codesParPays;
     }
 
-    private Set<Medicament<?, ?, ?>> obtenirMedicaments(Map<Pays, Set<Integer>> codesParPays, Logger logger) {
-        final ClientTableMedicamentsFrance client = new ClientTableMedicamentsFrance();
+    private Set<Medicament<?, ?, ?>> obtenirMedicaments(Map<Pays, Set<Integer>> codesParPays, Logger logger) throws DBExceptionTableAzure {
+        final var client = new ClientTableMedicamentsFrance();
         return codesParPays
             .entrySet()
             .stream()
@@ -119,13 +122,15 @@ public final class Interactions {
         if (medicaments.size() < 2) return new HashSet<>();
         return Sets.combinations(medicaments)
             .parallelStream()
-            .map(comb -> obtenirInteractions(comb.get(0), comb.get(1)))
+                .map(Unchecker
+                        .panic((List<Medicament<?, ?, ?>> comb) -> obtenirInteractions(comb.get(0),
+                                comb.get(1))))
             .flatMap(Set::stream)
             .collect(Collectors.toSet());
     }
 
-    private Set<InteractionAvecMedicaments> obtenirInteractions(Medicament<?, ?, ?> medicament1, Medicament<?, ?, ?> medicament2) {
-        final ClientTableInteractions client = new ClientTableInteractions();
+    private Set<InteractionAvecMedicaments> obtenirInteractions(Medicament<?, ?, ?> medicament1, Medicament<?, ?, ?> medicament2) throws DBException {
+        final var client = new ClientTableInteractions();
         Set<List<Substance<?>>> combinaisons = Sets.cartesianProduct(medicament1.getSubstances(), medicament2.getSubstances());
         return combinaisons
             .parallelStream()
@@ -143,7 +148,9 @@ public final class Interactions {
         final Interaction interaction;
         final Medicament<?, ?, ?> medicament1;
         final Medicament<?, ?, ?> medicament2;
+        final Convertisseur convertisseur;
 
+        @SneakyThrows(DBException.class)
         private InteractionAvecMedicaments(
             Interaction interaction,
             Medicament<?, ?, ?> medicament1,
@@ -152,11 +159,13 @@ public final class Interactions {
             this.interaction = interaction;
             this.medicament1 = medicament1;
             this.medicament2 = medicament2;
+            this.convertisseur = new Convertisseur();
         }
 
         @Override
+        @SneakyThrows({DBException.class, IOException.class})
         public JSONObject toJSON() {
-            return Convertisseur.toJSON(interaction, medicament1, medicament2);
+            return convertisseur.toJSON(interaction, medicament1, medicament2);
         }
     }
 }

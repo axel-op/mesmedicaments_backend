@@ -4,13 +4,11 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.database.DBException;
 import app.mesmedicaments.database.azuretables.DBExceptionTableAzure;
-import app.mesmedicaments.objets.Interaction;
 import app.mesmedicaments.objets.medicaments.Medicament;
 import app.mesmedicaments.objets.substances.Substance;
 
@@ -27,14 +25,6 @@ public class Convertisseur {
 
     public Convertisseur() throws DBExceptionTableAzure {
         this.clientExpr = new ClientTableExpressionsCles();
-    }
-
-    public JSONObject toJSON(Interaction interaction, Medicament<?, ?, ?> medicament1,
-            Medicament<?, ?, ?> medicament2) throws JSONException, DBException, IOException {
-        final Set<JSONObject> substances =
-                interaction.getSubstances().stream().map(this::toJSON).collect(Collectors.toSet());
-        return interaction.toJSON().put("substances", substances).put("medicaments",
-                new JSONArray().put(toJSON(medicament1)).put(toJSON(medicament2)));
     }
 
     public JSONObject toJSON(Medicament<?, ?, ?> medicament)

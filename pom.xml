@@ -57,6 +57,18 @@
 
         <dependency>
             <groupId>app.mesmedicaments</groupId>
+            <artifactId>terminologies</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>app.mesmedicaments</groupId>
+            <artifactId>interactions</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>app.mesmedicaments</groupId>
             <artifactId>database</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
@@ -71,6 +83,7 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>1.18.18</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -84,13 +97,6 @@
             <artifactId>jsoup</artifactId>
             <version>1.13.1</version>
         </dependency>
-
-        <dependency>
-            <groupId>org.apache.pdfbox</groupId>
-            <artifactId>pdfbox</artifactId>
-            <version>2.0.23</version>
-        </dependency>
-
 
         <!-- Azure dependencies -->
 

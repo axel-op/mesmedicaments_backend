@@ -76,7 +76,8 @@ public final class Interactions {
             // les ConceptSubstance retournés sont les mêmes que ceux en entrée
             final var combs = interaction.getSubstances().stream()
                     .map(s -> medicamentsAvecSubstances.stream()
-                            .filter(m -> m.getSubstances().contains(s)).collect(Collectors.toSet()))
+                            .filter(ms -> ms.getSubstances().contains(s))
+                            .collect(Collectors.toSet()))
                     .collect(Collectors.toList());
             result.addAll(Sets.cartesianProduct(combs).stream()
                     .map(c -> new InteractionAvecMedicaments<>(interaction, c))

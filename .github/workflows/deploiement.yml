@@ -5,9 +5,6 @@ on:
     branches:
       - master
 
-env:
-  APP_NAME: mesmedicaments
-
 jobs:
   deploiement:
     env:
@@ -48,8 +45,8 @@ jobs:
       - name: Déploiement sur Azure Functions
         uses: azure/functions-action@v1
         with:
-          app-name: ${{ env.APP_NAME }}
-          package: ./target/azure-functions/${{ env.APP_NAME }}
+          app-name: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
+          package: ./target/azure-functions/${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
 
       - name: Commit

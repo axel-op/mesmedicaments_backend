@@ -22,14 +22,18 @@ class JSONConverter {
     private JSONObject toJSON(
             InteractionAvecMedicaments<Medicament<?, Substance<?>, ?>> interaction) {
         final var is = interaction.getInteractionSubstances();
-        return new JSONObject().put("source", is.getSource()).put("severite", is.getSeverite())
-                .put("description", is.getDescription())
-                .put("substances",
-                        is.getSubstances().stream().map(this::toJSON).collect(Collectors.toList()))
-                .put("medicaments",
-                        interaction.getMedicaments().stream()
-                                .map(MedicamentAvecSubstances::getMedicament).map(this::toJSON)
-                                .collect(Collectors.toList()));
+        final var json = new JSONObject().put("source", is.getSource())
+                .put("severite", is.getSeverite()).put("description", is.getDescription());
+        final var im = new InteractionAvecMedicaments<>(is, interaction.getMedicaments());
+        final var sms = im.joindreSubstancesInteragissantesAuxMedicaments();
+        final var elements = new JSONArray(sms.size());
+        for (var sm : sms) {
+            final var el = new JSONObject().put("medicament", toJSON(sm.getMedicament()))
+                    .put("substance", toJSON(sm.getSubstance()));
+            elements.put(el);
+        }
+        json.put("elements", elements);
+        return json;
     }
 
     private JSONObject toJSON(ConceptSubstance substance) {
@@ -41,8 +45,7 @@ class JSONConverter {
         else
             throw new IllegalArgumentException(
                     "ConceptSubstance inconnu : " + substance.getClass().getSimpleName());
-        return new JSONObject().put("id", substance.getId()).put("source", source).put("noms",
-                new JSONObject().put("en", substance.getNames()));
+        return new JSONObject().put("id", substance.getId()).put("source", source);
     }
 
     private JSONObject toJSON(Medicament<?, ?, ?> medicament) {

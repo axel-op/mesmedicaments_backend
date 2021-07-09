@@ -13,16 +13,6 @@ class Environnement {
     public static final String ANALYSETEXTE_ADRESSEAPI = System.getenv("analysetexte_adresseapi");
     public static final String ANALYSETEXTE_CLEAPI = System.getenv("analysetexte_cleapi");
 
-    // LET'S ENCRYPT
-
-    public static final String LETSENCRYPT_USERPASSWORD = System.getenv("letsencrypt_userpwd");
-    public static final String LETSENCRYPT_PFXPASSWORD = System.getenv("letsencrypt_pfxpwd");
-    public static final String LETSENCRYPT_CLIENTID = System.getenv("letsencrypt:ClientId");
-    public static final String LETSENCRYPT_CLIENTSECRET = System.getenv("letsencrypt:ClientSecret");
-    public static final String LETSENCRYPT_TENANT = System.getenv("letsencrypt:Tenant");
-    public static final String LETSENCRYPT_RESOURCEGROUPNAME = System.getenv("letsencrypt:ResourceGroupName");
-    public static final String LETSENCRYPT_SUBSCRIPTIONID = System.getenv("letsencrypt:SubscriptionId");
-
     // MAINTENANCE
 
     public static final String MAINTENANCE_DOCKERUSERNAME = maintenance("dockerusername");

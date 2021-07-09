@@ -19,7 +19,7 @@ class Substance {
     final private String id;
     final private Set<String> names;
 
-    static Substance fromIdentifier(SubstanceIdentifier identifier)
+    static Substance fromIdentifier(IdentifieurSubstance identifier)
             throws SubstanceNotFoundException {
         final var source = identifier.getSource().toLowerCase();
         final var id = identifier.getId();

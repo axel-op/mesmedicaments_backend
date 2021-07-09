@@ -16,10 +16,10 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import org.json.JSONException;
 import org.json.JSONObject;
 import app.mesmedicaments.api.Commun;
-import app.mesmedicaments.utils.JSONArrays;
+import app.mesmedicaments.api.IRequeteAvecIdentifieurs;
 import app.mesmedicaments.utils.Utils;
 
-public class SubstancesEndpoint {
+public class SubstancesEndpoint implements IRequeteAvecIdentifieurs<IdentifieurSubstance> {
 
     @FunctionName("substances")
     public HttpResponseMessage substances(
@@ -31,21 +31,18 @@ public class SubstancesEndpoint {
         var httpCode = HttpStatus.OK;
         List<Substance> substances = new ArrayList<>();
         try {
-            final var identifiers =
-                    new JSONObject(request.getBody().get()).getJSONArray("identifiers");
-            logger.info("" + identifiers.length());
-            substances = JSONArrays.toSetJSONObject(identifiers).stream()
-                    .map(SubstanceIdentifier::fromJSON).flatMap(identifier -> {
-                        try {
-                            final var s = Substance.fromIdentifier(identifier);
-                            logger.info(s.toString());
-                            return Stream.of(s);
-                        } catch (SubstanceNotFoundException e) {
-                            logger.info(e.toString());
-                            Utils.logErreur(e, logger);
-                            return Stream.empty();
-                        }
-                    }).collect(Collectors.toList());
+            final var identifiers = parseIdentifiersFromRequestBody(request.getBody().get());
+            substances = identifiers.stream().flatMap(identifier -> {
+                try {
+                    final var s = Substance.fromIdentifier(identifier);
+                    logger.info(s.toString());
+                    return Stream.of(s);
+                } catch (SubstanceNotFoundException e) {
+                    logger.info(e.toString());
+                    Utils.logErreur(e, logger);
+                    return Stream.empty();
+                }
+            }).collect(Collectors.toList());
             logger.info(" " + substances.size());
         } catch (JSONException e) {
             httpCode = HttpStatus.BAD_REQUEST;
@@ -53,6 +50,11 @@ public class SubstancesEndpoint {
         return Commun.construireReponse(httpCode, new JSONObject().put("substances",
                 substances.stream().map(JSONConverter::toJSON).collect(Collectors.toList())),
                 request);
+    }
+
+    @Override
+    public IdentifieurSubstance deserializeIdentifier(JSONObject serialized) {
+        return new IdentifieurSubstance(serialized);
     }
 
 }

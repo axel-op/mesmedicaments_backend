@@ -4,7 +4,7 @@ import lombok.NonNull;
 
 class SubstanceNotFoundException extends Exception {
 
-    SubstanceNotFoundException(@NonNull SubstanceIdentifier identifier) {
+    SubstanceNotFoundException(@NonNull IdentifieurSubstance identifier) {
         super("Substance non trouvée : " + identifier.toString());
     }
 

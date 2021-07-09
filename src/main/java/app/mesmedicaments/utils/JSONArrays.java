@@ -3,14 +3,17 @@ package app.mesmedicaments.utils;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import com.google.common.collect.Streams;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import lombok.experimental.UtilityClass;
 
+@UtilityClass
 /** Classe contenant des méthodes pour effectuer des opérations utiles sur les {@link JSONArray} */
 public class JSONArrays {
-
-    private JSONArrays() {}
 
     /**
      * Ajoute tous les éléments dans array2 à la fin d'array1.
@@ -93,8 +96,14 @@ public class JSONArrays {
      *                       converti en {@link JSONObject}
      */
     public static Set<JSONObject> toSetJSONObject(JSONArray jsonArray) throws JSONException {
-        Set<JSONObject> set = new HashSet<>();
-        for (int i = 0; i < jsonArray.length(); i++) set.add(jsonArray.getJSONObject(i));
-        return set;
+        return toStreamJSONObject(jsonArray).collect(Collectors.toSet());
+    }
+    
+    public static Stream<Object> toStream(JSONArray jsonArray) {
+        return Streams.stream(jsonArray.iterator());
+    }
+
+    public static Stream<JSONObject> toStreamJSONObject(JSONArray jsonArray) {
+        return toStream(jsonArray).map(o -> (JSONObject) o);
     }
 }

@@ -11,6 +11,7 @@ import app.mesmedicaments.database.DBException;
 import app.mesmedicaments.database.azuretables.DBClientTableAzure;
 import app.mesmedicaments.database.azuretables.DBDocumentTableAzure;
 import app.mesmedicaments.database.azuretables.DBExceptionTableAzure;
+import app.mesmedicaments.database.azuretables.IDDocumentTableAzure;
 import lombok.Data;
 
 public class ClientTableDatesMaj extends DBClientTableAzure<ClientTableDatesMaj.DateMaj> {
@@ -40,7 +41,7 @@ public class ClientTableDatesMaj extends DBClientTableAzure<ClientTableDatesMaj.
     }
 
     private Optional<LocalDate> getObjet(String partitionKey, String rowKey) throws DBException {
-        return super.get(new String[] {partitionKey, rowKey}).map(DateMaj::getDate);
+        return super.get(new IDDocumentTableAzure(partitionKey, rowKey)).map(DateMaj::getDate);
     }
 
     @Data

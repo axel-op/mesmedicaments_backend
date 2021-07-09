@@ -15,6 +15,7 @@ import app.mesmedicaments.database.DBException;
 import app.mesmedicaments.database.azuretables.DBClientTableAzure;
 import app.mesmedicaments.database.azuretables.DBDocumentTableAzure;
 import app.mesmedicaments.database.azuretables.DBExceptionTableAzure;
+import app.mesmedicaments.database.azuretables.IDDocumentTableAzure;
 import app.mesmedicaments.objets.Pays;
 import app.mesmedicaments.utils.JSONArrays;
 import lombok.experimental.PackagePrivate;
@@ -42,7 +43,7 @@ class ClientTableExpressionsCles
             return new HashSet<>();
         final String partition = pays.code;
         final String row = String.valueOf(code);
-        final Optional<ObjetExpressionCles> o = super.get(new String[] {partition, row});
+        final Optional<ObjetExpressionCles> o = super.get(new IDDocumentTableAzure(partition, row));
         if (!o.isPresent()) {
             final Set<String> nouvellesExprCles = ClientAnalyseTexte.getExpressionsCles(effets);
             super.set(new ObjetExpressionCles(partition, row, new JSONArray(nouvellesExprCles)));

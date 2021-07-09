@@ -9,6 +9,7 @@ import app.mesmedicaments.database.DBException;
 import app.mesmedicaments.database.azuretables.DBClientTableAzure;
 import app.mesmedicaments.database.azuretables.DBDocumentTableAzure;
 import app.mesmedicaments.database.azuretables.DBExceptionTableAzure;
+import app.mesmedicaments.database.azuretables.IDDocumentTableAzure;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,15 +30,15 @@ public class ClientTableStatistiquesDmp
     }
 
     public void incrementSearchCounts(Set<String> searches) throws DBException {
-        set(searches.parallelStream()
-                .map(this::getIncrementedSearchCount).collect(Collectors.toSet()));
+        set(searches.parallelStream().map(this::getIncrementedSearchCount)
+                .collect(Collectors.toSet()));
     }
 
     @SneakyThrows(DBException.class)
     private SearchCount getIncrementedSearchCount(String search) {
         final var rowKey = getSearchRowKey(search);
-        final var sc =
-                get(new String[] {partition, rowKey}).orElseGet(() -> new SearchCount(search, 0));
+        final var sc = get(new IDDocumentTableAzure(partition, rowKey))
+                .orElseGet(() -> new SearchCount(search, 0));
         sc.setCount(sc.getCount() + 1);
         return sc;
     }

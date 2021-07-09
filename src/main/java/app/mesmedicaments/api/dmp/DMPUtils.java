@@ -57,7 +57,7 @@ final class DMPUtils {
         }
         if (!resultat.isPresent())
             return Optional.empty();
-        return clientTable.get(resultat.get().getInt("code"));
+        return clientTable.get(String.valueOf(resultat.get().getInt("code")));
     }
 
     static private String transformerToken(String motATransformer) {

@@ -60,7 +60,7 @@ class MedicamentClientProxy {
 
     @SneakyThrows(DBException.class)
     static private Optional<Medicament<?, ?, ?>> sneakyGet(int code) {
-        return getClient().get(code).map(
+        return getClient().get(String.valueOf(code)).map(
                 m -> (Medicament<Pays.France, ? extends Substance<Pays.France>, ? extends Presentation<Pays.France>>) m);
     }
 

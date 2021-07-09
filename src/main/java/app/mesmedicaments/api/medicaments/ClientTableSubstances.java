@@ -9,6 +9,7 @@ import app.mesmedicaments.Environnement;
 import app.mesmedicaments.database.DBException;
 import app.mesmedicaments.database.azuretables.DBClientTableAzure;
 import app.mesmedicaments.database.azuretables.DBExceptionTableAzure;
+import app.mesmedicaments.database.azuretables.IDDocumentTableAzure;
 import app.mesmedicaments.objets.Pays;
 import app.mesmedicaments.objets.substances.Substance;
 
@@ -25,7 +26,7 @@ extends DBClientTableAzure<Substance<?>> {
     }
     
     public Optional<Substance<?>> get(Pays pays, long code) throws DBException {
-        return super.get(new String[] {pays.code, String.valueOf(code)});
+        return super.get(new IDDocumentTableAzure(pays.code, String.valueOf(code)));
     }
 
     /**

@@ -23,6 +23,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import app.mesmedicaments.api.Commun;
+import app.mesmedicaments.api.IdentifieurMedicament;
 import app.mesmedicaments.interactions.service.InteractionSubstancesDTO;
 import app.mesmedicaments.terminologies.substances.ConceptSubstance;
 import app.mesmedicaments.utils.Utils;
@@ -42,7 +43,7 @@ public final class Interactions {
         try {
             final var corpsRequete = new JSONObject(request.getBody().get());
             final var medicamentsIds = Streams.stream(corpsRequete.getJSONArray("medicaments"))
-                    .map(JSONObject.class::cast).map(MedicamentIdentifier::parse)
+                    .map(JSONObject.class::cast).map(IdentifieurMedicament::new)
                     .collect(Collectors.toList());
             final var medicamentsSubstances =
                     MedicamentClientProxy.getMedicamentsAvecSubstances(medicamentsIds);

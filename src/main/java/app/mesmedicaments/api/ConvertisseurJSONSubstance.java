@@ -1,12 +1,11 @@
-package app.mesmedicaments.api.substances;
+package app.mesmedicaments.api;
 
 import org.json.JSONObject;
-import lombok.experimental.UtilityClass;
 
-@UtilityClass
-class JSONConverter {
+public class ConvertisseurJSONSubstance extends ConvertisseurJSON<Substance> {
 
-    static JSONObject toJSON(Substance substance) {
+    @Override
+    public JSONObject toJSON(Substance substance) {
         return new JSONObject().put("id", substance.getId()).put("source", substance.getSource())
                 .put("names", substance.getNames());
     }

@@ -18,12 +18,19 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import org.json.JSONException;
 import org.json.JSONObject;
 import app.mesmedicaments.api.Commun;
-import app.mesmedicaments.api.Convertisseur;
+import app.mesmedicaments.api.ConvertisseurJSON;
+import app.mesmedicaments.api.ConvertisseurJSONMedicament;
 import app.mesmedicaments.api.IRequeteAvecIdentifieurs;
+import app.mesmedicaments.api.IdentifieurMedicament;
+import app.mesmedicaments.objets.medicaments.Medicament;
 import app.mesmedicaments.objets.medicaments.MedicamentFrance;
 import app.mesmedicaments.utils.Utils;
 
-public final class MedicamentsEndpoint implements IRequeteAvecIdentifieurs<IdentifieurMedicament> {
+public final class MedicamentsEndpoint
+        implements IRequeteAvecIdentifieurs<Medicament<?, ?, ?>, IdentifieurMedicament> {
+
+    static private final ConvertisseurJSON<Medicament<?, ?, ?>> convertisseur =
+            new ConvertisseurJSONMedicament();
 
     @FunctionName("medicaments")
     public HttpResponseMessage medicaments(
@@ -40,7 +47,6 @@ public final class MedicamentsEndpoint implements IRequeteAvecIdentifieurs<Ident
             final var dbClient = new ClientTableMedicamentsFrance();
             medicaments = dbClient.get(identifiers.stream().map(IdentifieurMedicament::getId)
                     .collect(Collectors.toList()));
-            final var convertisseur = new Convertisseur();
             final var convertis = new ArrayList<>(medicaments.size());
             for (var medicament : medicaments) {
                 convertis.add(convertisseur.toJSON(medicament));

@@ -2,6 +2,7 @@ package app.mesmedicaments.api.substances;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -16,10 +17,23 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import org.json.JSONException;
 import org.json.JSONObject;
 import app.mesmedicaments.api.Commun;
+import app.mesmedicaments.api.ConvertisseurJSON;
+import app.mesmedicaments.api.ConvertisseurJSONSubstance;
 import app.mesmedicaments.api.IRequeteAvecIdentifieurs;
+import app.mesmedicaments.api.IdentifieurSubstance;
+import app.mesmedicaments.api.Substance;
+import app.mesmedicaments.terminologies.substances.TerminologySubstances;
+import app.mesmedicaments.terminologies.substances.TerminologySubstancesBDPM;
+import app.mesmedicaments.terminologies.substances.TerminologySubstancesRxNorm;
 import app.mesmedicaments.utils.Utils;
 
-public class SubstancesEndpoint implements IRequeteAvecIdentifieurs<IdentifieurSubstance> {
+public class SubstancesEndpoint implements IRequeteAvecIdentifieurs<Substance, IdentifieurSubstance> {
+
+    static final private Map<String, TerminologySubstances<?>> terminos = Map.of("bdpm",
+            new TerminologySubstancesBDPM(), "rxnorm", new TerminologySubstancesRxNorm());
+
+    static final private ConvertisseurJSON<Substance> convertisseur =
+            new ConvertisseurJSONSubstance();
 
     @FunctionName("substances")
     public HttpResponseMessage substances(
@@ -34,11 +48,16 @@ public class SubstancesEndpoint implements IRequeteAvecIdentifieurs<IdentifieurS
             final var identifiers = parseIdentifiersFromRequestBody(request.getBody().get());
             substances = identifiers.stream().flatMap(identifier -> {
                 try {
-                    final var s = Substance.fromIdentifier(identifier);
-                    logger.info(s.toString());
+                    final var source = identifier.getSource();
+                    final var id = identifier.getId();
+                    if (!terminos.containsKey(source)) {
+                        throw new SubstanceNotFoundException(identifier);
+                    }
+                    final var concept = terminos.get(source).getConcept(id)
+                            .orElseThrow(() -> new SubstanceNotFoundException(identifier));
+                    final var s = new Substance(source, concept.getId(), concept.getNames());
                     return Stream.of(s);
                 } catch (SubstanceNotFoundException e) {
-                    logger.info(e.toString());
                     Utils.logErreur(e, logger);
                     return Stream.empty();
                 }
@@ -48,7 +67,7 @@ public class SubstancesEndpoint implements IRequeteAvecIdentifieurs<IdentifieurS
             httpCode = HttpStatus.BAD_REQUEST;
         }
         return Commun.construireReponse(httpCode, new JSONObject().put("substances",
-                substances.stream().map(JSONConverter::toJSON).collect(Collectors.toList())),
+                substances.stream().map(convertisseur::toJSON).collect(Collectors.toList())),
                 request);
     }
 

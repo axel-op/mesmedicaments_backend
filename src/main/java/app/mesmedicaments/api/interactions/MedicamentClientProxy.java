@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import app.mesmedicaments.api.IdentifieurMedicament;
 import app.mesmedicaments.api.medicaments.ClientTableMedicamentsFrance;
 import app.mesmedicaments.database.DBException;
 import app.mesmedicaments.objets.Pays;
@@ -33,14 +34,14 @@ class MedicamentClientProxy {
     }
 
     static @PackagePrivate List<MedicamentAvecSubstances<Medicament<?, Substance<?>, ?>>> getMedicamentsAvecSubstances(
-            List<MedicamentIdentifier> identifiers) {
+            List<IdentifieurMedicament> identifiers) {
         // pour l'instant tous viennent de la même source
-        final var sourcesCompatibles = Set.of(MedicamentSource.BDPM);
+        final var sourcesCompatibles = Set.of("bdpm");
         final var sourceInconnue = identifiers.stream()
                 .filter(mi -> !sourcesCompatibles.contains(mi.getSource())).findAny();
         if (sourceInconnue.isPresent())
             throw new IllegalArgumentException("Source inconnue : " + sourceInconnue.get());
-        return identifiers.parallelStream().map(MedicamentIdentifier::getId).map(Integer::parseInt)
+        return identifiers.parallelStream().map(IdentifieurMedicament::getId).map(Integer::parseInt)
                 .map(MedicamentClientProxy::sneakyGet).filter(Optional::isPresent)
                 .map(Optional::get)
                 .<MedicamentAvecSubstances<Medicament<?, Substance<?>, ?>>>map(

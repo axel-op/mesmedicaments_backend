@@ -3,42 +3,35 @@ package app.mesmedicaments.api;
 import java.io.IOException;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.json.JSONException;
 import org.json.JSONObject;
-
 import app.mesmedicaments.database.DBException;
 import app.mesmedicaments.database.azuretables.DBExceptionTableAzure;
+import app.mesmedicaments.objets.Langue;
 import app.mesmedicaments.objets.medicaments.Medicament;
-import app.mesmedicaments.objets.substances.Substance;
+import lombok.SneakyThrows;
 
-/**
- * Convertit les produits dans le format JSON spécifié par la documentation de l'API.
- * 
- * Les méthodes toJSON des objets Medicament et Substance ne sont pas exactement compatibles avec le
- * format d'anciennes versions de l'application. Cette classe rajoute des clés à leur objet JSON
- * pour résoudre cela.
- */
-public class Convertisseur {
+public class ConvertisseurJSONMedicament extends ConvertisseurJSON<Medicament<?, ?, ?>> {
 
     private final ClientTableExpressionsCles clientExpr;
 
-    public Convertisseur() throws DBExceptionTableAzure {
+    @SneakyThrows(DBExceptionTableAzure.class)
+    public ConvertisseurJSONMedicament() {
         this.clientExpr = new ClientTableExpressionsCles();
     }
 
-    public JSONObject toJSON(Medicament<?, ?, ?> medicament)
-            throws JSONException, DBException, IOException {
-        final Set<JSONObject> substances =
-                medicament.getSubstances().stream().map(this::toJSON).collect(Collectors.toSet());
+    @Override
+    // TODO: à revoir
+    @SneakyThrows({JSONException.class, DBException.class, IOException.class})
+    public JSONObject toJSON(Medicament<?, ?, ?> medicament) {
+        final var substances = medicament.getSubstances().stream()
+                .map(s -> new Substance("bdpm", String.valueOf(s.getCode()),
+                        s.getNoms().get(Langue.Francais)))
+                .map(IdentifieurSubstance::new).collect(Collectors.toSet());
         return medicament.toJSON().put("substances", substances)
                 .put("codeMedicament", medicament.getCode())
                 .put("expressionsCles", getExpressionsCles(medicament));
 
-    }
-
-    public JSONObject toJSON(Substance<?> substance) {
-        return substance.toJSON().put("codeSubstance", substance.getCode());
     }
 
     private Set<String> getExpressionsCles(Medicament<?, ?, ?> medicament)

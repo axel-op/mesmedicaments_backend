@@ -8,17 +8,22 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.ToString;
 
-@AllArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PUBLIC)
 @Getter
 @ToString
-public class IdentifieurGenerique implements IJSONSerializable {
+public class IdentifieurGenerique<T extends IObjetIdentifiable> implements IJSONSerializable {
 
     private final String source;
     private final String id;
 
     public IdentifieurGenerique(JSONObject json) {
-        this.source = json.getString("source");
-        this.id = json.getString("id");
+        this.source = json.getString("source").toLowerCase();
+        this.id = json.getString("id").toLowerCase();
+    }
+
+    public IdentifieurGenerique(T objet) {
+        this.source = objet.getSource();
+        this.id = objet.getId();
     }
 
     @Override

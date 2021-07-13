@@ -1,5 +1,6 @@
 package app.mesmedicaments.api.substances;
 
+import app.mesmedicaments.api.IdentifieurSubstance;
 import lombok.NonNull;
 
 class SubstanceNotFoundException extends Exception {

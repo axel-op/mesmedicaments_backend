@@ -4,7 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.json.JSONObject;
-
+import app.mesmedicaments.api.IObjetIdentifiable;
 import app.mesmedicaments.objets.Noms;
 import app.mesmedicaments.objets.ObjetConcret;
 import app.mesmedicaments.objets.Pays;
@@ -20,7 +20,9 @@ import app.mesmedicaments.objets.substances.Substance;
  */
 public abstract
 class Medicament<P extends Pays, S extends Substance<P>, Pr extends Presentation<P>>
-extends ObjetConcret<P> {
+extends ObjetConcret<P>
+implements IObjetIdentifiable
+{
 
     private final Noms noms;
     private final Set<S> substances;
@@ -75,5 +77,10 @@ extends ObjetConcret<P> {
             .put("marque", marque)
             .put("effetsIndesirables", effetsIndesirables)
             .put("presentations", presentations);
+    }
+
+    @Override
+    public String getId() {
+        return String.valueOf(this.getCode());
     }
 }

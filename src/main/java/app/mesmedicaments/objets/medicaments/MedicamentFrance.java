@@ -52,5 +52,10 @@ public class MedicamentFrance extends Medicament<Pays.France, SubstanceActiveFra
     public String getForme() {
         return forme;
     }
+
+    @Override
+    public String getSource() {
+        return "bdpm";
+    }
     
 }
